@@ -1,0 +1,58 @@
+---
+import '../styles/global.css';
+interface Props { title?: string; description?: string; }
+const { title = 'InfiniCharm — Discover your next favourite', description = 'Explore the InfiniCharm multi-vendor marketplace prototype.' } = Astro.props;
+const fullTitle = title.includes('InfiniCharm') ? title : `${title} | InfiniCharm`;
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#212121" />
+    <meta name="description" content={description} />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <title>{fullTitle}</title>
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Skip to content</a>
+    <div class="announcement-bar"><span class="announcement-dot" aria-hidden="true"></span> InfiniCharm is in its first build phase <span class="mono announcement-label">PREVIEW / 01</span></div>
+    <header class="site-header">
+      <div class="header-inner container">
+        <a class="brand" href="/" aria-label="InfiniCharm home">
+          <span class="brand-mark" aria-hidden="true">i<span>✳</span></span>
+          <span class="brand-name">InfiniCharm<span class="brand-period">.</span><small>DISCOVER THE POSSIBLE</small></span>
+        </a>
+        <button class="menu-toggle" type="button" data-menu-toggle aria-expanded="false" aria-controls="primary-nav">Menu <span aria-hidden="true">☰</span></button>
+        <nav class="primary-nav" id="primary-nav" data-nav aria-label="Main navigation">
+          <a href="/shop/">Shop</a>
+          <a href="/about/">Our story</a>
+          <a href="/seller/">Seller preview</a>
+          <a href="/admin/">Admin preview</a>
+        </nav>
+        <a class="cart-link" href="/cart/" aria-label="Open shopping bag">Bag <span class="cart-count" data-cart-count>0</span><span aria-hidden="true"> ↗</span></a>
+      </div>
+    </header>
+    <main id="main-content"><slot /></main>
+    <footer class="site-footer">
+      <div class="container footer-main">
+        <div class="footer-brand-block">
+          <a class="brand brand-footer" href="/" aria-label="InfiniCharm home"><span class="brand-mark" aria-hidden="true">i<span>✳</span></span><span class="brand-name">InfiniCharm<span class="brand-period">.</span><small>BY TECHILY FLY</small></span></a>
+          <p>A thoughtful marketplace concept, built step by step for people and independent sellers.</p>
+        </div>
+        <div class="footer-col"><span class="eyebrow">EXPLORE</span><a href="/shop/">Shop all</a><a href="/about/">About InfiniCharm</a><a href="/seller/">Seller preview</a></div>
+        <div class="footer-col"><span class="eyebrow">PLATFORM</span><a href="/admin/">Admin preview</a><a href="/cart/">Shopping bag</a><span class="footer-muted">Secure checkout is not active yet</span></div>
+      </div>
+      <div class="container footer-bottom"><span>© <span data-year>2026</span> Techily Fly. InfiniCharm prototype.</span><span class="mono">BUILD 0.1.0 · PHASE 1</span></div>
+    </footer>
+    <div class="toast" data-toast role="status" aria-live="polite"></div>
+    <script>
+      import '../scripts/site.js';
+      import '../scripts/cart.js';
+      import '../scripts/shop.js';
+    </script>
+  </body>
+</html>

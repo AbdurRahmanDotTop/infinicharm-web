@@ -1,0 +1,26 @@
+---
+import type { Product } from '../data/products';
+import { productImageUrl } from '../lib/cloudinary';
+
+interface Props { product: Product; }
+const { product } = Astro.props;
+const image = productImageUrl(product.imagePublicId, 720);
+const price = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(product.price);
+---
+<article class="product-card" data-product-card data-name={product.name.toLowerCase()} data-category={product.category}>
+  <a class="product-image-link" href={`/product/${product.slug}/`} aria-label={`View ${product.name}`}>
+    <div class="product-image-wrap">
+      {product.badge && <span class="product-badge">{product.badge}</span>}
+      <img class="product-image" src={image} alt={`Demo image placeholder for ${product.name}`} loading="lazy" width="720" height="720" />
+    </div>
+  </a>
+  <div class="product-card-body">
+    <div class="product-card-meta"><span class="eyebrow">{product.category}</span><span class="mono product-code">DEMO</span></div>
+    <h3><a href={`/product/${product.slug}/`}>{product.name}</a></h3>
+    <p class="product-description">{product.shortDescription}</p>
+    <div class="product-card-bottom">
+      <strong class="price">{price}</strong>
+      <button class="button button-small button-outline" type="button" data-add-to-cart data-product-slug={product.slug} aria-label={`Add ${product.name} to the demo cart`}>Add to bag <span aria-hidden="true">+</span></button>
+    </div>
+  </div>
+</article>

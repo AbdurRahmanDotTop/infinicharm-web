@@ -1,0 +1,37 @@
+---
+import SiteLayout from '../../layouts/SiteLayout.astro';
+import ProductCard from '../../components/ProductCard.astro';
+import { products } from '../../data/products';
+import type { Product } from '../../data/products';
+import { productImageUrl } from '../../lib/cloudinary';
+
+export function getStaticPaths() {
+  return products.map((product) => ({ params: { slug: product.slug }, props: { product } }));
+}
+interface Props { product: Product; }
+const { product } = Astro.props;
+const image = productImageUrl(product.imagePublicId, 1200);
+const price = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(product.price);
+const recommendations = products.filter((item) => item.slug !== product.slug).slice(0, 3);
+---
+<SiteLayout title={product.name} description={product.shortDescription}>
+  <section class="container product-detail-section">
+    <nav class="breadcrumbs" aria-label="Breadcrumb"><a href="/">Home</a><span>/</span><a href="/shop/">Shop</a><span>/</span><span aria-current="page">{product.name}</span></nav>
+    <div class="product-detail-grid">
+      <div class="product-detail-image"><span class="product-detail-stamp mono">INFINICHARM / DEMO</span><img src={image} alt={`Demo image placeholder for ${product.name}`} width="1200" height="1200" fetchpriority="high" /></div>
+      <div class="product-detail-copy">
+        <p class="eyebrow">{product.category} <span class="mono">/ SAMPLE LISTING</span></p>
+        <h1>{product.name}</h1>
+        <p class="detail-price">{price}</p>
+        <p class="detail-intro">{product.shortDescription}</p>
+        <div class="detail-divider"></div>
+        <p class="detail-description">{product.description}</p>
+        <div class="demo-note"><span class="demo-note-mark">i</span><p><strong>Demo listing.</strong> This price is illustrative, and there is no live inventory or checkout yet.</p></div>
+        <button class="button button-primary detail-add" type="button" data-add-to-cart data-product-slug={product.slug}>Add to demo bag <span aria-hidden="true">＋</span></button>
+        <p class="detail-support">Checkout and real order processing will be added after the secure backend phase.</p>
+        <div class="detail-attributes"><div><span>01</span><p>Curated discovery</p></div><div><span>02</span><p>Marketplace-ready structure</p></div><div><span>03</span><p>Product details to be verified</p></div></div>
+      </div>
+    </div>
+  </section>
+  <section class="section container related-section"><div class="section-heading"><div><p class="eyebrow">MORE TO EXPLORE</p><h2>You might also <span class="muted-heading">like.</span></h2></div><a class="text-link" href="/shop/">See all <span aria-hidden="true">↗</span></a></div><div class="product-grid">{recommendations.map((item) => <ProductCard product={item} />)}</div></section>
+</SiteLayout>

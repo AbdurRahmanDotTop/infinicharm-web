@@ -1,0 +1,22 @@
+---
+import SiteLayout from '../../layouts/SiteLayout.astro';
+import ProductCard from '../../components/ProductCard.astro';
+import { products } from '../../data/products';
+const categories = ['All', ...new Set(products.map((product) => product.category))];
+---
+<SiteLayout title="Shop the demo collection" description="Browse sample InfiniCharm products. This catalogue is a frontend prototype and is not connected to live inventory.">
+  <section class="page-hero container">
+    <p class="eyebrow">DISCOVER / CATALOGUE</p><h1>Made for your<br /><span class="coral-text">curiosity.</span></h1>
+    <p class="page-intro">A working catalogue preview with product cards, search, category filters, and product details. Listings are sample data only.</p>
+    <div class="catalogue-toolbar">
+      <label class="search-field"><span aria-hidden="true">⌕</span><span class="sr-only">Search demo products</span><input type="search" id="product-search" placeholder="Search the collection" autocomplete="off" /></label>
+      <label class="select-field"><span class="sr-only">Filter by category</span><select id="category-filter">{categories.map((category) => <option value={category}>{category === 'All' ? 'All categories' : category}</option>)}</select></label>
+      <span class="catalogue-count mono"><span data-visible-count>{products.length}</span> ITEMS</span>
+    </div>
+  </section>
+  <section class="section container shop-section">
+    <div class="product-grid" data-product-grid>{products.map((product) => <ProductCard product={product} />)}</div>
+    <div class="empty-search" data-empty-search hidden><div class="empty-icon">⌕</div><h2>No matches yet</h2><p>Try another search term or select a different category.</p><button class="button button-outline" type="button" data-reset-filters>Clear filters</button></div>
+    <p class="demo-disclaimer"><span class="mono">PROTOTYPE</span> Search and category filters run in your browser. Product data is not yet connected to a database.</p>
+  </section>
+</SiteLayout>
