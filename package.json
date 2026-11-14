@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "test": "node --test --test-concurrency=1 tests/unit/*.test.ts",
     "test:watch": "node --test --watch tests/unit/*.test.ts",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "build:pages": "next build && node scripts/prepare-pages-dist.js"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",

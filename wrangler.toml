@@ -1,7 +1,7 @@
 name = "infinicharm-web"
 compatibility_date = "2024-11-01"
 compatibility_flags = ["nodejs_compat"]
-pages_build_output_dir = ".vercel/output/static"
+pages_build_output_dir = "dist"
 
 [vars]
 NEXT_PUBLIC_APP_URL = "https://www.infinicharm.com"
