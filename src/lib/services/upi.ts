@@ -6,6 +6,17 @@
 // ==============================================================================
 
 import { getPaymentUrl } from '../utils/env-urls.ts';
+import {
+  createPaymentToken,
+  verifyPaymentToken,
+  type PaymentTokenPayload,
+} from './payment-token.ts';
+
+export {
+  createPaymentToken,
+  verifyPaymentToken,
+  type PaymentTokenPayload,
+};
 
 export interface UpiCredentials {
   upiId?: string;
@@ -236,7 +247,17 @@ export function generateUpiPaymentDetails(params: {
 
   const upiIntentUri = generateUpiIntentUri(queryParams);
   const appUris = generateAppSpecificUpiUris(queryParams);
-  const shareablePaymentUrl = generateShareablePaymentUrl(orderId, params.token, params.context);
+  const effectiveToken =
+    params.token !== undefined
+      ? params.token
+      : orderId
+      ? createPaymentToken({
+          orderId,
+          orderNumber: orderId,
+          totalInPaise: totalPaise,
+        })
+      : null;
+  const shareablePaymentUrl = generateShareablePaymentUrl(orderId, effectiveToken, params.context);
   const whatsAppShareUrl = generateWhatsAppShareUrl({
     orderId,
     amountInRupees,

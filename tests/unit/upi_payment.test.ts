@@ -6,6 +6,8 @@ import {
   generateUpiPaymentDetails,
   generateCheckoutOrderNumber,
   parseUtrInput,
+  createPaymentToken,
+  verifyPaymentToken,
   NPCI_UPI_SINGLE_TRANSACTION_LIMIT_PAISE,
   BANK_UPI_ADVISORY_THRESHOLD_PAISE,
   DEFAULT_UPI_CREDENTIALS,
@@ -156,5 +158,38 @@ describe('Centralized UPI Payment & Dynamic Intent Engine (PRD 09)', () => {
   it('generates consistent order numbers adhering to standard INF-YYYYMM-XXXX format', () => {
     const orderNum = generateCheckoutOrderNumber();
     assert.match(orderNum, /^INF-\d{6}-\d{4}$/);
+  });
+
+  it('creates and verifies tamper-proof secure payment tokens', () => {
+    const token = createPaymentToken({
+      orderId: 'INF-202611-2527',
+      orderNumber: 'INF-202611-2527',
+      totalInPaise: 36000,
+      customerName: 'Mohammad Rizwan',
+    });
+
+    assert.ok(token && token.includes('.'), 'Token must be composed of payload.signature');
+    const verified = verifyPaymentToken(token);
+    assert.ok(verified, 'Valid token must be verified successfully');
+    assert.strictEqual(verified?.orderNumber, 'INF-202611-2527');
+    assert.strictEqual(verified?.totalInPaise, 36000);
+    assert.strictEqual(verified?.customerName, 'Mohammad Rizwan');
+  });
+
+  it('rejects tampered payment tokens (e.g. modified amount)', () => {
+    const token = createPaymentToken({
+      orderId: 'INF-202611-2527',
+      orderNumber: 'INF-202611-2527',
+      totalInPaise: 36000,
+    });
+
+    const [b64, sig] = token.split('.');
+    const tamperedB64 = Buffer.from(
+      Buffer.from(b64, 'base64url').toString('utf8').replace('36000', '100')
+    ).toString('base64url');
+    const tamperedToken = `${tamperedB64}.${sig}`;
+
+    const verified = verifyPaymentToken(tamperedToken);
+    assert.strictEqual(verified, null, 'Tampered token must be rejected');
   });
 });

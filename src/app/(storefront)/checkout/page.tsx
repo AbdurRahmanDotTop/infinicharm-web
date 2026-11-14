@@ -438,6 +438,52 @@ export default function CheckoutPage() {
           },
         }),
       });
+
+      if (typeof window !== 'undefined') {
+        try {
+          const draftRecord = {
+            id: orderRef,
+            orderNumber: orderRef,
+            status: 'PENDING',
+            paymentStatus: 'PENDING',
+            paymentMethod: 'CUSTOM_UPI',
+            items: items.map((i) => ({
+              id: `item-${i.product.id}-${i.variantId}`,
+              orderId: orderRef,
+              productId: i.product.id,
+              variantId: i.variantId,
+              productTitle: i.product.title,
+              variantTitle: i.variant.title || 'Standard',
+              sku: i.variant.sku || i.product.id,
+              priceInPaise: i.variant.priceInPaise,
+              quantity: i.quantity,
+              totalInPaise: i.variant.priceInPaise * i.quantity,
+            })),
+            subtotalInPaise,
+            shippingInPaise,
+            discountInPaise,
+            totalInPaise,
+            customerEmail: email || 'guest@infinicharm.com',
+            customerPhone: phone || '8825164657',
+            shippingAddress: {
+              id: `addr-draft-${Date.now()}`,
+              customerId: customerId || 'guest',
+              fullName: fullName || 'Valued Guest',
+              phone: phone || '8825164657',
+              addressLine1: addressLine1 || 'Pending Customer Checkout Address',
+              city: city || 'East Champaran',
+              state: stateName || 'Bihar',
+              postalCode: pinCode || '845427',
+              country: 'India',
+            },
+            createdAt: new Date().toISOString(),
+          };
+          const prev = JSON.parse(localStorage.getItem('infinicharm_orders') || '[]');
+          if (!prev.some((o: any) => o.orderNumber === orderRef || o.id === orderRef)) {
+            localStorage.setItem('infinicharm_orders', JSON.stringify([draftRecord, ...prev]));
+          }
+        } catch {}
+      }
     } catch {
       // Non-blocking sync
     }

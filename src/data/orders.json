@@ -1,1 +1,73 @@
-[]
+[
+  {
+    "id": "INF-202611-2527",
+    "orderNumber": "INF-202611-2527",
+    "customerId": "guest",
+    "customerEmail": "support@infinicharm.com",
+    "customerPhone": "8825164657",
+    "status": "PENDING",
+    "subtotalInPaise": 30000,
+    "discountInPaise": 0,
+    "shippingInPaise": 6000,
+    "taxInPaise": 0,
+    "totalInPaise": 36000,
+    "paymentMethod": "CUSTOM_UPI",
+    "paymentStatus": "PENDING",
+    "shippingAddress": {
+      "id": "addr-inf-2527",
+      "customerId": "guest",
+      "fullName": "TechilyFly - InfiniCharm Patron",
+      "phone": "8825164657",
+      "addressLine1": "Main Market Road, Ward No. 07",
+      "addressLine2": "Near Heritage Post",
+      "city": "East Champaran",
+      "state": "Bihar",
+      "postalCode": "845427",
+      "country": "India",
+      "isDefault": true,
+      "addressType": "HOME"
+    },
+    "billingAddress": {
+      "id": "bill-inf-2527",
+      "customerId": "guest",
+      "fullName": "TechilyFly - InfiniCharm Patron",
+      "phone": "8825164657",
+      "addressLine1": "Main Market Road, Ward No. 07",
+      "city": "East Champaran",
+      "state": "Bihar",
+      "postalCode": "845427",
+      "country": "India",
+      "isDefault": true,
+      "addressType": "HOME"
+    },
+    "items": [
+      {
+        "id": "item-INF-2527-01",
+        "orderId": "INF-202611-2527",
+        "productId": "S-01-P-03",
+        "variantId": "var-S-01-P-03-01",
+        "productTitle": "Takmeeli Talbeena – Traditional Barley Breakfast",
+        "variantTitle": "Standard Pack",
+        "sku": "S-01-P-03",
+        "priceInPaise": 30000,
+        "quantity": 1,
+        "totalInPaise": 30000
+      }
+    ],
+    "timeline": [
+      {
+        "id": "tl-INF-2527-01",
+        "orderId": "INF-202611-2527",
+        "status": "PENDING",
+        "title": "Order Initiated with Custom UPI",
+        "description": "Order INF-202611-2527 placed awaiting UPI transfer to AbdurRahmanIndusIndCurrent@ybl.",
+        "timestamp": "2026-11-14T14:45:00.000Z",
+        "actor": "Customer",
+        "isCustomerVisible": true,
+        "type": "PAYMENT"
+      }
+    ],
+    "createdAt": "2026-11-14T14:45:00.000Z",
+    "updatedAt": "2026-11-14T14:45:00.000Z"
+  }
+]

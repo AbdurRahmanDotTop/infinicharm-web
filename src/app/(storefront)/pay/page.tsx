@@ -17,11 +17,16 @@ import {
   generateUpiPaymentDetails,
   DEFAULT_UPI_CREDENTIALS,
   parseUtrInput,
+  verifyPaymentToken,
 } from '@/lib/services/upi';
 import { getAppOrigin, getOrderTrackingUrl } from '@/lib/utils/env-urls';
 
 function PaymentPageContent() {
   const searchParams = useSearchParams();
+
+  const tokenParam = useMemo(() => {
+    return searchParams.get('token') || '';
+  }, [searchParams]);
 
   // Extract order reference from URL query params or pathname
   const orderParam = useMemo(() => {
@@ -62,12 +67,77 @@ function PaymentPageContent() {
   // Fallback search input if no order ID provided in URL
   const [searchOrderIdInput, setSearchOrderIdInput] = useState<string>('');
 
-  // 1. Fetch Authoritative Order Data from Server API
+  // 1. Fetch Authoritative Order Data from Server API or Cryptographic Token
   useEffect(() => {
     let isMounted = true;
     const effectiveId = orderParam || orderId;
 
-    if (!effectiveId) {
+    // Check if cryptographic token is present in query or path
+    const effectiveToken = tokenParam || (effectiveId && effectiveId.includes('.') ? effectiveId : '');
+    const decodedFromToken = effectiveToken ? verifyPaymentToken(effectiveToken) : null;
+
+    if (decodedFromToken && isMounted) {
+      const tokenOrder: Order = {
+        id: decodedFromToken.orderId || decodedFromToken.orderNumber,
+        orderNumber: decodedFromToken.orderNumber || decodedFromToken.orderId,
+        customerId: 'guest',
+        customerEmail: decodedFromToken.customerEmail || 'guest@infinicharm.com',
+        customerPhone: decodedFromToken.customerPhone || '8825164657',
+        status: 'PENDING',
+        subtotalInPaise: decodedFromToken.totalInPaise,
+        discountInPaise: 0,
+        shippingInPaise: 0,
+        taxInPaise: 0,
+        totalInPaise: decodedFromToken.totalInPaise,
+        paymentMethod: 'CUSTOM_UPI',
+        paymentStatus: 'PENDING',
+        shippingAddress: {
+          id: 'addr-token',
+          customerId: 'guest',
+          fullName: decodedFromToken.customerName || 'Valued Patron',
+          phone: decodedFromToken.customerPhone || '8825164657',
+          addressLine1: 'Consignment Delivery Address',
+          city: 'East Champaran',
+          state: 'Bihar',
+          postalCode: '845427',
+          country: 'India',
+          isDefaultShipping: true,
+          isDefaultBilling: false,
+        },
+        billingAddress: {
+          id: 'bill-token',
+          customerId: 'guest',
+          fullName: decodedFromToken.customerName || 'Valued Patron',
+          phone: decodedFromToken.customerPhone || '8825164657',
+          addressLine1: 'Consignment Delivery Address',
+          city: 'East Champaran',
+          state: 'Bihar',
+          postalCode: '845427',
+          country: 'India',
+          isDefaultShipping: true,
+          isDefaultBilling: false,
+        },
+        items: decodedFromToken.items?.map((it, idx) => ({
+          id: `item-token-${idx}`,
+          orderId: decodedFromToken.orderNumber,
+          productId: 'prod-item',
+          variantId: 'var-item',
+          productTitle: it.title,
+          variantTitle: 'Standard',
+          sku: 'SKU-UPI',
+          priceInPaise: it.priceInPaise,
+          quantity: it.quantity,
+          totalInPaise: it.priceInPaise * it.quantity,
+        })) || [],
+        timeline: [],
+        createdAt: decodedFromToken.createdAt || new Date().toISOString(),
+        updatedAt: decodedFromToken.createdAt || new Date().toISOString(),
+      };
+      setOrder(tokenOrder);
+      setOrderId(tokenOrder.orderNumber);
+    }
+
+    if (!effectiveId && !decodedFromToken) {
       setLoading(false);
       return;
     }
@@ -78,9 +148,10 @@ function PaymentPageContent() {
 
     async function fetchOrderDetails() {
       try {
-        const res = await fetch(`/api/orders/${encodeURIComponent(effectiveId)}`, {
-          cache: 'no-store',
-        });
+        const queryUrl = `/api/orders/${encodeURIComponent(effectiveId || decodedFromToken?.orderNumber || '')}${
+          effectiveToken ? `?token=${encodeURIComponent(effectiveToken)}` : ''
+        }`;
+        const res = await fetch(queryUrl, { cache: 'no-store' });
         if (!isMounted) return;
 
         if (res.ok) {
@@ -95,16 +166,19 @@ function PaymentPageContent() {
           }
         }
 
-        // Check client localStorage fallback (e.g. freshly placed order)
+        // Check client localStorage fallback (both infinicharm_orders and infinicharm_recent_orders)
         if (typeof window !== 'undefined') {
           try {
-            const raw = localStorage.getItem('infinicharm_recent_orders');
+            const raw =
+              localStorage.getItem('infinicharm_orders') ||
+              localStorage.getItem('infinicharm_recent_orders');
             if (raw) {
               const list: Order[] = JSON.parse(raw);
+              const searchId = (effectiveId || decodedFromToken?.orderNumber || '').toUpperCase();
               const found = list.find(
                 (o) =>
-                  o.orderNumber?.toUpperCase() === effectiveId.toUpperCase() ||
-                  o.id?.toUpperCase() === effectiveId.toUpperCase()
+                  o.orderNumber?.toUpperCase() === searchId ||
+                  o.id?.toUpperCase() === searchId
               );
               if (found && isMounted) {
                 setOrder(found);
@@ -118,12 +192,17 @@ function PaymentPageContent() {
           }
         }
 
+        // If verified cryptographic token is active, we have authoritative order info even without server match
+        if (decodedFromToken && isMounted) {
+          return;
+        }
+
         if (isMounted) {
           setNotFound(true);
         }
       } catch (err) {
         console.error('Error fetching order for payment page:', err);
-        if (isMounted) setNotFound(true);
+        if (isMounted && !decodedFromToken) setNotFound(true);
       } finally {
         if (isMounted) setLoading(false);
       }
@@ -133,7 +212,7 @@ function PaymentPageContent() {
     return () => {
       isMounted = false;
     };
-  }, [orderParam, orderId]);
+  }, [orderParam, orderId, tokenParam]);
 
   // 2. Authoritative Payment Details Calculation
   const totalInPaise = useMemo(() => {
@@ -218,6 +297,7 @@ function PaymentPageContent() {
         body: JSON.stringify({
           utr: validation.rawCleaned,
           payerName: payerName.trim() || order?.shippingAddress?.fullName || 'Customer / Payer',
+          token: tokenParam || undefined,
         }),
       });
 

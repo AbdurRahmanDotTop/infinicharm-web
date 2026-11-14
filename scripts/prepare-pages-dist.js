@@ -444,7 +444,11 @@ const verificationTokens = new Map(); // token -> record
 const emailToVerification = new Map(); // email -> tokenRecord
 const passwordResetTokens = new Map(); // token -> record
 const emailToPasswordReset = new Map(); // email -> tokenRecord
-const ordersStore = new Map(INITIAL_ORDERS.map(o => [o.id, o]));
+const ordersStore = new Map();
+INITIAL_ORDERS.forEach(o => {
+  if (o.id) ordersStore.set(o.id, o);
+  if (o.orderNumber) ordersStore.set(o.orderNumber, o);
+});
 const couponsStore = [...COUPONS];
 const emailTemplatesStore = [...EMAIL_TEMPLATES];
 const mediaAssetsStore = [...MEDIA_ASSETS];
@@ -698,6 +702,98 @@ function countCustomerRedemptionsEdge(coupon, customerId, customerEmail, custome
     if (cleanPhone && rec.customerPhone && String(rec.customerPhone).replace(/\\D/g, '') === cleanPhone) return true;
     return false;
   }).length;
+}
+
+function computeTokenChecksumEdge(dataString, secret = 'infinicharm-secure-upi-token-key-2026') {
+  let h1 = 0xdeadbeef ^ dataString.length;
+  let h2 = 0x41c6ce57 ^ secret.length;
+  const combined = secret + ':' + dataString;
+  for (let i = 0; i < combined.length; i++) {
+    const ch = combined.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761);
+    h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36);
+}
+
+function verifyPaymentTokenEdge(token) {
+  if (!token || typeof token !== 'string') return null;
+  const parts = token.trim().split('.');
+  if (parts.length !== 2) return null;
+  const [b64, sig] = parts;
+  if (!b64 || !sig) return null;
+  if (sig !== computeTokenChecksumEdge(b64)) return null;
+  try {
+    let base64 = b64.replace(/-/g, '+').replace(/_/g, '/');
+    while (base64.length % 4) base64 += '=';
+    const json = atob(base64);
+    return JSON.parse(json);
+  } catch {
+    return null;
+  }
+}
+
+function createOrderFromTokenEdge(decoded) {
+  const ordId = decoded.orderId || decoded.orderNumber || ('INF-' + Date.now());
+  const ordNum = decoded.orderNumber || ordId;
+  return {
+    id: ordId,
+    orderNumber: ordNum,
+    customerId: 'guest',
+    customerEmail: decoded.customerEmail || 'guest@infinicharm.com',
+    customerPhone: decoded.customerPhone || '8825164657',
+    status: 'PENDING',
+    subtotalInPaise: decoded.totalInPaise,
+    discountInPaise: 0,
+    shippingInPaise: 0,
+    taxInPaise: 0,
+    totalInPaise: decoded.totalInPaise,
+    paymentMethod: 'CUSTOM_UPI',
+    paymentStatus: 'PENDING',
+    shippingAddress: {
+      id: 'addr-token',
+      customerId: 'guest',
+      fullName: decoded.customerName || 'Valued Patron',
+      phone: decoded.customerPhone || '8825164657',
+      addressLine1: 'Consignment Delivery Address',
+      city: 'East Champaran',
+      state: 'Bihar',
+      postalCode: '845427',
+      country: 'India',
+      isDefault: true,
+      addressType: 'HOME',
+    },
+    billingAddress: {
+      id: 'bill-token',
+      customerId: 'guest',
+      fullName: decoded.customerName || 'Valued Patron',
+      phone: decoded.customerPhone || '8825164657',
+      addressLine1: 'Consignment Delivery Address',
+      city: 'East Champaran',
+      state: 'Bihar',
+      postalCode: '845427',
+      country: 'India',
+      isDefault: true,
+      addressType: 'HOME',
+    },
+    items: decoded.items?.map((it, idx) => ({
+      id: 'item-token-' + idx,
+      orderId: ordNum,
+      productId: 'prod-item',
+      variantId: 'var-item',
+      productTitle: it.title,
+      variantTitle: 'Standard',
+      sku: 'SKU-UPI',
+      priceInPaise: it.priceInPaise,
+      quantity: it.quantity,
+      totalInPaise: it.priceInPaise * it.quantity,
+    })) || [],
+    timeline: [],
+    createdAt: decoded.createdAt || new Date().toISOString(),
+    updatedAt: decoded.createdAt || new Date().toISOString(),
+  };
 }
 
 function validateCouponEdge(ctx) {
@@ -1968,6 +2064,7 @@ async function handleApi(request, url, env) {
         couponCode: normalizedCouponCode || undefined,
       };
       ordersStore.set(orderId, newOrder);
+      if (newOrder.orderNumber) ordersStore.set(newOrder.orderNumber, newOrder);
 
       if (customer && body.shippingAddress && body.shippingAddress.addressLine1) {
         if (!Array.isArray(customer.addresses)) customer.addresses = [];
@@ -2017,11 +2114,20 @@ async function handleApi(request, url, env) {
     const rest = decodeURIComponent(p.replace('/api/orders/', ''));
     if (rest.endsWith('/utr')) {
       const idOrNum = rest.slice(0, -4);
-      const order = ordersStore.get(idOrNum) || [...ordersStore.values()].find(o => o.orderNumber === idOrNum);
+      let order = ordersStore.get(idOrNum) || [...ordersStore.values()].find(o => o.orderNumber === idOrNum || o.id === idOrNum);
+      const body = await request.clone().json().catch(() => null);
+      if (!order && (body?.token || url.searchParams.get('token'))) {
+        const tok = body?.token || url.searchParams.get('token');
+        const decoded = verifyPaymentTokenEdge(tok);
+        if (decoded) {
+          order = createOrderFromTokenEdge(decoded);
+          ordersStore.set(order.id, order);
+          if (order.orderNumber) ordersStore.set(order.orderNumber, order);
+        }
+      }
       if (!order) return json({ success: false, error: 'Order not found.' }, 404);
 
       if (method === 'POST') {
-        const body = await request.clone().json().catch(() => null);
         const utr = body?.utr || body?.utrNumber || body?.customUpiUtrNumber;
         const payerName = body?.payerName || 'Customer / Payer';
         if (!utr || typeof utr !== 'string' || utr.trim().length < 10) {
@@ -2055,7 +2161,18 @@ async function handleApi(request, url, env) {
     }
 
     const idOrNum = rest;
-    const order = ordersStore.get(idOrNum) || [...ordersStore.values()].find(o => o.orderNumber === idOrNum);
+    let order = ordersStore.get(idOrNum) || [...ordersStore.values()].find(o => o.orderNumber === idOrNum || o.id === idOrNum);
+    if (!order) {
+      const tok = url.searchParams.get('token') || (idOrNum.includes('.') ? idOrNum : null);
+      if (tok) {
+        const decoded = verifyPaymentTokenEdge(tok);
+        if (decoded) {
+          order = createOrderFromTokenEdge(decoded);
+          ordersStore.set(order.id, order);
+          if (order.orderNumber) ordersStore.set(order.orderNumber, order);
+        }
+      }
+    }
     if (!order) return json({ success: false, error: 'Order not found.' }, 404);
     return json({ success: true, order });
   }
