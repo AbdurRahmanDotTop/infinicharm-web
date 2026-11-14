@@ -19,6 +19,11 @@ interface BlogPostPageProps {
   }>;
 }
 
+export async function generateStaticParams() {
+  const posts = getAllBlogPosts();
+  return posts.map((post) => ({ slug: post.slug }));
+}
+
 export async function generateMetadata({ params }: BlogPostPageProps) {
   const { slug } = await params;
   const post = getBlogPostBySlug(slug);

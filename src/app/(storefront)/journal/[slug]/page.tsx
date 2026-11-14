@@ -1,4 +1,10 @@
 import { redirect } from 'next/navigation';
+import { getAllBlogPosts } from '@/lib/data/blog';
+
+export async function generateStaticParams() {
+  const posts = getAllBlogPosts();
+  return posts.map((post) => ({ slug: post.slug }));
+}
 
 export default async function JournalSlugRedirectPage({
   params,
@@ -8,4 +14,3 @@ export default async function JournalSlugRedirectPage({
   const { slug } = await params;
   redirect(`/blog/${slug}`);
 }
-
