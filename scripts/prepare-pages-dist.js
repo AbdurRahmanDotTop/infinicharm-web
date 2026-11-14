@@ -1157,18 +1157,18 @@ export default {
 
     // 2b. Universal Shareable Payment Route (/pay and /pay/:id)
     if (url.pathname === '/pay' || url.pathname.startsWith('/pay/')) {
-      if (request.headers.get('accept')?.includes('text/html') || !url.pathname.includes('.')) {
-        const payUrl = new URL('/pay.html', request.url);
-        const payRes = await env.ASSETS.fetch(new Request(payUrl, request));
-        if (payRes.status === 200) {
-          return payRes;
-        }
-      }
       if (url.searchParams.has('_rsc')) {
         const rscUrl = new URL('/pay.rsc', request.url);
         const rscRes = await env.ASSETS.fetch(new Request(rscUrl, request));
         if (rscRes.status === 200) {
           return rscRes;
+        }
+      }
+      if (request.headers.get('accept')?.includes('text/html') || !url.pathname.includes('.')) {
+        const payUrl = new URL('/pay', request.url);
+        const payRes = await env.ASSETS.fetch(new Request(payUrl, request));
+        if (payRes.status === 200) {
+          return payRes;
         }
       }
     }
