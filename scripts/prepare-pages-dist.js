@@ -2016,7 +2016,7 @@ async function handleApi(request, url, env) {
   if (p.startsWith('/api/orders/')) {
     const rest = decodeURIComponent(p.replace('/api/orders/', ''));
     if (rest.endsWith('/utr')) {
-      const idOrNum = rest.replace(/\/utr$/, '');
+      const idOrNum = rest.slice(0, -4);
       const order = ordersStore.get(idOrNum) || [...ordersStore.values()].find(o => o.orderNumber === idOrNum);
       if (!order) return json({ success: false, error: 'Order not found.' }, 404);
 
