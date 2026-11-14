@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import QRCode from 'qrcode';
@@ -31,6 +31,7 @@ import {
   UserCheck,
   UserPlus,
   LogIn,
+  Info,
 } from 'lucide-react';
 import { Order, PaymentMethod, CustomerAddress, PaymentGatewayConfig, PublicAuthSettings } from '@/types';
 import { getPaymentGateways, fetchPaymentGateways, recordPaymentTransaction } from '@/lib/services/gateways';
@@ -40,6 +41,12 @@ import { ResendVerificationBox } from '@/components/auth/ResendVerificationBox';
 import { InlineOtpVerification } from '@/components/auth/InlineOtpVerification';
 import { persistClientCustomerSession } from '@/lib/auth/client-session';
 import { isValidEmail, validatePasswordAgainstPolicy } from '@/lib/validation/auth';
+import {
+  generateUpiPaymentDetails,
+  generateCheckoutOrderNumber,
+  parseUtrInput,
+  DEFAULT_UPI_CREDENTIALS,
+} from '@/lib/services/upi';
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -101,6 +108,25 @@ export default function CheckoutPage() {
   const [customUpiQrDataUrl, setCustomUpiQrDataUrl] = useState<string>('');
   const [customUpiUtr, setCustomUpiUtr] = useState<string>('');
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [checkoutOrderNumber, setCheckoutOrderNumber] = useState<string>('');
+  const [desktopUpiNotice, setDesktopUpiNotice] = useState<boolean>(false);
+
+  // Initialize or restore stable checkout order number
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const existing = sessionStorage.getItem('infinicharm_checkout_order_id');
+      if (existing && existing.startsWith('INF-')) {
+        setCheckoutOrderNumber(existing);
+        return;
+      }
+    } catch {}
+    const newOrderNum = generateCheckoutOrderNumber();
+    setCheckoutOrderNumber(newOrderNum);
+    try {
+      sessionStorage.setItem('infinicharm_checkout_order_id', newOrderNum);
+    } catch {}
+  }, []);
 
   // PayGlocal States
   const [payglocalCurrency, setPayglocalCurrency] = useState<'INR' | 'USD' | 'GBP' | 'EUR'>('INR');
@@ -320,27 +346,24 @@ export default function CheckoutPage() {
     }
   }, [isLoadingGateways, gateways, paymentMethod]);
 
-  // Custom UPI dynamic URI & QR Generation
+  // Custom UPI dynamic URI, QR & Direct Payment Link Generation (Centralized Authority)
   const customUpiGateway = gateways.find((g) => g.id === 'CUSTOM_UPI');
-  const customUpiCreds = customUpiGateway?.credentials || {
-    upiId: 'AbdurRahmanIndusIndCurrent@ybl',
-    upiNumber: '8825164657',
-    payeeName: 'TechilyFly - InfiniCharm',
-    bankName: 'IndusInd Bank',
-    accountNumber: '258825164657',
-    ifscCode: 'INDB0001548',
-  };
+  const effectiveUpiCreds = customUpiGateway?.credentials || DEFAULT_UPI_CREDENTIALS;
+  const effectiveOrderId = checkoutOrderNumber || 'INF-ORDER';
 
-  const amountInRupees = (totalInPaise / 100).toFixed(2);
-  const upiIntentUri = `upi://pay?pa=${encodeURIComponent(
-    customUpiCreds.upiId || 'AbdurRahmanIndusIndCurrent@ybl'
-  )}&pn=${encodeURIComponent(
-    customUpiCreds.payeeName || 'TechilyFly - InfiniCharm'
-  )}&am=${amountInRupees}&cu=INR&tn=${encodeURIComponent('InfiniCharm Order')}`;
+  const upiPaymentData = useMemo(() => {
+    return generateUpiPaymentDetails({
+      credentials: effectiveUpiCreds,
+      totalInPaise,
+      orderId: effectiveOrderId,
+    });
+  }, [effectiveUpiCreds, totalInPaise, effectiveOrderId]);
+
+  const upiIntentUri = upiPaymentData.upiIntentUri;
 
   useEffect(() => {
-    if (totalInPaise > 0) {
-      QRCode.toDataURL(upiIntentUri, {
+    if (totalInPaise > 0 && upiPaymentData.upiIntentUri) {
+      QRCode.toDataURL(upiPaymentData.upiIntentUri, {
         width: 280,
         margin: 1,
         color: { dark: '#09090b', light: '#ffffff' },
@@ -348,7 +371,18 @@ export default function CheckoutPage() {
         .then((url) => setCustomUpiQrDataUrl(url))
         .catch((err) => console.error('Failed to generate dynamic UPI QR:', err));
     }
-  }, [upiIntentUri, totalInPaise]);
+  }, [upiPaymentData.upiIntentUri, totalInPaise]);
+
+  const handleDirectUpiClick = () => {
+    if (typeof window === 'undefined') return;
+    const isMobile = /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(
+      navigator.userAgent
+    );
+    if (!isMobile) {
+      setDesktopUpiNotice(true);
+      setTimeout(() => setDesktopUpiNotice(false), 9000);
+    }
+  };
 
   const handleCopy = (text: string, key: string) => {
     navigator.clipboard.writeText(text);
@@ -599,13 +633,18 @@ export default function CheckoutPage() {
       } catch {}
     }
 
-    // Validation for Custom UPI: Must provide 12-digit UTR
+    // Validation for Custom UPI: Must provide valid UTR (single or comma-separated)
+    let parsedUtrCleaned: string | undefined = undefined;
     if (paymentMethod === 'CUSTOM_UPI') {
-      const cleanUtr = customUpiUtr.trim();
-      if (!cleanUtr || cleanUtr.length < 10) {
-        setFormError('Please enter the 12-digit UPI Transaction UTR / Reference Number after completing your payment.');
+      const utrResult = parseUtrInput(customUpiUtr);
+      if (!utrResult.isValid) {
+        setFormError(
+          utrResult.error ||
+            'Please enter the 12-digit UPI Transaction UTR / Reference Number after completing your payment.'
+        );
         return;
       }
+      parsedUtrCleaned = utrResult.rawCleaned;
     }
 
     // Client verification: Ensure chosen method is active
@@ -632,7 +671,11 @@ export default function CheckoutPage() {
 
     setIsSubmitting(true);
 
-    const generatedOrderNumber = `INF-${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}-${Math.floor(1000 + Math.random() * 9000)}`;
+    const finalOrderNumber =
+      checkoutOrderNumber ||
+      `INF-${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}-${Math.floor(
+        1000 + Math.random() * 9000
+      )}`;
 
     const isCustomUpi = paymentMethod === 'CUSTOM_UPI';
     const isPayGlocal = paymentMethod === 'PAYGLOCAL';
@@ -640,7 +683,7 @@ export default function CheckoutPage() {
 
     const orderData: Order = {
       id: `ord-${Date.now()}`,
-      orderNumber: generatedOrderNumber,
+      orderNumber: finalOrderNumber,
       customerId: resolvedCustomerId || 'guest',
       customerEmail: email || `${phone}@infinicharm.customer`,
       customerPhone: phone,
@@ -654,7 +697,7 @@ export default function CheckoutPage() {
       paymentMethod,
       paymentStatus: isCod || isCustomUpi || isPayGlocal ? 'PENDING' : 'PAID',
       manualApprovalStatus: isCustomUpi ? 'PENDING_REVIEW' : undefined,
-      utrNumber: isCustomUpi ? customUpiUtr.trim() : undefined,
+      utrNumber: isCustomUpi ? parsedUtrCleaned : undefined,
       customerNotes: deliveryNotes,
       shippingAddress: {
         id: selectedAddressId || `addr-${Date.now()}`,
@@ -685,7 +728,7 @@ export default function CheckoutPage() {
       },
       items: items.map((item) => ({
         id: `item-${item.variantId}-${Date.now()}`,
-        orderId: generatedOrderNumber,
+        orderId: finalOrderNumber,
         productId: item.product.id,
         variantId: item.variant.id,
         productTitle: item.product.title,
@@ -696,11 +739,11 @@ export default function CheckoutPage() {
         totalInPaise: item.variant.priceInPaise * item.quantity,
       })),
       timeline: generateInitialOrderTimeline({
-        orderNumber: generatedOrderNumber,
+        orderNumber: finalOrderNumber,
         paymentMethod,
         paymentStatus: isCod || isCustomUpi || isPayGlocal ? 'PENDING' : 'PAID',
         status: isCustomUpi || isPayGlocal || isCod ? 'PENDING' : 'CONFIRMED',
-        utrNumber: isCustomUpi ? customUpiUtr.trim() : undefined,
+        utrNumber: isCustomUpi ? parsedUtrCleaned : undefined,
       }),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -722,14 +765,14 @@ export default function CheckoutPage() {
 
     recordPaymentTransaction({
       id: `tx-${Date.now()}`,
-      orderNumber: generatedOrderNumber,
+      orderNumber: finalOrderNumber,
       gatewayId,
       gatewayTransactionId: `${gatewayId.toLowerCase()}_${Date.now().toString(36)}`,
       amountInPaise: totalInPaise,
       currency: isPayGlocal ? payglocalCurrency : 'INR',
       method: paymentMethod,
       status: isCod || isCustomUpi || isPayGlocal ? 'PENDING' : 'SUCCESS',
-      utrNumber: isCustomUpi ? customUpiUtr.trim() : undefined,
+      utrNumber: isCustomUpi ? parsedUtrCleaned : undefined,
       manualApprovalStatus: isCustomUpi ? 'PENDING_REVIEW' : undefined,
       customerEmail: email || `${phone}@infinicharm.customer`,
       customerPhone: phone,
@@ -793,7 +836,7 @@ export default function CheckoutPage() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            orderNumber: generatedOrderNumber,
+            orderNumber: finalOrderNumber,
             amountInPaise: totalInPaise,
             currency: payglocalCurrency,
             customerEmail: email || `${phone}@infinicharm.customer`,
@@ -805,6 +848,9 @@ export default function CheckoutPage() {
 
         const initData = await initRes.json();
         clearCart();
+        try {
+          sessionStorage.removeItem('infinicharm_checkout_order_id');
+        } catch {}
         if (initData?.redirectUrl) {
           window.location.href = initData.redirectUrl;
           return;
@@ -813,8 +859,11 @@ export default function CheckoutPage() {
         console.error('PayGlocal initiation error:', paygErr);
         // Fallback to mock page directly
         clearCart();
+        try {
+          sessionStorage.removeItem('infinicharm_checkout_order_id');
+        } catch {}
         window.location.href = `/checkout/payglocal-mock?orderNumber=${encodeURIComponent(
-          generatedOrderNumber
+          finalOrderNumber
         )}&amount=${(totalInPaise / 100).toFixed(2)}&currency=${payglocalCurrency}`;
         return;
       }
@@ -824,6 +873,7 @@ export default function CheckoutPage() {
     clearCart();
     try {
       localStorage.removeItem('infinicharm_checkout_draft');
+      sessionStorage.removeItem('infinicharm_checkout_order_id');
     } catch {}
     setTimeout(() => {
       router.push(`/checkout/success?order_id=${orderData.orderNumber}`);
@@ -1375,15 +1425,34 @@ export default function CheckoutPage() {
                         {/* Expanded Dynamic QR Code & UTR Verification Drawer */}
                         {paymentMethod === 'CUSTOM_UPI' && (
                           <div className="p-4 sm:p-5 bg-surface border-t border-border/80 space-y-4">
-                            <div className="grid grid-cols-1 md:grid-cols-12 gap-5 items-center">
+                            <div className="grid grid-cols-1 md:grid-cols-12 gap-5 items-start">
                               {/* QR Code Presentation */}
-                              <div className="md:col-span-5 flex flex-col items-center justify-center p-3.5 bg-surface-dim rounded-2xl border border-border">
+                              <div className="md:col-span-5 flex flex-col items-center justify-center p-3.5 sm:p-4 bg-surface-dim rounded-2xl border border-border">
+                                <div className="w-full flex items-center justify-between text-[11px] mb-2 px-1">
+                                  <span className="text-muted font-medium">Order Ref:</span>
+                                  <div className="flex items-center gap-1">
+                                    <span className="font-mono font-bold text-primary">{effectiveOrderId}</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleCopy(effectiveOrderId, 'order_ref')}
+                                      className="p-1 hover:bg-surface rounded text-muted hover:text-primary transition-colors"
+                                      title="Copy Order Reference"
+                                    >
+                                      {copiedField === 'order_ref' ? (
+                                        <Check className="w-3 h-3 text-emerald-600" />
+                                      ) : (
+                                        <Copy className="w-3 h-3" />
+                                      )}
+                                    </button>
+                                  </div>
+                                </div>
+
                                 <div className="w-48 h-48 bg-white p-2 rounded-xl shadow-xs border border-border/80 flex items-center justify-center">
                                   {customUpiQrDataUrl ? (
                                     /* eslint-disable-next-line @next/next/no-img-element */
                                     <img
                                       src={customUpiQrDataUrl}
-                                      alt="InfiniCharm Order Dynamic UPI QR"
+                                      alt={`InfiniCharm Dynamic UPI QR - Order ${effectiveOrderId}`}
                                       className="w-full h-full object-contain"
                                     />
                                   ) : (
@@ -1393,31 +1462,62 @@ export default function CheckoutPage() {
                                   )}
                                 </div>
 
-                                <div className="mt-2 text-center">
-                                  <span className="font-mono text-xs font-extrabold text-accent block">
-                                    Exact Payable: ₹{(totalInPaise / 100).toFixed(2)}
+                                <div className="mt-2.5 text-center w-full">
+                                  <span className="font-mono text-xs sm:text-sm font-extrabold text-accent block">
+                                    Exact Payable: ₹{upiPaymentData.amountInRupees}
                                   </span>
-                                  <span className="text-[10px] text-muted">Scan via GPay / PhonePe / Paytm</span>
+                                  <span
+                                    className="text-[10px] text-muted block mt-0.5 truncate"
+                                    title={upiPaymentData.transactionNote}
+                                  >
+                                    Note: <strong className="text-primary font-mono">{upiPaymentData.transactionNote}</strong>
+                                  </span>
+                                  <span className="text-[9px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full inline-block mt-1 font-medium">
+                                    ✓ Auto-filled in your UPI App
+                                  </span>
                                 </div>
 
-                                <div className="flex items-center gap-2 mt-3 w-full">
-                                  {customUpiQrDataUrl && (
-                                    <a
-                                      href={customUpiQrDataUrl}
-                                      download={`infinicharm-qr-${(totalInPaise / 100).toFixed(0)}.png`}
-                                      className="flex-1 py-1.5 px-2 bg-surface hover:bg-surface-container text-primary border border-border rounded-lg text-[10px] font-semibold flex items-center justify-center gap-1 shadow-2xs"
-                                    >
-                                      <Download className="w-3 h-3 text-accent" />
-                                      <span>Save QR</span>
-                                    </a>
-                                  )}
+                                <div className="flex flex-col gap-2 mt-3 w-full">
                                   <a
-                                    href={upiIntentUri}
-                                    className="flex-1 py-1.5 px-2 bg-accent hover:bg-accent-hover text-white rounded-lg text-[10px] font-semibold flex items-center justify-center gap-1 shadow-2xs"
+                                    href={upiPaymentData.upiIntentUri}
+                                    data-testid="pay-via-upi-btn"
+                                    onClick={handleDirectUpiClick}
+                                    className="w-full py-2.5 px-3 bg-accent hover:bg-accent-hover text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-xs transition-colors text-center"
                                   >
-                                    <Smartphone className="w-3 h-3" />
-                                    <span>Pay via App</span>
+                                    <Smartphone className="w-4 h-4 shrink-0" />
+                                    <span>Pay via UPI App</span>
                                   </a>
+
+                                  <div className="grid grid-cols-2 gap-2 w-full">
+                                    <button
+                                      type="button"
+                                      data-testid="copy-upi-link-btn"
+                                      onClick={() => handleCopy(upiPaymentData.upiIntentUri, 'upi_link')}
+                                      className="py-1.5 px-2 bg-surface hover:bg-surface-container text-primary border border-border rounded-lg text-[10px] font-semibold flex items-center justify-center gap-1 shadow-2xs transition-colors"
+                                      title="Copy Direct UPI Intent Deep Link"
+                                    >
+                                      {copiedField === 'upi_link' ? (
+                                        <Check className="w-3 h-3 text-emerald-600" />
+                                      ) : (
+                                        <Copy className="w-3 h-3 text-accent" />
+                                      )}
+                                      <span className="truncate">
+                                        {copiedField === 'upi_link' ? 'Copied Link!' : 'Copy UPI Link'}
+                                      </span>
+                                    </button>
+
+                                    {customUpiQrDataUrl && (
+                                      <a
+                                        href={customUpiQrDataUrl}
+                                        download={`infinicharm-qr-${effectiveOrderId}.png`}
+                                        className="py-1.5 px-2 bg-surface hover:bg-surface-container text-primary border border-border rounded-lg text-[10px] font-semibold flex items-center justify-center gap-1 shadow-2xs transition-colors"
+                                        title="Download QR code image to device"
+                                      >
+                                        <Download className="w-3 h-3 text-accent" />
+                                        <span>Save QR</span>
+                                      </a>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
 
@@ -1428,17 +1528,12 @@ export default function CheckoutPage() {
                                     <div>
                                       <span className="text-[10px] text-muted block">Official UPI ID (VPA)</span>
                                       <span className="font-mono text-xs font-bold text-primary select-all">
-                                        {customUpiCreds.upiId || 'AbdurRahmanIndusIndCurrent@ybl'}
+                                        {upiPaymentData.upiId}
                                       </span>
                                     </div>
                                     <button
                                       type="button"
-                                      onClick={() =>
-                                        handleCopy(
-                                          customUpiCreds.upiId || 'AbdurRahmanIndusIndCurrent@ybl',
-                                          'upi_id'
-                                        )
-                                      }
+                                      onClick={() => handleCopy(upiPaymentData.upiId, 'upi_id')}
                                       className="p-1.5 hover:bg-surface rounded-lg text-muted hover:text-primary transition-colors"
                                       title="Copy UPI ID"
                                     >
@@ -1454,14 +1549,12 @@ export default function CheckoutPage() {
                                     <div>
                                       <span className="text-[10px] text-muted block">Registered Mobile / Payee</span>
                                       <span className="font-mono text-xs font-bold text-primary">
-                                        {customUpiCreds.upiNumber || '8825164657'} • {customUpiCreds.payeeName || 'TechilyFly - InfiniCharm'}
+                                        {upiPaymentData.upiNumber} • {upiPaymentData.payeeName}
                                       </span>
                                     </div>
                                     <button
                                       type="button"
-                                      onClick={() =>
-                                        handleCopy(customUpiCreds.upiNumber || '8825164657', 'upi_phone')
-                                      }
+                                      onClick={() => handleCopy(upiPaymentData.upiNumber, 'upi_phone')}
                                       className="p-1.5 hover:bg-surface rounded-lg text-muted hover:text-primary transition-colors"
                                       title="Copy Mobile"
                                     >
@@ -1475,30 +1568,81 @@ export default function CheckoutPage() {
 
                                   <div className="p-2.5 rounded-xl bg-surface-dim border border-border text-[11px] text-neutral-600">
                                     <div className="flex justify-between">
-                                      <span>Bank: <strong>{customUpiCreds.bankName || 'IndusInd Bank'}</strong> (Current)</span>
-                                      <span>IFSC: <strong className="font-mono">{customUpiCreds.ifscCode || 'INDB0001548'}</strong></span>
+                                      <span>
+                                        Bank: <strong>{upiPaymentData.bankName}</strong> (Current)
+                                      </span>
+                                      <span>
+                                        IFSC: <strong className="font-mono">{upiPaymentData.ifscCode}</strong>
+                                      </span>
                                     </div>
                                     <div className="mt-1">
-                                      Account No: <strong className="font-mono">{customUpiCreds.accountNumber || '258825164657'}</strong>
+                                      Account No: <strong className="font-mono">{upiPaymentData.accountNumber}</strong>
                                     </div>
                                   </div>
                                 </div>
 
-                                {/* Mandatory UTR Input */}
+                                {/* UPI Limit / High Value Warning Banner */}
+                                {upiPaymentData.limitWarningMessage && (
+                                  <div
+                                    className={`p-3 rounded-xl border text-xs flex items-start gap-2.5 ${
+                                      upiPaymentData.isAmountExceedingLimit
+                                        ? 'bg-amber-50 border-amber-300 text-amber-900'
+                                        : 'bg-blue-50 border-blue-200 text-blue-900'
+                                    }`}
+                                  >
+                                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
+                                    <div className="text-[11px] leading-relaxed">
+                                      <p className="font-bold">
+                                        {upiPaymentData.isAmountExceedingLimit
+                                          ? 'NPCI UPI Amount Limit Notice'
+                                          : 'Bank Daily UPI Limit Advisory'}
+                                      </p>
+                                      <p className="mt-0.5">{upiPaymentData.limitWarningMessage}</p>
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Desktop Notice Banner */}
+                                {desktopUpiNotice && (
+                                  <div className="p-3 rounded-xl bg-surface-dim border border-accent/40 text-primary text-xs flex items-start gap-2.5 transition-all">
+                                    <Info className="w-4 h-4 shrink-0 mt-0.5 text-accent" />
+                                    <div className="text-[11px] leading-relaxed">
+                                      <p className="font-bold">Launching UPI Application...</p>
+                                      <p className="mt-0.5 text-muted">
+                                        If your browser does not have a desktop UPI app installed, scan the QR code with your mobile phone camera or GPay / PhonePe / Paytm, or click <strong>&quot;Copy UPI Link&quot;</strong> to send the link to your mobile device.
+                                      </p>
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* QR vs Direct Link Troubleshooting Guidance */}
+                                <div className="p-2.5 rounded-xl bg-surface-dim/70 border border-border text-[11px] text-muted space-y-1">
+                                  <div className="flex items-center gap-1.5 font-semibold text-primary">
+                                    <Info className="w-3.5 h-3.5 text-accent shrink-0" />
+                                    <span>Encountering QR scanning or amount restrictions?</span>
+                                  </div>
+                                  <p className="text-[10px] leading-normal">
+                                    If your camera fails to scan or your app imposes QR amount restrictions, click <strong>&quot;Pay via UPI App&quot;</strong> to open your UPI app directly, or copy our VPA <code className="font-mono text-primary bg-surface px-1 py-0.5 rounded border border-border select-all">{upiPaymentData.upiId}</code>. Both methods automatically include your exact order amount and Order Reference note.
+                                  </p>
+                                </div>
+
+                                {/* Mandatory UTR Input (Supports Single & Multiple Split Transfers) */}
                                 <div className="pt-2">
                                   <label className="block text-xs font-bold text-primary mb-1">
-                                    Enter 12-Digit UPI Transaction Reference / UTR Number *
+                                    Enter 12-Digit UPI Transaction Reference / UTR Number(s) *
                                   </label>
                                   <input
                                     type="text"
-                                    maxLength={16}
+                                    maxLength={64}
                                     value={customUpiUtr}
-                                    onChange={(e) => setCustomUpiUtr(e.target.value.replace(/[^a-zA-Z0-9]/g, ''))}
-                                    placeholder="e.g. 431902847190"
+                                    onChange={(e) =>
+                                      setCustomUpiUtr(e.target.value.replace(/[^a-zA-Z0-9,;\s]/g, ''))
+                                    }
+                                    placeholder="e.g. 431902847190 (or comma-separated if split payment)"
                                     className="w-full px-3.5 py-2.5 bg-surface border border-accent/60 rounded-xl font-mono text-sm tracking-wider text-primary focus:outline-none focus:ring-2 focus:ring-accent"
                                   />
                                   <span className="text-[10px] text-muted block mt-1">
-                                    Found in your UPI app receipt under &quot;UPI Ref No.&quot; or &quot;UTR&quot;. Orders are verified before dispatch.
+                                    Found in your UPI app receipt under &quot;UPI Ref No.&quot; or &quot;UTR&quot;. If paid in multiple split transfers due to bank daily caps, enter all UTRs separated by commas. Orders are verified before dispatch.
                                   </span>
                                 </div>
                               </div>
