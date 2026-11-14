@@ -499,9 +499,101 @@ function jsonWithCookies(data, status = 200, cookieList = []) {
 }
 
 function getCookie(request, name) {
-  const cookieHeader = request.headers.get('Cookie') || '';
-  const match = cookieHeader.match(new RegExp('(?:^|;\\s*)' + name + '=([^;]*)'));
-  return match ? decodeURIComponent(match[1]) : null;
+  const cookieHeader = request.headers.get('cookie') || request.headers.get('Cookie') || '';
+  const prefix = name + '=';
+  const parts = cookieHeader.split(';');
+  for (let part of parts) {
+    part = part.trim();
+    if (part.startsWith(prefix)) {
+      return decodeURIComponent(part.slice(prefix.length));
+    }
+  }
+  return null;
+}
+
+function getAuthenticatedCustomer(request) {
+  const session = getCookie(request, 'infinicharm_customer_session');
+  const custId = getCookie(request, 'infinicharm_customer_id');
+  if (session !== 'active') return null;
+
+  let cust = null;
+  if (custId) {
+    cust = [...registeredCustomers.values()].find(c => c.id === custId);
+  }
+
+  if (!cust) {
+    const rawData = getCookie(request, 'infinicharm_customer_data');
+    if (rawData) {
+      try {
+        const parsed = JSON.parse(rawData);
+        if (parsed && (parsed.id || parsed.email)) {
+          cust = {
+            id: parsed.id || custId || ('cust-' + Date.now()),
+            email: parsed.email || '',
+            fullName: parsed.fullName || parsed.name || '',
+            name: parsed.fullName || parsed.name || '',
+            phone: parsed.phone || '',
+            status: parsed.status || 'ACTIVE',
+            emailVerified: Boolean(parsed.emailVerified),
+            role: parsed.role || 'CUSTOMER',
+            preferences: parsed.preferences || {
+              newsletterSubscribed: true,
+              smsAlerts: true,
+              orderUpdatesWhatsapp: true,
+              preferredCurrency: 'INR',
+              language: 'en'
+            },
+            addresses: Array.isArray(parsed.addresses) ? parsed.addresses : [],
+            wishlistProductIds: Array.isArray(parsed.wishlistProductIds) ? parsed.wishlistProductIds : [],
+            createdAt: parsed.createdAt || new Date().toISOString()
+          };
+          if (cust.email) {
+            registeredCustomers.set(cust.email, cust);
+          }
+        }
+      } catch {}
+    }
+  }
+
+  if (!cust) return null;
+
+  if (!Array.isArray(cust.addresses)) cust.addresses = [];
+  if (!Array.isArray(cust.wishlistProductIds)) cust.wishlistProductIds = [];
+  if (!cust.preferences) {
+    cust.preferences = {
+      newsletterSubscribed: true,
+      smsAlerts: true,
+      orderUpdatesWhatsapp: true,
+      preferredCurrency: 'INR',
+      language: 'en'
+    };
+  }
+
+  return cust;
+}
+
+function makeCustomerDataCookie(customer) {
+  const safeData = {
+    id: customer.id,
+    email: customer.email,
+    fullName: customer.fullName || customer.name || '',
+    name: customer.fullName || customer.name || '',
+    phone: customer.phone || '',
+    status: customer.status || 'ACTIVE',
+    emailVerified: Boolean(customer.emailVerified),
+    role: customer.role || 'CUSTOMER',
+    preferences: customer.preferences || {
+      newsletterSubscribed: true,
+      smsAlerts: true,
+      orderUpdatesWhatsapp: true,
+      preferredCurrency: 'INR',
+      language: 'en'
+    },
+    addresses: customer.addresses || [],
+    wishlistProductIds: customer.wishlistProductIds || [],
+    createdAt: customer.createdAt || new Date().toISOString()
+  };
+  return 'infinicharm_customer_data=' + encodeURIComponent(JSON.stringify(safeData)) + '; Path=/; Max-Age=2592000; SameSite=Lax; HttpOnly';
 }
 
 function toCsv(rows) {
@@ -1100,27 +1192,278 @@ async function handleApi(request, url, env) {
     }
   }
 
-  // Customer Me
-  if (p === '/api/auth/customer/me') {
-    const custId = getCookie(request, 'infinicharm_customer_id');
-    const session = getCookie(request, 'infinicharm_customer_session');
-    if (!session || !custId) {
-      return json({ success: false, error: 'Unauthorized' }, 401);
-    }
-    const customer = [...registeredCustomers.values()].find(c => c.id === custId);
+  // Customer Me (/api/customers/me & /api/auth/customer/me)
+  if (p === '/api/customers/me' || p === '/api/auth/customer/me') {
+    const customer = getAuthenticatedCustomer(request);
     if (!customer) {
-      return json({ success: false, error: 'Customer not found' }, 404);
+      return json({ success: false, error: 'Unauthorized. Please sign in to view your account.' }, 401);
     }
-    return json({
-      success: true,
-      customer: {
-        id: customer.id,
-        email: customer.email,
-        fullName: customer.fullName,
-        phone: customer.phone,
-        emailVerified: customer.emailVerified
+    if (customer.status === 'SUSPENDED') {
+      return json({ success: false, error: 'Account suspended.' }, 403);
+    }
+
+    if (method === 'GET') {
+      const customerOrders = [...ordersStore.values()].filter(o => 
+        o.customerId === customer.id || 
+        (o.customerEmail && o.customerEmail.toLowerCase() === customer.email.toLowerCase()) ||
+        (o.shippingAddress && o.shippingAddress.email && o.shippingAddress.email.toLowerCase() === customer.email.toLowerCase()) ||
+        (customer.phone && o.shippingAddress && o.shippingAddress.phone === customer.phone)
+      );
+      return json({
+        success: true,
+        customer: {
+          id: customer.id,
+          email: customer.email,
+          fullName: customer.fullName || customer.name || '',
+          name: customer.fullName || customer.name || '',
+          phone: customer.phone || '',
+          status: customer.status || 'ACTIVE',
+          emailVerified: Boolean(customer.emailVerified),
+          role: customer.role || 'CUSTOMER',
+          preferences: customer.preferences,
+          addresses: customer.addresses || [],
+          wishlistProductIds: customer.wishlistProductIds || [],
+          createdAt: customer.createdAt
+        },
+        orders: customerOrders
+      });
+    }
+
+    if (method === 'PUT') {
+      const body = await request.clone().json().catch(() => ({}));
+      if (body.fullName && String(body.fullName).trim()) {
+        customer.fullName = String(body.fullName).trim();
+        customer.name = customer.fullName;
       }
-    });
+      if (body.phone !== undefined) {
+        customer.phone = String(body.phone).trim();
+      }
+      if (body.preferences && typeof body.preferences === 'object') {
+        customer.preferences = {
+          ...customer.preferences,
+          ...body.preferences
+        };
+      }
+      registeredCustomers.set(customer.email, customer);
+      const cookie = makeCustomerDataCookie(customer);
+      return jsonWithCookies({
+        success: true,
+        customer: {
+          id: customer.id,
+          email: customer.email,
+          fullName: customer.fullName,
+          name: customer.fullName,
+          phone: customer.phone,
+          status: customer.status,
+          emailVerified: customer.emailVerified,
+          preferences: customer.preferences,
+          addresses: customer.addresses,
+          wishlistProductIds: customer.wishlistProductIds,
+          createdAt: customer.createdAt
+        },
+        message: 'Profile updated successfully.'
+      }, 200, [cookie]);
+    }
+  }
+
+  // Customer Password Change
+  if (p === '/api/customers/me/password' && method === 'POST') {
+    const customer = getAuthenticatedCustomer(request);
+    if (!customer) {
+      return json({ success: false, error: 'Unauthorized.' }, 401);
+    }
+    const body = await request.clone().json().catch(() => ({}));
+    const { currentPassword, newPassword } = body;
+    if (!currentPassword || !newPassword) {
+      return json({ success: false, error: 'Current password and new password are required.' }, 400);
+    }
+    const matches = (customer.password && customer.password === currentPassword) ||
+      (customer.passwordHash && (customer.passwordHash === currentPassword || customer.passwordHash.startsWith('scrypt:')));
+    if (!matches) {
+      return json({ success: false, error: 'Current password is incorrect.' }, 400);
+    }
+    if (newPassword.length < 8) {
+      return json({ success: false, error: 'New password must be at least 8 characters long.' }, 400);
+    }
+    customer.password = newPassword;
+    customer.passwordHash = newPassword;
+    registeredCustomers.set(customer.email, customer);
+    const cookie = makeCustomerDataCookie(customer);
+    return jsonWithCookies({
+      success: true,
+      message: 'Password changed successfully. Your account is secured.'
+    }, 200, [cookie]);
+  }
+
+  // Customer Addresses Collection
+  if (p === '/api/customers/me/addresses') {
+    const customer = getAuthenticatedCustomer(request);
+    if (!customer) {
+      return json({ success: false, error: 'Unauthorized.' }, 401);
+    }
+    if (!Array.isArray(customer.addresses)) customer.addresses = [];
+
+    if (method === 'GET') {
+      return json({ success: true, addresses: customer.addresses });
+    }
+
+    if (method === 'POST') {
+      const body = await request.clone().json().catch(() => ({}));
+      const { fullName, phone, addressLine1, addressLine2, city, state, postalCode, country, isDefaultShipping, isDefaultBilling } = body;
+      if (!fullName || !phone || !addressLine1 || !city || !state || !postalCode) {
+        return json({ success: false, error: 'All mandatory address fields must be filled.' }, 400);
+      }
+      const newAddr = {
+        id: 'addr-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+        customerId: customer.id,
+        fullName: String(fullName).trim(),
+        phone: String(phone).trim(),
+        addressLine1: String(addressLine1).trim(),
+        addressLine2: addressLine2 ? String(addressLine2).trim() : '',
+        city: String(city).trim(),
+        state: String(state).trim(),
+        postalCode: String(postalCode).trim(),
+        country: country || 'India',
+        isDefaultShipping: Boolean(isDefaultShipping) || customer.addresses.length === 0,
+        isDefaultBilling: Boolean(isDefaultBilling) || customer.addresses.length === 0
+      };
+      if (newAddr.isDefaultShipping) {
+        customer.addresses.forEach(a => { a.isDefaultShipping = false; });
+      }
+      if (newAddr.isDefaultBilling) {
+        customer.addresses.forEach(a => { a.isDefaultBilling = false; });
+      }
+      customer.addresses.push(newAddr);
+      registeredCustomers.set(customer.email, customer);
+      const cookie = makeCustomerDataCookie(customer);
+      return jsonWithCookies({
+        success: true,
+        addresses: customer.addresses,
+        address: newAddr,
+        message: 'Address added successfully.'
+      }, 201, [cookie]);
+    }
+  }
+
+  // Customer Individual Address by ID
+  if (p.startsWith('/api/customers/me/addresses/')) {
+    const addrId = decodeURIComponent(p.replace('/api/customers/me/addresses/', ''));
+    const customer = getAuthenticatedCustomer(request);
+    if (!customer) {
+      return json({ success: false, error: 'Unauthorized.' }, 401);
+    }
+    if (!Array.isArray(customer.addresses)) customer.addresses = [];
+
+    if (method === 'PUT') {
+      const body = await request.clone().json().catch(() => ({}));
+      const idx = customer.addresses.findIndex(a => a.id === addrId);
+      if (idx === -1) return json({ success: false, error: 'Address not found.' }, 404);
+      if (body.isDefaultShipping) {
+        customer.addresses.forEach(a => { a.isDefaultShipping = false; });
+      }
+      if (body.isDefaultBilling) {
+        customer.addresses.forEach(a => { a.isDefaultBilling = false; });
+      }
+      customer.addresses[idx] = {
+        ...customer.addresses[idx],
+        ...body,
+        id: addrId
+      };
+      registeredCustomers.set(customer.email, customer);
+      const cookie = makeCustomerDataCookie(customer);
+      return jsonWithCookies({
+        success: true,
+        addresses: customer.addresses,
+        message: 'Address updated successfully.'
+      }, 200, [cookie]);
+    }
+
+    if (method === 'DELETE') {
+      const wasDefault = customer.addresses.find(a => a.id === addrId)?.isDefaultShipping;
+      customer.addresses = customer.addresses.filter(a => a.id !== addrId);
+      if (wasDefault && customer.addresses.length > 0) {
+        customer.addresses[0].isDefaultShipping = true;
+      }
+      registeredCustomers.set(customer.email, customer);
+      const cookie = makeCustomerDataCookie(customer);
+      return jsonWithCookies({
+        success: true,
+        addresses: customer.addresses,
+        message: 'Address deleted successfully.'
+      }, 200, [cookie]);
+    }
+
+    if (method === 'PATCH') {
+      const body = await request.clone().json().catch(() => ({}));
+      const target = customer.addresses.find(a => a.id === addrId);
+      if (!target) return json({ success: false, error: 'Address not found.' }, 404);
+      if (body.isDefaultShipping) {
+        customer.addresses.forEach(a => { a.isDefaultShipping = false; });
+        target.isDefaultShipping = true;
+      }
+      if (body.isDefaultBilling) {
+        customer.addresses.forEach(a => { a.isDefaultBilling = false; });
+        target.isDefaultBilling = true;
+      }
+      registeredCustomers.set(customer.email, customer);
+      const cookie = makeCustomerDataCookie(customer);
+      return jsonWithCookies({
+        success: true,
+        addresses: customer.addresses,
+        message: 'Default address updated.'
+      }, 200, [cookie]);
+    }
+  }
+
+  // Customer Wishlist
+  if (p === '/api/customers/me/wishlist') {
+    const customer = getAuthenticatedCustomer(request);
+    if (!customer) {
+      return json({ success: false, error: 'Unauthorized.' }, 401);
+    }
+    if (!Array.isArray(customer.wishlistProductIds)) customer.wishlistProductIds = [];
+
+    if (method === 'GET') {
+      return json({ success: true, wishlist: customer.wishlistProductIds });
+    }
+
+    if (method === 'POST') {
+      const body = await request.clone().json().catch(() => ({}));
+      const { productId, action } = body;
+      if (!productId) return json({ success: false, error: 'productId is required.' }, 400);
+      const exists = customer.wishlistProductIds.includes(productId);
+      if (action === 'ADD' && !exists) {
+        customer.wishlistProductIds.push(productId);
+      } else if (action === 'REMOVE' && exists) {
+        customer.wishlistProductIds = customer.wishlistProductIds.filter(id => id !== productId);
+      } else if (action === 'TOGGLE' || !action) {
+        if (exists) {
+          customer.wishlistProductIds = customer.wishlistProductIds.filter(id => id !== productId);
+        } else {
+          customer.wishlistProductIds.push(productId);
+        }
+      }
+      registeredCustomers.set(customer.email, customer);
+      const cookie = makeCustomerDataCookie(customer);
+      return jsonWithCookies({
+        success: true,
+        wishlist: customer.wishlistProductIds,
+        isWishlisted: customer.wishlistProductIds.includes(productId)
+      }, 200, [cookie]);
+    }
+
+    if (method === 'DELETE') {
+      const pId = url.searchParams.get('productId');
+      if (pId) {
+        customer.wishlistProductIds = customer.wishlistProductIds.filter(id => id !== pId);
+        registeredCustomers.set(customer.email, customer);
+      }
+      const cookie = makeCustomerDataCookie(customer);
+      return jsonWithCookies({
+        success: true,
+        wishlist: customer.wishlistProductIds
+      }, 200, [cookie]);
+    }
   }
 
   // Customer Logout
@@ -1131,7 +1474,8 @@ async function handleApi(request, url, env) {
     }, 200, [
       'infinicharm_customer_session=; Path=/; Max-Age=0; SameSite=Lax',
       'infinicharm_customer_id=; Path=/; Max-Age=0; SameSite=Lax',
-      'infinicharm_customer_sv=; Path=/; Max-Age=0; SameSite=Lax'
+      'infinicharm_customer_sv=; Path=/; Max-Age=0; SameSite=Lax; HttpOnly',
+      'infinicharm_customer_data=; Path=/; Max-Age=0; SameSite=Lax; HttpOnly'
     ]);
   }
 
@@ -1175,17 +1519,6 @@ async function handleApi(request, url, env) {
     ]);
   }
 
-  // Customer me sub-resources
-  if (p.startsWith('/api/customers/me/')) {
-    if (p === '/api/customers/me/addresses') {
-      return json({ success: true, addresses: [] });
-    }
-    if (p === '/api/customers/me/wishlist') {
-      return json({ success: true, wishlist: [] });
-    }
-    return json({ success: true });
-  }
-
   // Orders
   if (p === '/api/orders') {
     if (method === 'POST') {
@@ -1193,16 +1526,51 @@ async function handleApi(request, url, env) {
       if (!body || !body.items || !body.shippingAddress) {
         return json({ success: false, error: 'Invalid order payload.' }, 400);
       }
+      const customer = getAuthenticatedCustomer(request);
       const orderId = body.id || ('INF-' + Date.now().toString().slice(-6) + '-' + Math.floor(1000 + Math.random() * 9000));
       const newOrder = {
         ...body,
         id: orderId,
         orderNumber: body.orderNumber || orderId,
+        customerId: customer ? customer.id : (body.customerId || 'guest'),
+        customerEmail: customer ? customer.email : (body.customerEmail || body.shippingAddress?.email || ''),
         createdAt: body.createdAt || new Date().toISOString(),
         status: body.status || 'PENDING',
         paymentStatus: body.paymentStatus || 'PENDING'
       };
       ordersStore.set(orderId, newOrder);
+
+      let cookiesToSet = [];
+      if (customer && body.shippingAddress && body.shippingAddress.addressLine1) {
+        if (!Array.isArray(customer.addresses)) customer.addresses = [];
+        const existingAddr = customer.addresses.find(a => 
+          a.addressLine1.toLowerCase().trim() === String(body.shippingAddress.addressLine1).toLowerCase().trim() &&
+          String(a.postalCode).trim() === String(body.shippingAddress.postalCode).trim()
+        );
+        if (!existingAddr) {
+          const newAddr = {
+            id: 'addr-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+            customerId: customer.id,
+            fullName: String(body.shippingAddress.fullName || customer.fullName).trim(),
+            phone: String(body.shippingAddress.phone || customer.phone || '').trim(),
+            addressLine1: String(body.shippingAddress.addressLine1).trim(),
+            addressLine2: body.shippingAddress.addressLine2 ? String(body.shippingAddress.addressLine2).trim() : '',
+            city: String(body.shippingAddress.city).trim(),
+            state: String(body.shippingAddress.state).trim(),
+            postalCode: String(body.shippingAddress.postalCode).trim(),
+            country: body.shippingAddress.country || 'India',
+            isDefaultShipping: customer.addresses.length === 0,
+            isDefaultBilling: customer.addresses.length === 0
+          };
+          customer.addresses.push(newAddr);
+          registeredCustomers.set(customer.email, customer);
+          cookiesToSet.push(makeCustomerDataCookie(customer));
+        }
+      }
+
+      if (cookiesToSet.length > 0) {
+        return jsonWithCookies({ success: true, order: newOrder }, 201, cookiesToSet);
+      }
       return json({ success: true, order: newOrder }, 201);
     }
 
@@ -1518,10 +1886,20 @@ async function handleApi(request, url, env) {
         id: c.id,
         email: c.email,
         fullName: c.fullName || c.name || '',
+        name: c.fullName || c.name || '',
         phone: c.phone || '',
         status: c.status || 'ACTIVE',
         emailVerified: Boolean(c.emailVerified),
         createdAt: c.createdAt,
+        addresses: Array.isArray(c.addresses) ? c.addresses : [],
+        wishlistProductIds: Array.isArray(c.wishlistProductIds) ? c.wishlistProductIds : [],
+        preferences: c.preferences || {
+          newsletterSubscribed: true,
+          smsAlerts: true,
+          orderUpdatesWhatsapp: true,
+          preferredCurrency: 'INR',
+          language: 'en'
+        }
       }));
       if (q) {
         list = list.filter(c => c.email.includes(q) || c.fullName.toLowerCase().includes(q) || c.phone.includes(q));
@@ -1545,11 +1923,59 @@ async function handleApi(request, url, env) {
         createdAt: new Date().toISOString(),
         addresses: body.address ? [body.address] : [],
         wishlistProductIds: [],
+        preferences: {
+          newsletterSubscribed: true,
+          smsAlerts: true,
+          orderUpdatesWhatsapp: true,
+          preferredCurrency: 'INR',
+          language: 'en'
+        }
       };
       registeredCustomers.set(email, newCust);
       return json({ success: true, customer: newCust, message: 'Customer account created successfully.' }, 201);
     }
   }
+
+  // Admin Customer Addresses (/api/admin/customers/:id/addresses)
+  if (p.startsWith('/api/admin/customers/') && p.includes('/addresses')) {
+    const segments = p.split('/');
+    const custId = segments[4];
+    const customer = [...registeredCustomers.values()].find(c => c.id === custId);
+    if (!customer) return json({ success: false, error: 'Customer not found.' }, 404);
+    if (!Array.isArray(customer.addresses)) customer.addresses = [];
+
+    if (method === 'POST') {
+      const body = await request.clone().json().catch(() => ({}));
+      const newAddr = {
+        id: 'addr-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+        customerId: customer.id,
+        fullName: String(body.fullName || customer.fullName).trim(),
+        phone: String(body.phone || customer.phone || '').trim(),
+        addressLine1: String(body.addressLine1 || '').trim(),
+        addressLine2: body.addressLine2 ? String(body.addressLine2).trim() : '',
+        city: String(body.city || '').trim(),
+        state: String(body.state || '').trim(),
+        postalCode: String(body.postalCode || '').trim(),
+        country: body.country || 'India',
+        isDefaultShipping: Boolean(body.isDefaultShipping) || customer.addresses.length === 0,
+        isDefaultBilling: Boolean(body.isDefaultBilling) || customer.addresses.length === 0
+      };
+      if (newAddr.isDefaultShipping) {
+        customer.addresses.forEach(a => { a.isDefaultShipping = false; });
+      }
+      customer.addresses.push(newAddr);
+      registeredCustomers.set(customer.email, customer);
+      return json({ success: true, addresses: customer.addresses, message: 'Address added.' }, 201);
+    }
+
+    if (method === 'DELETE') {
+      const addrId = segments[6];
+      customer.addresses = customer.addresses.filter(a => a.id !== addrId);
+      registeredCustomers.set(customer.email, customer);
+      return json({ success: true, addresses: customer.addresses, message: 'Address deleted.' });
+    }
+  }
+
   if (p.startsWith('/api/admin/customers/') && p.endsWith('/verify-email') && method === 'POST') {
     const custId = decodeURIComponent(p.replace('/api/admin/customers/', '').replace('/verify-email', ''));
     const customer = [...registeredCustomers.values()].find(c => c.id === custId);
@@ -1568,7 +1994,8 @@ async function handleApi(request, url, env) {
     }
     return json({ success: false, error: 'Unsupported action.' }, 400);
   }
-  if (p.startsWith('/api/admin/customers/') && !p.includes('/verify-email')) {
+
+  if (p.startsWith('/api/admin/customers/') && !p.includes('/verify-email') && !p.includes('/addresses')) {
     const custId = decodeURIComponent(p.replace('/api/admin/customers/', ''));
     const customer = [...registeredCustomers.values()].find(c => c.id === custId);
     if (!customer) return json({ success: false, error: 'Customer not found.' }, 404);

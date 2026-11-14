@@ -129,7 +129,7 @@ export default function AccountPage() {
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted mt-1.5 min-w-0">
                 <span className="flex items-center gap-1 min-w-0 break-all">
                   <Mail className="w-3.5 h-3.5 text-accent shrink-0" />
-                  <span className="truncate max-w-full">{customer?.email || 'customer@infinicharm.com'}</span>
+                  <span className="truncate max-w-full">{customer?.email || '—'}</span>
                 </span>
                 {customer?.phone && (
                   <span className="flex items-center gap-1">

@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { ResendVerificationBox } from '@/components/auth/ResendVerificationBox';
 import { OtpInput } from '@/components/auth/OtpInput';
 import { sanitizeRedirectPath, isValidEmail } from '@/lib/validation/auth';
+import { persistClientCustomerSession } from '@/lib/auth/client-session';
 import { CheckCircle2, AlertCircle, Loader2, ArrowRight, ShieldCheck, MailCheck, KeyRound } from 'lucide-react';
 
 function VerifyEmailContent() {
@@ -64,6 +65,10 @@ function VerifyEmailContent() {
         throw new Error(data.error || 'Verification failed. Please check your 6-digit code.');
       }
 
+      if (data?.customer) {
+        persistClientCustomerSession(data.customer);
+      }
+
       setState({
         phase: 'VERIFIED',
         message: data.message || 'Your email address has been verified. You can now sign in securely.',
@@ -103,6 +108,9 @@ function VerifyEmailContent() {
         );
 
         if (res.ok && data?.success) {
+          if (data?.customer) {
+            persistClientCustomerSession(data.customer);
+          }
           setState({
             phase: 'VERIFIED',
             message:

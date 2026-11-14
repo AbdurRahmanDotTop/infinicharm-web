@@ -80,9 +80,9 @@ export default function ProfilePage() {
           const stored = localStorage.getItem('infinicharm_customer_user');
           if (stored) {
             const u = JSON.parse(stored);
-            setFullName(u.name || u.fullName || 'AbdurRahman Ibn Ghufran');
-            setEmail(u.email || 'customer@infinicharm.com');
-            setPhone(u.phone || '8825164657');
+            setFullName(u.name || u.fullName || '');
+            setEmail(u.email || '');
+            setPhone(u.phone || '');
           }
         }
       } catch (err) {

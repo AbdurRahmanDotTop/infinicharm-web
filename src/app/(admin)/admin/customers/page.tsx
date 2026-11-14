@@ -322,7 +322,7 @@ export default function AdminCustomersPage() {
     setAddrPin('');
     setAddrCity('');
     setAddrState('');
-    setAddrIsDefault(cust.addresses.length === 0);
+    setAddrIsDefault((cust.addresses?.length || 0) === 0);
   };
 
   const handleAddrPinChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -393,7 +393,7 @@ export default function AdminCustomersPage() {
         if (addressModalCustomer) {
           setAddressModalCustomer({
             ...addressModalCustomer,
-            addresses: addressModalCustomer.addresses.filter((a) => a.id !== addressId),
+            addresses: (addressModalCustomer.addresses || []).filter((a) => a.id !== addressId),
           });
         }
       }
@@ -416,7 +416,7 @@ export default function AdminCustomersPage() {
         c.fullName.toLowerCase().includes(q) ||
         c.email.toLowerCase().includes(q) ||
         c.phone.includes(q) ||
-        c.addresses.some(
+        (c.addresses || []).some(
           (a) =>
             a.city.toLowerCase().includes(q) ||
             a.state.toLowerCase().includes(q) ||
@@ -612,7 +612,7 @@ export default function AdminCustomersPage() {
             {/* Mobile & Tablet Responsive Cards (< lg) */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 lg:hidden">
               {filteredCustomers.map((cust) => {
-                const primaryAddr = cust.addresses.find((a) => a.isDefaultShipping) || cust.addresses[0];
+                const primaryAddr = cust.addresses?.find((a) => a.isDefaultShipping) || cust.addresses?.[0];
                 return (
                   <div
                     key={cust.id}
@@ -741,7 +741,7 @@ export default function AdminCustomersPage() {
                 </thead>
                 <tbody className="divide-y divide-border">
                   {filteredCustomers.map((cust) => {
-                    const primaryAddr = cust.addresses.find((a) => a.isDefaultShipping) || cust.addresses[0];
+                    const primaryAddr = cust.addresses?.find((a) => a.isDefaultShipping) || cust.addresses?.[0];
                     return (
                       <tr key={cust.id} className="hover:bg-surface-dim/40 transition-colors">
                         <td className="py-4 px-4">
@@ -1002,7 +1002,7 @@ export default function AdminCustomersPage() {
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <h4 className="font-bold text-primary text-xs uppercase tracking-wider">
-                    Saved Address Book ({selectedCustomer.addresses.length})
+                    Saved Address Book ({selectedCustomer.addresses?.length || 0})
                   </h4>
                   <button
                     onClick={() => {
@@ -1016,7 +1016,7 @@ export default function AdminCustomersPage() {
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                  {selectedCustomer.addresses.map((a) => (
+                  {(selectedCustomer.addresses || []).map((a) => (
                     <div key={a.id} className="p-3.5 rounded-xl border border-border bg-surface-dim/50 space-y-1">
                       <div className="flex items-center justify-between">
                         <span className="font-semibold text-primary">{a.fullName}</span>
@@ -1036,7 +1036,7 @@ export default function AdminCustomersPage() {
                       </p>
                     </div>
                   ))}
-                  {selectedCustomer.addresses.length === 0 && (
+                  {(!selectedCustomer.addresses || selectedCustomer.addresses.length === 0) && (
                     <p className="text-muted italic text-xs col-span-2">No addresses on file.</p>
                   )}
                 </div>
@@ -1421,10 +1421,10 @@ export default function AdminCustomersPage() {
               {/* Existing Addresses list */}
               <div className="space-y-2">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-muted">
-                  Current Addresses ({addressModalCustomer.addresses.length})
+                  Current Addresses ({addressModalCustomer.addresses?.length || 0})
                 </span>
                 <div className="space-y-2 max-h-40 overflow-y-auto">
-                  {addressModalCustomer.addresses.map((addr) => (
+                  {(addressModalCustomer.addresses || []).map((addr) => (
                     <div key={addr.id} className="p-3 rounded-xl border border-border bg-surface-dim/50 flex items-center justify-between text-xs">
                       <div>
                         <span className="font-bold text-primary">{addr.fullName}</span>
