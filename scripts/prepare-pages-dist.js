@@ -641,6 +641,329 @@ function maskGatewaySecrets(gw) {
   return { ...gw, credentials: creds };
 }
 
+function resolveCouponStatusEdge(coupon, now) {
+  const n = now || new Date();
+  if (coupon.status === 'EXPIRED') return 'EXPIRED';
+  if (coupon.validUntil) {
+    const endMs = new Date(coupon.validUntil).getTime();
+    if (!Number.isNaN(endMs) && endMs < n.getTime()) {
+      return 'EXPIRED';
+    }
+  }
+  if (!coupon.isActive || coupon.status === 'INACTIVE') {
+    return 'INACTIVE';
+  }
+  return 'ACTIVE';
+}
+
+function normalizeCouponRecordEdge(coupon, now) {
+  const n = now || new Date();
+  const effectiveStatus = resolveCouponStatusEdge(coupon, n);
+  return {
+    ...coupon,
+    code: String(coupon.code || '').trim().toUpperCase(),
+    minOrderInPaise: Math.max(0, Math.round(Number(coupon.minOrderInPaise) || 0)),
+    maxDiscountInPaise:
+      coupon.maxDiscountInPaise !== undefined && coupon.maxDiscountInPaise !== null && Number(coupon.maxDiscountInPaise) > 0
+        ? Math.round(Number(coupon.maxDiscountInPaise))
+        : undefined,
+    usageLimitTotal:
+      coupon.usageLimitTotal !== undefined && coupon.usageLimitTotal !== null && Number(coupon.usageLimitTotal) > 0
+        ? Math.round(Number(coupon.usageLimitTotal))
+        : undefined,
+    usageLimitPerCustomer: Math.max(0, Math.round(Number(coupon.usageLimitPerCustomer ?? 1))),
+    usageCount: Math.max(0, Math.round(Number(coupon.usageCount) || 0)),
+    redeemedBy: Array.isArray(coupon.redeemedBy) ? coupon.redeemedBy : [],
+    applicabilityType: coupon.applicabilityType || 'ALL',
+    applicableCategoryIds: Array.isArray(coupon.applicableCategoryIds) ? coupon.applicableCategoryIds : [],
+    applicableProductIds: Array.isArray(coupon.applicableProductIds) ? coupon.applicableProductIds : [],
+    userEligibility: coupon.userEligibility || 'ALL',
+    eligibleCustomerIds: Array.isArray(coupon.eligibleCustomerIds) ? coupon.eligibleCustomerIds : [],
+    isActive: effectiveStatus === 'ACTIVE',
+    status: effectiveStatus,
+  };
+}
+
+function countCustomerRedemptionsEdge(coupon, customerId, customerEmail, customerPhone) {
+  const records = coupon.redeemedBy || [];
+  const cleanId = customerId && customerId !== 'guest' ? String(customerId).trim() : null;
+  const cleanEmail = customerEmail ? String(customerEmail).trim().toLowerCase() : null;
+  const cleanPhone = customerPhone ? String(customerPhone).replace(/\\D/g, '') : null;
+
+  if (!cleanId && !cleanEmail && !cleanPhone) return 0;
+
+  return records.filter((rec) => {
+    if (cleanId && rec.customerId && rec.customerId === cleanId) return true;
+    if (cleanEmail && rec.customerEmail && String(rec.customerEmail).toLowerCase() === cleanEmail) return true;
+    if (cleanPhone && rec.customerPhone && String(rec.customerPhone).replace(/\\D/g, '') === cleanPhone) return true;
+    return false;
+  }).length;
+}
+
+function validateCouponEdge(ctx) {
+  const normalizedCode = String(ctx.code || '').trim().toUpperCase();
+  if (!normalizedCode) {
+    return {
+      valid: false,
+      message: 'Please enter a coupon code.',
+      discountInPaise: 0,
+      errorCode: 'INVALID_CODE',
+    };
+  }
+
+  const now = ctx.now || new Date();
+  const foundRaw = couponsStore.find((c) => String(c.code || '').trim().toUpperCase() === normalizedCode);
+
+  if (!foundRaw) {
+    return {
+      valid: false,
+      message: 'Coupon code "' + normalizedCode + '" is invalid or does not exist.',
+      discountInPaise: 0,
+      errorCode: 'INVALID_CODE',
+    };
+  }
+
+  const coupon = normalizeCouponRecordEdge(foundRaw, now);
+
+  // 1. Expiration
+  const fromMs = new Date(coupon.validFrom).getTime();
+  const untilMs = new Date(coupon.validUntil).getTime();
+
+  if (!Number.isNaN(untilMs) && now.getTime() > untilMs) {
+    return {
+      valid: false,
+      message: 'Coupon ' + coupon.code + ' has expired.',
+      discountInPaise: 0,
+      errorCode: 'EXPIRED',
+    };
+  }
+
+  if (coupon.status === 'EXPIRED') {
+    return {
+      valid: false,
+      message: 'Coupon ' + coupon.code + ' has expired.',
+      discountInPaise: 0,
+      errorCode: 'EXPIRED',
+    };
+  }
+
+  if (!coupon.isActive || coupon.status === 'INACTIVE') {
+    return {
+      valid: false,
+      message: 'Coupon ' + coupon.code + ' is currently inactive.',
+      discountInPaise: 0,
+      errorCode: 'INACTIVE',
+    };
+  }
+
+  if (!Number.isNaN(fromMs) && now.getTime() < fromMs) {
+    return {
+      valid: false,
+      message: 'Coupon ' + coupon.code + ' is scheduled for a future date and not active yet.',
+      discountInPaise: 0,
+      errorCode: 'NOT_STARTED',
+    };
+  }
+
+  // 2. Global usage limit
+  if (coupon.usageLimitTotal && coupon.usageLimitTotal > 0 && coupon.usageCount >= coupon.usageLimitTotal) {
+    return {
+      valid: false,
+      message: 'Coupon ' + coupon.code + ' has reached its maximum redemption limit.',
+      discountInPaise: 0,
+      errorCode: 'GLOBAL_LIMIT_REACHED',
+    };
+  }
+
+  // 3. User eligibility
+  const isAuthenticated = Boolean(ctx.isAuthenticated || (ctx.customerId && ctx.customerId !== 'guest'));
+  const eligibility = coupon.userEligibility || 'ALL';
+
+  if (eligibility === 'LOGGED_IN' && !isAuthenticated) {
+    return {
+      valid: false,
+      message: 'Please sign in to your account to use coupon ' + coupon.code + '.',
+      discountInPaise: 0,
+      errorCode: 'AUTH_REQUIRED',
+    };
+  }
+
+  if (eligibility === 'NEW_CUSTOMERS') {
+    if (!isAuthenticated && !ctx.customerEmail && !ctx.customerPhone) {
+      return {
+        valid: false,
+        message: 'Coupon ' + coupon.code + ' is exclusive to new customers. Please sign in or enter your contact details at checkout.',
+        discountInPaise: 0,
+        errorCode: 'AUTH_REQUIRED',
+      };
+    }
+    if ((ctx.customerOrderCount ?? 0) > 0) {
+      return {
+        valid: false,
+        message: 'Coupon ' + coupon.code + ' is valid only for first-time customers.',
+        discountInPaise: 0,
+        errorCode: 'NEW_CUSTOMER_ONLY',
+      };
+    }
+  }
+
+  if (eligibility === 'SPECIFIC_CUSTOMERS') {
+    const allowedIds = coupon.eligibleCustomerIds || [];
+    if (!ctx.customerId || ctx.customerId === 'guest' || !allowedIds.includes(ctx.customerId)) {
+      return {
+        valid: false,
+        message: 'Your account is not eligible for coupon ' + coupon.code + '.',
+        discountInPaise: 0,
+        errorCode: 'USER_NOT_ELIGIBLE',
+      };
+    }
+  }
+
+  // 4. Per-customer usage limit
+  if (coupon.usageLimitPerCustomer > 0) {
+    const usedByUser = countCustomerRedemptionsEdge(coupon, ctx.customerId, ctx.customerEmail, ctx.customerPhone);
+    if (usedByUser >= coupon.usageLimitPerCustomer) {
+      return {
+        valid: false,
+        message: 'You have already used coupon ' + coupon.code + ' the maximum allowed number of times.',
+        discountInPaise: 0,
+        errorCode: 'USER_LIMIT_REACHED',
+      };
+    }
+  }
+
+  // 5. Product & Category applicability
+  const applicability = coupon.applicabilityType || 'ALL';
+  const items = Array.isArray(ctx.items) ? ctx.items : [];
+
+  let eligibleSubtotalInPaise = 0;
+
+  if (items.length === 0) {
+    if (applicability !== 'ALL') {
+      return {
+        valid: false,
+        message: 'Coupon ' + coupon.code + ' applies to specific items. Add qualifying products to your cart first.',
+        discountInPaise: 0,
+        errorCode: 'NOT_APPLICABLE_TO_ITEMS',
+      };
+    }
+    eligibleSubtotalInPaise = Math.max(0, Math.round(Number(ctx.subtotalInPaise) || 0));
+  } else if (applicability === 'ALL') {
+    eligibleSubtotalInPaise = items.reduce(
+      (sum, item) => sum + Math.max(0, Math.round(Number(item.priceInPaise) || 0)) * Math.max(1, Math.round(Number(item.quantity) || 1)),
+      0
+    );
+  } else if (applicability === 'CATEGORIES') {
+    const catIds = new Set(coupon.applicableCategoryIds || []);
+    for (const item of items) {
+      const matchById = item.categoryId && catIds.has(item.categoryId);
+      const matchBySlug = item.categorySlug && catIds.has(item.categorySlug);
+      if (matchById || matchBySlug) {
+        eligibleSubtotalInPaise += Math.max(0, Math.round(Number(item.priceInPaise) || 0)) * Math.max(1, Math.round(Number(item.quantity) || 1));
+      }
+    }
+    if (eligibleSubtotalInPaise === 0) {
+      return {
+        valid: false,
+        message: 'Coupon ' + coupon.code + ' is not valid for the categories in your bag.',
+        discountInPaise: 0,
+        errorCode: 'NOT_APPLICABLE_TO_ITEMS',
+      };
+    }
+  } else if (applicability === 'PRODUCTS') {
+    const prodIds = new Set(coupon.applicableProductIds || []);
+    for (const item of items) {
+      if (item.productId && prodIds.has(item.productId)) {
+        eligibleSubtotalInPaise += Math.max(0, Math.round(Number(item.priceInPaise) || 0)) * Math.max(1, Math.round(Number(item.quantity) || 1));
+      }
+    }
+    if (eligibleSubtotalInPaise === 0) {
+      return {
+        valid: false,
+        message: 'Coupon ' + coupon.code + ' does not apply to the products in your bag.',
+        discountInPaise: 0,
+        errorCode: 'NOT_APPLICABLE_TO_ITEMS',
+      };
+    }
+  }
+
+  // 6. Minimum qualifying spend
+  if (eligibleSubtotalInPaise < coupon.minOrderInPaise) {
+    const minRupees = (coupon.minOrderInPaise / 100).toLocaleString('en-IN', {
+      maximumFractionDigits: 2,
+    });
+    return {
+      valid: false,
+      message: 'Coupon ' + coupon.code + ' requires a minimum qualifying spend of ₹' + minRupees + '.',
+      discountInPaise: 0,
+      eligibleSubtotalInPaise,
+      errorCode: 'MIN_ORDER_NOT_MET',
+    };
+  }
+
+  // 7. Calculate discount
+  let discountInPaise = 0;
+  if (coupon.discountType === 'PERCENTAGE') {
+    discountInPaise = Math.round((eligibleSubtotalInPaise * coupon.discountValue) / 100);
+    if (coupon.maxDiscountInPaise && discountInPaise > coupon.maxDiscountInPaise) {
+      discountInPaise = coupon.maxDiscountInPaise;
+    }
+  } else {
+    discountInPaise = coupon.discountValue;
+  }
+
+  discountInPaise = Math.max(0, Math.min(discountInPaise, eligibleSubtotalInPaise));
+
+  return {
+    valid: true,
+    message: 'Coupon ' + coupon.code + ' applied successfully!',
+    coupon,
+    discountInPaise,
+    eligibleSubtotalInPaise,
+  };
+}
+
+function syncCouponsFromCookie(request) {
+  const cookieVal = getCookie(request, 'infinicharm_coupons_cache');
+  if (cookieVal) {
+    try {
+      const parsed = JSON.parse(cookieVal);
+      if (Array.isArray(parsed) && parsed.length >= 0) {
+        couponsStore.length = 0;
+        couponsStore.push(...parsed);
+      }
+    } catch {}
+  }
+}
+
+function makeCouponsCookie() {
+  const safeCoupons = couponsStore.map(c => ({
+    id: c.id,
+    code: c.code,
+    description: c.description || '',
+    discountType: c.discountType,
+    discountValue: c.discountValue,
+    minOrderInPaise: c.minOrderInPaise,
+    maxDiscountInPaise: c.maxDiscountInPaise,
+    usageLimitTotal: c.usageLimitTotal,
+    usageLimitPerCustomer: c.usageLimitPerCustomer,
+    usageCount: c.usageCount || 0,
+    redeemedBy: c.redeemedBy || [],
+    validFrom: c.validFrom,
+    validUntil: c.validUntil,
+    applicabilityType: c.applicabilityType || 'ALL',
+    applicableCategoryIds: c.applicableCategoryIds || [],
+    applicableProductIds: c.applicableProductIds || [],
+    userEligibility: c.userEligibility || 'ALL',
+    eligibleCustomerIds: c.eligibleCustomerIds || [],
+    isActive: c.isActive,
+    status: c.status,
+    createdAt: c.createdAt,
+    updatedAt: c.updatedAt,
+  }));
+  return 'infinicharm_coupons_cache=' + encodeURIComponent(JSON.stringify(safeCoupons)) + '; Path=/; Max-Age=2592000; SameSite=Lax';
+}
+
 const AUTH_SECRET = 'infinicharm-secure-token-secret-2026-auth';
 
 async function hmacSha256Hex(secret, text) {
@@ -1555,8 +1878,65 @@ async function handleApi(request, url, env) {
       if (!body || !body.items || !body.shippingAddress) {
         return json({ success: false, error: 'Invalid order payload.' }, 400);
       }
+      syncCouponsFromCookie(request);
       const customer = getAuthenticatedCustomer(request);
       const orderId = body.id || ('INF-' + Date.now().toString().slice(-6) + '-' + Math.floor(1000 + Math.random() * 9000));
+
+      const normalizedCouponCode = body.couponCode ? String(body.couponCode).trim().toUpperCase() : undefined;
+      let orderDiscountInPaise = Math.max(0, Math.round(Number(body.discountInPaise) || 0));
+      let cookiesToSet = [];
+
+      if (normalizedCouponCode) {
+        const existingOrders = [...ordersStore.values()];
+        const customerOrderCount = existingOrders.filter((o) => {
+          if (o.status === 'CANCELLED') return false;
+          if (customer?.id && o.customerId === customer.id) return true;
+          if (customer?.email && o.customerEmail && o.customerEmail.toLowerCase() === customer.email.toLowerCase()) return true;
+          if (body.customerEmail && o.customerEmail && o.customerEmail.toLowerCase() === body.customerEmail.toLowerCase()) return true;
+          return false;
+        }).length;
+
+        const couponCheck = validateCouponEdge({
+          code: normalizedCouponCode,
+          items: body.items || [],
+          subtotalInPaise: Number(body.subtotalInPaise) || 0,
+          customerId: customer?.id || null,
+          customerEmail: customer?.email || body.customerEmail || body.shippingAddress?.email || null,
+          customerPhone: customer?.phone || body.customerPhone || body.shippingAddress?.phone || null,
+          isAuthenticated: Boolean(customer),
+          customerOrderCount,
+        });
+
+        if (!couponCheck.valid) {
+          return json({ success: false, error: couponCheck.message }, 400);
+        }
+
+        orderDiscountInPaise = couponCheck.discountInPaise;
+
+        // Atomically record redemption in couponsStore
+        const cIdx = couponsStore.findIndex((c) => String(c.code || '').trim().toUpperCase() === normalizedCouponCode);
+        if (cIdx !== -1) {
+          const currentC = couponsStore[cIdx];
+          const redList = Array.isArray(currentC.redeemedBy) ? [...currentC.redeemedBy] : [];
+          redList.push({
+            customerId: customer?.id,
+            customerEmail: customer?.email || body.customerEmail || body.shippingAddress?.email,
+            customerPhone: customer?.phone || body.customerPhone || body.shippingAddress?.phone,
+            orderId,
+            orderNumber: body.orderNumber || orderId,
+            discountInPaise: orderDiscountInPaise,
+            redeemedAt: new Date().toISOString(),
+          });
+          couponsStore[cIdx] = {
+            ...currentC,
+            usageCount: (currentC.usageCount || 0) + 1,
+            redeemedBy: redList,
+            updatedAt: new Date().toISOString(),
+          };
+          cookiesToSet.push(makeCouponsCookie());
+        }
+      }
+
       const newOrder = {
         ...body,
         id: orderId,
@@ -1565,11 +1945,12 @@ async function handleApi(request, url, env) {
         customerEmail: customer ? customer.email : (body.customerEmail || body.shippingAddress?.email || ''),
         createdAt: body.createdAt || new Date().toISOString(),
         status: body.status || 'PENDING',
-        paymentStatus: body.paymentStatus || 'PENDING'
+        paymentStatus: body.paymentStatus || 'PENDING',
+        discountInPaise: orderDiscountInPaise,
+        couponCode: normalizedCouponCode || undefined,
       };
       ordersStore.set(orderId, newOrder);
 
-      let cookiesToSet = [];
       if (customer && body.shippingAddress && body.shippingAddress.addressLine1) {
         if (!Array.isArray(customer.addresses)) customer.addresses = [];
         const existingAddr = customer.addresses.find(a => 
@@ -1861,49 +2242,114 @@ async function handleApi(request, url, env) {
 
   // /api/admin/coupons
   if (p === '/api/admin/coupons') {
+    syncCouponsFromCookie(request);
     if (method === 'GET') {
-      const q = url.searchParams.get('q')?.toLowerCase();
-      let list = couponsStore;
+      const q = url.searchParams.get('q')?.toLowerCase() || url.searchParams.get('search')?.toLowerCase();
+      const statusParam = url.searchParams.get('status');
+      const typeParam = url.searchParams.get('discountType');
+      const now = new Date();
+      let list = couponsStore.map(c => normalizeCouponRecordEdge(c, now));
       if (q) list = list.filter(c => c.code.toLowerCase().includes(q) || (c.description && c.description.toLowerCase().includes(q)));
+      if (statusParam && statusParam !== 'ALL') list = list.filter(c => c.status === statusParam);
+      if (typeParam && typeParam !== 'ALL') list = list.filter(c => c.discountType === typeParam);
       return json({ success: true, coupons: list, totalCount: list.length });
     }
     if (method === 'POST') {
       const body = await request.clone().json().catch(() => ({}));
+      const rawCode = String(body.code || '').toUpperCase().trim();
+      if (!rawCode || !/^[A-Z0-9_-]{2,40}$/.test(rawCode)) {
+        return json({ success: false, error: 'Coupon code must be 2–40 characters (letters, numbers, hyphens, underscores).' }, 400);
+      }
+      if (couponsStore.some(c => c.code.toUpperCase().trim() === rawCode)) {
+        return json({ success: false, error: 'A coupon with code "' + rawCode + '" already exists.' }, 400);
+      }
+      const discVal = Number(body.discountValue);
+      if (!Number.isFinite(discVal) || discVal <= 0) {
+        return json({ success: false, error: 'Discount value must be greater than zero.' }, 400);
+      }
+
+      const desiredStatus = body.status || (body.isActive === false ? 'INACTIVE' : 'ACTIVE');
       const newCoupon = {
-        id: 'cpn-' + Date.now(),
-        code: String(body.code || '').toUpperCase().trim(),
-        description: body.description || '',
-        discountType: body.discountType || 'PERCENTAGE',
-        discountValue: Number(body.discountValue) || 10,
-        minOrderInPaise: Number(body.minOrderInPaise) || 0,
-        maxDiscountInPaise: body.maxDiscountInPaise ? Number(body.maxDiscountInPaise) : undefined,
-        isActive: body.isActive !== false,
-        status: body.status || 'ACTIVE',
+        id: 'coup-' + Date.now() + '-' + Math.floor(100 + Math.random() * 900),
+        code: rawCode,
+        description: body.description ? String(body.description).trim() : '',
+        discountType: body.discountType === 'FIXED_AMOUNT' ? 'FIXED_AMOUNT' : 'PERCENTAGE',
+        discountValue: discVal,
+        minOrderInPaise: Math.max(0, Math.round(Number(body.minOrderInPaise) || 0)),
+        maxDiscountInPaise: body.maxDiscountInPaise && Number(body.maxDiscountInPaise) > 0 ? Math.round(Number(body.maxDiscountInPaise)) : undefined,
+        usageLimitTotal: body.usageLimitTotal && Number(body.usageLimitTotal) > 0 ? Math.round(Number(body.usageLimitTotal)) : undefined,
+        usageLimitPerCustomer: body.usageLimitPerCustomer !== undefined && body.usageLimitPerCustomer !== null ? Math.max(0, Math.round(Number(body.usageLimitPerCustomer))) : 1,
+        usageCount: 0,
+        redeemedBy: [],
         validFrom: body.validFrom || new Date().toISOString(),
-        validUntil: body.validUntil || new Date(Date.now() + 30 * 86400000).toISOString(),
+        validUntil: body.validUntil || new Date(Date.now() + 90 * 86400000).toISOString(),
+        applicabilityType: body.applicabilityType || 'ALL',
+        applicableCategoryIds: Array.isArray(body.applicableCategoryIds) ? body.applicableCategoryIds : [],
+        applicableProductIds: Array.isArray(body.applicableProductIds) ? body.applicableProductIds : [],
+        userEligibility: body.userEligibility || 'ALL',
+        eligibleCustomerIds: Array.isArray(body.eligibleCustomerIds) ? body.eligibleCustomerIds : [],
+        isActive: desiredStatus === 'ACTIVE',
+        status: desiredStatus,
         createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       };
       couponsStore.unshift(newCoupon);
-      return json({ success: true, coupon: newCoupon, message: 'Coupon "' + newCoupon.code + '" created successfully.' }, 201);
+      return jsonWithCookies({
+        success: true,
+        coupon: newCoupon,
+        message: 'Coupon "' + newCoupon.code + '" created successfully.'
+      }, 201, [makeCouponsCookie()]);
     }
   }
   if (p.startsWith('/api/admin/coupons/')) {
+    syncCouponsFromCookie(request);
     const cId = decodeURIComponent(p.replace('/api/admin/coupons/', ''));
     const idx = couponsStore.findIndex(c => c.id === cId || c.code === cId);
     if (method === 'GET') {
       if (idx === -1) return json({ success: false, error: 'Coupon not found.' }, 404);
-      return json({ success: true, coupon: couponsStore[idx] });
+      return json({ success: true, coupon: normalizeCouponRecordEdge(couponsStore[idx], new Date()) });
     }
     if (method === 'PUT' || method === 'PATCH') {
       if (idx === -1) return json({ success: false, error: 'Coupon not found.' }, 404);
       const body = await request.clone().json().catch(() => ({}));
-      couponsStore[idx] = { ...couponsStore[idx], ...body };
-      return json({ success: true, coupon: couponsStore[idx], message: 'Coupon "' + couponsStore[idx].code + '" updated successfully.' });
+      const cur = couponsStore[idx];
+      const updatedStatus = body.status !== undefined ? body.status : (body.isActive !== undefined ? (body.isActive ? 'ACTIVE' : 'INACTIVE') : cur.status);
+
+      couponsStore[idx] = {
+        ...cur,
+        ...body,
+        code: body.code ? String(body.code).toUpperCase().trim() : cur.code,
+        description: body.description !== undefined ? String(body.description).trim() : cur.description,
+        discountType: body.discountType || cur.discountType,
+        discountValue: body.discountValue !== undefined ? Number(body.discountValue) : cur.discountValue,
+        minOrderInPaise: body.minOrderInPaise !== undefined ? Math.max(0, Math.round(Number(body.minOrderInPaise))) : cur.minOrderInPaise,
+        maxDiscountInPaise: body.maxDiscountInPaise === null || body.maxDiscountInPaise === 0 ? undefined : (body.maxDiscountInPaise !== undefined ? Math.round(Number(body.maxDiscountInPaise)) : cur.maxDiscountInPaise),
+        usageLimitTotal: body.usageLimitTotal === null || body.usageLimitTotal === 0 ? undefined : (body.usageLimitTotal !== undefined ? Math.round(Number(body.usageLimitTotal)) : cur.usageLimitTotal),
+        usageLimitPerCustomer: body.usageLimitPerCustomer !== undefined ? Math.max(0, Math.round(Number(body.usageLimitPerCustomer))) : cur.usageLimitPerCustomer,
+        validFrom: body.validFrom || cur.validFrom,
+        validUntil: body.validUntil || cur.validUntil,
+        applicabilityType: body.applicabilityType || cur.applicabilityType,
+        applicableCategoryIds: Array.isArray(body.applicableCategoryIds) ? body.applicableCategoryIds : cur.applicableCategoryIds,
+        applicableProductIds: Array.isArray(body.applicableProductIds) ? body.applicableProductIds : cur.applicableProductIds,
+        userEligibility: body.userEligibility || cur.userEligibility,
+        eligibleCustomerIds: Array.isArray(body.eligibleCustomerIds) ? body.eligibleCustomerIds : cur.eligibleCustomerIds,
+        isActive: updatedStatus === 'ACTIVE',
+        status: updatedStatus,
+        updatedAt: new Date().toISOString(),
+      };
+      return jsonWithCookies({
+        success: true,
+        coupon: couponsStore[idx],
+        message: 'Coupon "' + couponsStore[idx].code + '" updated successfully.'
+      }, 200, [makeCouponsCookie()]);
     }
     if (method === 'DELETE') {
       if (idx === -1) return json({ success: false, error: 'Coupon not found.' }, 404);
       couponsStore.splice(idx, 1);
-      return json({ success: true, message: 'Coupon permanently deleted.' });
+      return jsonWithCookies({
+        success: true,
+        message: 'Coupon permanently deleted.'
+      }, 200, [makeCouponsCookie()]);
     }
   }
 
@@ -2630,11 +3076,67 @@ async function handleApi(request, url, env) {
 
   // /api/coupons/validate
   if (p === '/api/coupons/validate' && method === 'POST') {
-    return json({
-      valid: false,
-      message: 'Please enter a valid coupon code.',
-      discountInPaise: 0,
+    syncCouponsFromCookie(request);
+    const body = await request.clone().json().catch(() => ({}));
+    const code = String(body.code || '').trim().toUpperCase();
+    const rawItems = Array.isArray(body.items) ? body.items : [];
+
+    const customer = getAuthenticatedCustomer(request);
+    if (customer && customer.status === 'SUSPENDED') {
+      return json({
+        valid: false,
+        message: 'Your account is suspended and cannot apply promotional coupons.',
+        discountInPaise: 0,
+      }, 403);
+    }
+
+    const effectiveCustomerId = customer?.id || null;
+    const effectiveEmail = customer?.email || (body.customerEmail ? String(body.customerEmail).trim() : null);
+    const effectivePhone = customer?.phone || (body.customerPhone ? String(body.customerPhone).trim() : null);
+
+    // Compute prior customer order count
+    const existingOrders = [...ordersStore.values()];
+    const customerOrderCount = existingOrders.filter((o) => {
+      if (o.status === 'CANCELLED') return false;
+      if (effectiveCustomerId && o.customerId === effectiveCustomerId) return true;
+      if (effectiveEmail && o.customerEmail && o.customerEmail.toLowerCase() === effectiveEmail.toLowerCase()) return true;
+      if (effectivePhone && o.customerPhone && o.customerPhone.replace(/\\D/g, '') === effectivePhone.replace(/\\D/g, '')) return true;
+      return false;
+    }).length;
+
+    // Resolve authoritative product prices & categories
+    const productMap = new Map(PRODUCTS.map((p) => [p.id, p]));
+    const categorySlugById = new Map(CATEGORIES.map((c) => [c.id, c.slug]));
+
+    const resolvedItems = rawItems.map((item) => {
+      const prod = item.productId ? productMap.get(item.productId) : undefined;
+      const variant = prod?.variants?.find((v) => v.id === item.variantId) || prod?.variants?.[0];
+      const priceInPaise = variant ? variant.priceInPaise : Math.max(0, Math.round(Number(item.priceInPaise) || 0));
+      const categoryId = prod?.categoryId || item.categoryId;
+      const categorySlug = (categoryId && categorySlugById.get(categoryId)) || item.categorySlug || undefined;
+
+      return {
+        productId: prod?.id || item.productId || '',
+        variantId: variant?.id || item.variantId,
+        categoryId,
+        categorySlug,
+        priceInPaise,
+        quantity: Math.max(1, Math.round(Number(item.quantity) || 1)),
+      };
     });
+
+    const result = validateCouponEdge({
+      code,
+      items: resolvedItems,
+      subtotalInPaise: resolvedItems.length === 0 && body.subtotalInPaise !== undefined ? Number(body.subtotalInPaise) : undefined,
+      customerId: effectiveCustomerId,
+      customerEmail: effectiveEmail,
+      customerPhone: effectivePhone,
+      isAuthenticated: Boolean(customer),
+      customerOrderCount,
+    });
+
+    return json(result, result.valid ? 200 : 400);
   }
 
   // /api/auth/settings

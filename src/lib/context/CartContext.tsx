@@ -50,6 +50,22 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
   const [couponInvalidationMessage, setCouponInvalidationMessage] = useState<string | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [lastCouponOptions, setLastCouponOptions] = useState<ApplyCouponOptions | undefined>(undefined);
+
+  const getStoredCustomerContact = useCallback(() => {
+    if (typeof window === 'undefined') return { email: undefined, phone: undefined };
+    try {
+      const raw = localStorage.getItem('infinicharm_customer_user');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        return {
+          email: parsed?.email ? String(parsed.email).trim() : undefined,
+          phone: parsed?.phone ? String(parsed.phone).trim() : undefined,
+        };
+      }
+    } catch {}
+    return { email: undefined, phone: undefined };
+  }, []);
 
   const mapItemsForCouponApi = useCallback((cartItems: CartItem[]) => {
     return cartItems.map((item) => ({
@@ -75,10 +91,13 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
               (acc: number, i: CartItem) => acc + i.variant.priceInPaise * i.quantity,
               0
             );
+            const contact = getStoredCustomerContact();
             validateCouponWithServer({
               code: savedCode,
               items: mapItemsForCouponApi(parsed),
               subtotalInPaise: sub,
+              customerEmail: contact.email,
+              customerPhone: contact.phone,
             }).then((res) => {
               if (res.valid && res.coupon) {
                 setAppliedCoupon(res.coupon);
@@ -132,10 +151,16 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }
 
     let cancelled = false;
+    const contact = getStoredCustomerContact();
+    const effectiveEmail = lastCouponOptions?.customerEmail || contact.email;
+    const effectivePhone = lastCouponOptions?.customerPhone || contact.phone;
+
     validateCouponWithServer({
       code: appliedCoupon.code,
       items: mapItemsForCouponApi(items),
       subtotalInPaise,
+      customerEmail: effectiveEmail,
+      customerPhone: effectivePhone,
     }).then((res) => {
       if (cancelled) return;
       if (res.valid && res.coupon) {
@@ -276,12 +301,19 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     setIsApplyingCoupon(true);
     setCouponInvalidationMessage(null);
     try {
+      const contact = getStoredCustomerContact();
+      const effectiveEmail = options?.customerEmail || contact.email;
+      const effectivePhone = options?.customerPhone || contact.phone;
+      if (options) {
+        setLastCouponOptions(options);
+      }
+
       const result = await validateCouponWithServer({
         code,
         items: mapItemsForCouponApi(items),
         subtotalInPaise,
-        customerEmail: options?.customerEmail,
-        customerPhone: options?.customerPhone,
+        customerEmail: effectiveEmail,
+        customerPhone: effectivePhone,
       });
 
       if (result.valid && result.coupon) {
@@ -307,6 +339,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     setAppliedCoupon(null);
     setDiscountInPaise(0);
     setCouponInvalidationMessage(null);
+    setLastCouponOptions(undefined);
     try {
       sessionStorage.removeItem(APPLIED_COUPON_KEY);
     } catch {}
