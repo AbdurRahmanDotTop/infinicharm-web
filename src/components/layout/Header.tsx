@@ -68,13 +68,26 @@ export function Header() {
     isMasterEnabled: true,
     leftItems: [
       {
-        id: 'ann-delivery-01',
-        type: 'delivery',
-        text: 'Free Express Delivery over ₹499',
-        href: '/shop',
+        id: 'ann-1794473026858-405',
+        type: 'coupon',
+        text: "Use Code 'WELCOME10' for 10% Off",
+        href: '/deals',
         isClickable: true,
         position: 'left',
         displayOrder: 1,
+        isEnabled: true,
+        createdAt: '',
+        updatedAt: '',
+      },
+      {
+        id: 'ann-delivery-01',
+        type: 'delivery',
+        text: 'Free Express Delivery over ₹4,999',
+        deliveryThresholdInRupees: 4999,
+        href: '/shop',
+        isClickable: true,
+        position: 'left',
+        displayOrder: 2,
         isEnabled: true,
         createdAt: '',
         updatedAt: '',
@@ -88,7 +101,7 @@ export function Header() {
         href: 'mailto:support@infinicharm.com',
         isClickable: true,
         position: 'right',
-        displayOrder: 3,
+        displayOrder: 4,
         isEnabled: true,
         createdAt: '',
         updatedAt: '',
@@ -100,7 +113,7 @@ export function Header() {
         href: '/track-order',
         isClickable: true,
         position: 'right',
-        displayOrder: 4,
+        displayOrder: 5,
         isEnabled: true,
         createdAt: '',
         updatedAt: '',
@@ -114,10 +127,24 @@ export function Header() {
         .then((res) => (res.ok ? res.json() : null))
         .then((data) => {
           if (data && data.success) {
+            const isMasterEnabled = data.isMasterEnabled !== false;
+            const rawItems: AnnouncementItem[] = Array.isArray(data.items) ? data.items : [];
+            const activeItems = rawItems
+              .filter((i: AnnouncementItem) => i.isEnabled !== false)
+              .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
+
+            const left = Array.isArray(data.leftItems) && data.leftItems.length > 0
+              ? data.leftItems.filter((i: AnnouncementItem) => i.isEnabled !== false)
+              : activeItems.filter((i: AnnouncementItem) => i.position === 'left');
+
+            const right = Array.isArray(data.rightItems) && data.rightItems.length > 0
+              ? data.rightItems.filter((i: AnnouncementItem) => i.isEnabled !== false)
+              : activeItems.filter((i: AnnouncementItem) => i.position === 'right');
+
             setAnnouncementConfig({
-              isMasterEnabled: data.isMasterEnabled !== false,
-              leftItems: data.leftItems || [],
-              rightItems: data.rightItems || [],
+              isMasterEnabled,
+              leftItems: left,
+              rightItems: right,
             });
           }
         })

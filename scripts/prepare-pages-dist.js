@@ -315,8 +315,22 @@ for (const p of productsData) {
   writeApiEndpoint(`products/${p.slug}`, { success: true, product: p });
   if (p.id) writeApiEndpoint(`products/${p.id}`, { success: true, product: p });
 }
+function formatAnnouncementsResponse(config) {
+  const isMasterEnabled = config.isMasterEnabled !== false;
+  const items = Array.isArray(config.items) ? config.items : [];
+  const activeItems = isMasterEnabled
+    ? items.filter(i => i.isEnabled !== false).sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0))
+    : [];
+  return {
+    success: true,
+    isMasterEnabled,
+    items: activeItems,
+    leftItems: activeItems.filter(i => i.position === 'left'),
+    rightItems: activeItems.filter(i => i.position === 'right'),
+  };
+}
 writeApiEndpoint('homepage/sections', { success: true, count: homepageSectionsData.length, sections: homepageSectionsData });
-writeApiEndpoint('announcements', { success: true, ...announcementsData });
+writeApiEndpoint('announcements', formatAnnouncementsResponse(announcementsData));
 writeApiEndpoint('settings/social-share', { success: true, socialLinks: socialSettingsData.socialLinks || [], sharing: socialSettingsData.sharing || {} });
 writeApiEndpoint('settings/shipping', { success: true, settings: shippingSettingsData });
 writeApiEndpoint('settings/badges', { success: true, count: badgesData.length, badges: badgesData });
@@ -1707,7 +1721,23 @@ async function handleApi(request, url, env) {
     if (method === 'GET') return json({ success: true, config: announcementsStore });
     if (method === 'PUT') {
       const body = await request.clone().json().catch(() => ({}));
-      announcementsStore = { ...announcementsStore, ...body };
+      if (body.isMasterEnabled !== undefined) {
+        announcementsStore.isMasterEnabled = Boolean(body.isMasterEnabled);
+      }
+      if (Array.isArray(body.orderedIds)) {
+        const itemMap = new Map((announcementsStore.items || []).map(i => [i.id, i]));
+        const reordered = [];
+        body.orderedIds.forEach((id, idx) => {
+          const it = itemMap.get(id);
+          if (it) {
+            it.displayOrder = idx + 1;
+            reordered.push(it);
+            itemMap.delete(id);
+          }
+        });
+        itemMap.forEach(it => reordered.push(it));
+        announcementsStore.items = reordered;
+      }
       return json({ success: true, config: announcementsStore, message: 'Announcement bar updated successfully.' });
     }
   }
@@ -1715,14 +1745,42 @@ async function handleApi(request, url, env) {
     const body = await request.clone().json().catch(() => ({}));
     const newItem = {
       id: 'ann-' + Date.now(),
+      type: body.type || 'delivery',
       text: body.text || '',
-      linkUrl: body.linkUrl || '',
+      subtext: body.subtext || undefined,
+      icon: body.icon || undefined,
+      href: body.href || undefined,
+      isClickable: body.isClickable !== false,
+      openInNewTab: Boolean(body.openInNewTab),
+      deliveryThresholdInRupees: body.deliveryThresholdInRupees ? Number(body.deliveryThresholdInRupees) : undefined,
+      couponCode: body.couponCode || undefined,
+      discountPercent: body.discountPercent ? Number(body.discountPercent) : undefined,
+      supportEmail: body.supportEmail || undefined,
+      position: body.position || 'left',
+      displayOrder: (announcementsStore.items?.length || 0) + 1,
       isEnabled: body.isEnabled !== false,
-      priority: body.priority || 1,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
     if (!announcementsStore.items) announcementsStore.items = [];
     announcementsStore.items.push(newItem);
     return json({ success: true, item: newItem, message: 'Announcement item created.' }, 201);
+  }
+  if (p.startsWith('/api/admin/announcements/items/')) {
+    const id = p.replace('/api/admin/announcements/items/', '');
+    const items = announcementsStore.items || [];
+    const idx = items.findIndex(i => i.id === id);
+    if (idx === -1) return json({ success: false, error: 'Announcement item not found.' }, 404);
+
+    if (method === 'PUT') {
+      const body = await request.clone().json().catch(() => ({}));
+      items[idx] = { ...items[idx], ...body, id, updatedAt: new Date().toISOString() };
+      return json({ success: true, item: items[idx], message: 'Announcement item updated.' });
+    }
+    if (method === 'DELETE') {
+      announcementsStore.items = items.filter(i => i.id !== id);
+      return json({ success: true, message: 'Announcement item deleted.' });
+    }
   }
 
   // /api/admin/settings/social-share
@@ -1871,7 +1929,18 @@ async function handleApi(request, url, env) {
 
   // /api/announcements
   if (p === '/api/announcements') {
-    return json({ success: true, ...announcementsStore });
+    const isMasterEnabled = announcementsStore.isMasterEnabled !== false;
+    const items = Array.isArray(announcementsStore.items) ? announcementsStore.items : [];
+    const activeItems = isMasterEnabled
+      ? items.filter(i => i.isEnabled !== false).sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0))
+      : [];
+    return json({
+      success: true,
+      isMasterEnabled,
+      items: activeItems,
+      leftItems: activeItems.filter(i => i.position === 'left'),
+      rightItems: activeItems.filter(i => i.position === 'right'),
+    });
   }
 
   // /api/reviews
