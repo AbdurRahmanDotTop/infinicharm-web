@@ -755,6 +755,27 @@ function TrackOrderContent() {
                               </button>
                             </div>
                           )}
+
+                          <div className="pt-2 flex flex-wrap gap-2">
+                            <Link
+                              href={`/pay/${searchedOrder.orderNumber}`}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white text-[11px] font-bold rounded-lg hover:bg-primary/95 transition-all shadow-2xs"
+                            >
+                              <span>⚡ Open Payment Page / Pay Now</span>
+                            </Link>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const payUrl = `${typeof window !== 'undefined' ? window.location.origin : 'https://infinicharm.com'}/pay/${searchedOrder.orderNumber}`;
+                                navigator.clipboard.writeText(payUrl);
+                                handleCopy(payUrl, 'payment_url');
+                              }}
+                              className="inline-flex items-center gap-1 px-3 py-1.5 bg-surface text-primary border border-border text-[11px] font-semibold rounded-lg hover:bg-surface-container transition-all"
+                            >
+                              <span>🔗</span>
+                              <span>{copiedKey === 'payment_url' ? '✓ Copied Link' : 'Copy Payment Link'}</span>
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>

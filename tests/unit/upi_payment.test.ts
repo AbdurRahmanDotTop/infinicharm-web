@@ -40,6 +40,48 @@ describe('Centralized UPI Payment & Dynamic Intent Engine (PRD 09)', () => {
       uri.includes('tn=InfiniCharm%20Order%20-%20INF-202611-9999'),
       'tn parameter must embed the dynamic Order ID'
     );
+    assert.ok(
+      uri.includes('tr=INF-202611-9999'),
+      'tr parameter must carry the dynamic transaction reference'
+    );
+  });
+
+  it('generates app-specific UPI deep links for PhonePe, GPay, Paytm, BHIM and Cred', () => {
+    const details = generateUpiPaymentDetails({
+      totalInPaise: 36000,
+      orderId: 'INF-202611-7777',
+    });
+
+    assert.ok(details.appUris.phonePe.startsWith('phonepe://pay?'));
+    assert.ok(details.appUris.gPay.startsWith('tez://upi/pay?'));
+    assert.ok(details.appUris.paytm.startsWith('paytmmp://pay?'));
+    assert.ok(details.appUris.bhim.startsWith('bhim://pay?'));
+    assert.ok(details.appUris.cred.startsWith('cred://pay?'));
+    assert.ok(details.appUris.phonePe.includes('am=360.00'));
+  });
+
+  it('generates universal shareable HTTPS payment link and friendly WhatsApp share URL', () => {
+    const details = generateUpiPaymentDetails({
+      totalInPaise: 36000,
+      orderId: 'INF-202611-7777',
+    });
+
+    assert.ok(
+      details.shareablePaymentUrl.includes('/pay/INF-202611-7777'),
+      'Shareable link must be an HTTPS URL pointing to /pay/[orderId]'
+    );
+    assert.ok(
+      details.whatsAppShareUrl.startsWith('https://api.whatsapp.com/send?text='),
+      'WhatsApp URL must be an official click-to-chat deep link'
+    );
+    assert.ok(
+      decodeURIComponent(details.whatsAppShareUrl).includes('INF-202611-7777'),
+      'WhatsApp message must mention the Order Reference'
+    );
+    assert.ok(
+      decodeURIComponent(details.whatsAppShareUrl).includes('360.00'),
+      'WhatsApp message must mention the exact amount'
+    );
   });
 
   it('generates centralized payment details and shares identical URI for QR code and direct links', () => {

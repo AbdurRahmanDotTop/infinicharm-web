@@ -12,6 +12,7 @@ import {
   shouldRestockOnTransition,
   getCourierTrackingUrl,
 } from '@/lib/services/orders';
+import { parseUtrInput } from '@/lib/services/upi';
 import { updateServerProductStock } from './products-store';
 
 function restockOrderItems(order: Order): void {
@@ -400,5 +401,164 @@ export function addServerOrderTimelineEvent(
   writeOrdersToFile(orders);
 
   return { success: true, order: updated };
+}
+
+/**
+ * Submits a customer or payer UTR for verified UPI settlement.
+ * Strict authority: Does not mark as paid; transitions to PENDING_REVIEW for bank reconciliation.
+ */
+export function submitServerOrderUtr(
+  idOrNumber: string,
+  rawUtr: string,
+  payerName = 'Customer / Payer'
+): { success: boolean; order?: Order; error?: string } {
+  const orders = getServerOrders();
+  const idx = orders.findIndex(
+    (o) => o.id === idOrNumber || o.orderNumber === idOrNumber
+  );
+
+  if (idx < 0) {
+    return { success: false, error: `Order "${idOrNumber}" not found.` };
+  }
+
+  const existing = orders[idx];
+
+  // Prevent submission on already paid or cancelled orders
+  if (existing.paymentStatus === 'PAID' || existing.status === 'CONFIRMED') {
+    return {
+      success: false,
+      error: 'This order is already marked as PAID and confirmed. No additional payment submission is required.',
+    };
+  }
+  if (['CANCELLED', 'RETURNED', 'REFUNDED'].includes(existing.status)) {
+    return {
+      success: false,
+      error: `This order is ${existing.status} and cannot accept payment submissions.`,
+    };
+  }
+
+  const utrCheck = parseUtrInput(rawUtr);
+  if (!utrCheck.isValid) {
+    return {
+      success: false,
+      error: utrCheck.error || 'Please enter a valid 12-digit UPI UTR number.',
+    };
+  }
+
+  const now = new Date().toISOString();
+  const utrTimeline: OrderTimelineEvent[] = [
+    ...(existing.timeline || []),
+    {
+      id: `evt-${Date.now()}-utr-submission`,
+      status: 'PENDING',
+      title: 'UPI Payment Reference (UTR) Submitted',
+      description: `Payer submitted UTR ${utrCheck.rawCleaned}. Awaiting merchant bank statement verification.`,
+      location: 'Payment Desk / Customer Self-Service',
+      timestamp: now,
+      actor: payerName,
+      isCustomerVisible: true,
+      type: 'PAYMENT',
+    },
+  ];
+
+  const updated: Order = {
+    ...existing,
+    utrNumber: utrCheck.rawCleaned,
+    paymentMethod: 'CUSTOM_UPI',
+    paymentStatus: 'PENDING',
+    manualApprovalStatus: 'PENDING_REVIEW',
+    updatedAt: now,
+    timeline: utrTimeline,
+  };
+
+  orders[idx] = updated;
+  writeOrdersToFile(orders);
+
+  return { success: true, order: updated };
+}
+
+/**
+ * Creates or updates a pending order draft for shareable HTTPS payment links.
+ * Ensures that if a payment link is copied/shared at checkout, the order exists on the server.
+ */
+export function createOrUpdateDraftOrder(
+  orderData: Partial<Order>
+): { success: boolean; order?: Order; error?: string } {
+  if (!orderData.orderNumber && !orderData.id) {
+    return { success: false, error: 'Order reference is required.' };
+  }
+  const orders = getServerOrders();
+  const ref = orderData.orderNumber || orderData.id!;
+  const existingIdx = orders.findIndex(
+    (o) => o.id === ref || o.orderNumber === ref
+  );
+
+  const now = new Date().toISOString();
+  if (existingIdx >= 0) {
+    const existing = orders[existingIdx];
+    const updated: Order = {
+      ...existing,
+      ...orderData,
+      id: existing.id,
+      orderNumber: existing.orderNumber,
+      updatedAt: now,
+    };
+    orders[existingIdx] = updated;
+    writeOrdersToFile(orders);
+    return { success: true, order: updated };
+  }
+
+  const defaultAddress = orderData.shippingAddress || {
+    id: `addr-${Date.now()}`,
+    customerId: orderData.customerId || 'guest',
+    fullName: 'Valued Guest',
+    phone: orderData.customerPhone || '8825164657',
+    addressLine1: 'Pending Customer Checkout Address',
+    city: 'East Champaran',
+    state: 'Bihar',
+    postalCode: '845427',
+    country: 'India',
+    isDefaultShipping: true,
+    isDefaultBilling: false,
+  };
+
+  const newOrder: Order = {
+    id: orderData.id || `ord-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    orderNumber: orderData.orderNumber || ref,
+    customerEmail: orderData.customerEmail || 'guest@infinicharm.com',
+    customerPhone: orderData.customerPhone || '8825164657',
+    status: 'PENDING',
+    paymentStatus: 'PENDING',
+    paymentMethod: orderData.paymentMethod || 'CUSTOM_UPI',
+    items: orderData.items || [],
+    subtotalInPaise: orderData.subtotalInPaise || 0,
+    shippingInPaise: orderData.shippingInPaise || 0,
+    discountInPaise: orderData.discountInPaise || 0,
+    taxInPaise: orderData.taxInPaise || 0,
+    totalInPaise: orderData.totalInPaise || 0,
+    shippingAddress: defaultAddress,
+    billingAddress: orderData.billingAddress || defaultAddress,
+    utrNumber: orderData.utrNumber,
+    manualApprovalStatus: orderData.utrNumber ? 'PENDING_REVIEW' : undefined,
+    createdAt: now,
+    updatedAt: now,
+    timeline: [
+      {
+        id: `evt-${Date.now()}-created`,
+        status: 'PENDING',
+        title: 'Payment Order Created',
+        description: 'Order reference generated and awaiting UPI settlement.',
+        location: 'Online Storefront',
+        timestamp: now,
+        actor: 'InfiniCharm Storefront',
+        isCustomerVisible: true,
+        type: 'FULFILLMENT',
+      },
+    ],
+  };
+
+  orders.unshift(newOrder);
+  writeOrdersToFile(orders);
+  return { success: true, order: newOrder };
 }
 

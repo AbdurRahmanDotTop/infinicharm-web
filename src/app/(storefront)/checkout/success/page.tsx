@@ -12,6 +12,7 @@ function CheckoutSuccessContent() {
   const searchParams = useSearchParams();
   const orderId = searchParams.get('order_id') || 'INF-202611-1001';
   const [order, setOrder] = useState<Order | null>(null);
+  const [copiedLink, setCopiedLink] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -138,6 +139,52 @@ function CheckoutSuccessContent() {
               </>
             )}
           </div>
+
+          {/* Custom UPI Payment Link & Sharing Card */}
+          {order?.paymentMethod === 'CUSTOM_UPI' && (
+            <div className="bg-white rounded-2xl p-4 sm:p-5 border border-stone-200 text-left space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-muted">
+                  Shareable Payment Link
+                </span>
+                <span className="text-[10px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 font-semibold">
+                  Universal Web Link
+                </span>
+              </div>
+              <p className="text-xs text-muted">
+                Need someone else to pay or want to open on another device? Share the dedicated InfiniCharm payment link:
+              </p>
+              <div className="flex flex-wrap gap-2 pt-1">
+                <Link
+                  href={`/pay/${orderId}`}
+                  className="flex-1 min-w-[140px] py-2 px-3 bg-primary text-white text-xs font-bold rounded-lg text-center hover:bg-primary/95 transition-colors"
+                >
+                  ⚡ Open Payment Page
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const payUrl = `${typeof window !== 'undefined' ? window.location.origin : 'https://infinicharm.com'}/pay/${orderId}`;
+                    navigator.clipboard.writeText(payUrl);
+                    setCopiedLink(true);
+                    setTimeout(() => setCopiedLink(false), 2000);
+                  }}
+                  className="py-2 px-3 bg-stone-100 hover:bg-stone-200 text-slate text-xs font-semibold rounded-lg border border-stone-300 transition-colors"
+                >
+                  {copiedLink ? '✓ Copied Link' : 'Copy Link'}
+                </button>
+                <a
+                  href={`https://api.whatsapp.com/send?text=${encodeURIComponent(`Hi! Please view the order details and pay for InfiniCharm Order #${orderId} here: ${typeof window !== 'undefined' ? window.location.origin : 'https://infinicharm.com'}/pay/${orderId}`)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1"
+                >
+                  <span>💬</span>
+                  <span>WhatsApp</span>
+                </a>
+              </div>
+            </div>
+          )}
 
           {/* Action CTAs */}
           <div className="flex flex-col sm:flex-row gap-3 pt-2">

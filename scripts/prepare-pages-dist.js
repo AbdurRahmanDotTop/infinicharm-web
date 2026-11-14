@@ -1059,6 +1059,24 @@ export default {
       });
     }
 
+    // 2b. Universal Shareable Payment Route (/pay and /pay/:id)
+    if (url.pathname === '/pay' || url.pathname.startsWith('/pay/')) {
+      if (request.headers.get('accept')?.includes('text/html') || !url.pathname.includes('.')) {
+        const payUrl = new URL('/pay.html', request.url);
+        const payRes = await env.ASSETS.fetch(new Request(payUrl, request));
+        if (payRes.status === 200) {
+          return payRes;
+        }
+      }
+      if (url.searchParams.has('_rsc')) {
+        const rscUrl = new URL('/pay.rsc', request.url);
+        const rscRes = await env.ASSETS.fetch(new Request(rscUrl, request));
+        if (rscRes.status === 200) {
+          return rscRes;
+        }
+      }
+    }
+
     // 3. API Endpoints
     if (url.pathname.startsWith('/api/')) {
       return await handleApi(request, url, env);
@@ -1996,7 +2014,47 @@ async function handleApi(request, url, env) {
     return json({ success: true, count: list.length, orders: list });
   }
   if (p.startsWith('/api/orders/')) {
-    const idOrNum = decodeURIComponent(p.replace('/api/orders/', ''));
+    const rest = decodeURIComponent(p.replace('/api/orders/', ''));
+    if (rest.endsWith('/utr')) {
+      const idOrNum = rest.replace(/\/utr$/, '');
+      const order = ordersStore.get(idOrNum) || [...ordersStore.values()].find(o => o.orderNumber === idOrNum);
+      if (!order) return json({ success: false, error: 'Order not found.' }, 404);
+
+      if (method === 'POST') {
+        const body = await request.clone().json().catch(() => null);
+        const utr = body?.utr || body?.utrNumber || body?.customUpiUtrNumber;
+        const payerName = body?.payerName || 'Customer / Payer';
+        if (!utr || typeof utr !== 'string' || utr.trim().length < 10) {
+          return json(
+            { success: false, error: 'Please enter a valid 12-digit UPI Transaction Reference (UTR) Number.' },
+            400
+          );
+        }
+        order.utrNumber = utr.trim();
+        order.customUpiUtrNumber = utr.trim();
+        order.paymentMethod = 'CUSTOM_UPI';
+        order.paymentStatus = 'PENDING';
+        order.manualApprovalStatus = 'PENDING_REVIEW';
+        order.updatedAt = new Date().toISOString();
+        if (!order.timeline) order.timeline = [];
+        order.timeline.push({
+          id: 'evt-' + Date.now() + '-utr',
+          status: 'PENDING',
+          title: 'UPI Payment Reference (UTR) Submitted',
+          description: 'Payer submitted UTR ' + utr.trim() + '. Awaiting bank statement verification.',
+          location: 'Payment Desk',
+          timestamp: new Date().toISOString(),
+          actor: payerName,
+          isCustomerVisible: true,
+          type: 'PAYMENT',
+        });
+        ordersStore.set(order.id, order);
+        if (order.orderNumber) ordersStore.set(order.orderNumber, order);
+        return json({ success: true, order });
+      }
+    }
+
+    const idOrNum = rest;
     const order = ordersStore.get(idOrNum) || [...ordersStore.values()].find(o => o.orderNumber === idOrNum);
     if (!order) return json({ success: false, error: 'Order not found.' }, 404);
     return json({ success: true, order });

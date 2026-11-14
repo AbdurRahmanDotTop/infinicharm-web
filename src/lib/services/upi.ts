@@ -1,8 +1,11 @@
 // ==============================================================================
-// InfiniCharm — Centralized UPI Payment & Direct Intent Generation Engine
+// InfiniCharm — Centralized UPI Payment & Universal Intent Engine
 // Governing PRD: PRD 09 (Payment Architecture, Dynamic UPI QR & Mobile Intent)
-// Standard: NPCI UPI Specification v1.6+, Server Financial Authority, Zero Hardcoding
+// Standard: NPCI UPI Specification v1.6+, Server Financial Authority, Strict DRY
+// Universal Sharing: HTTPS Shareable Payment Link, WhatsApp Click-to-Pay, App Intents
 // ==============================================================================
+
+import { getPaymentUrl } from '../utils/env-urls.ts';
 
 export interface UpiCredentials {
   upiId?: string;
@@ -12,6 +15,15 @@ export interface UpiCredentials {
   accountNumber?: string;
   ifscCode?: string;
   instructions?: string;
+}
+
+export interface UpiAppUris {
+  generic: string;
+  phonePe: string;
+  gPay: string;
+  paytm: string;
+  bhim: string;
+  cred: string;
 }
 
 export interface UpiPaymentDetails {
@@ -25,7 +37,11 @@ export interface UpiPaymentDetails {
   amountInPaise: number;
   orderId: string;
   transactionNote: string;
+  transactionReference: string;
   upiIntentUri: string;
+  shareablePaymentUrl: string;
+  whatsAppShareUrl: string;
+  appUris: UpiAppUris;
   isAmountExceedingLimit: boolean;
   isHighValueTransaction: boolean;
   limitWarningMessage: string | null;
@@ -74,33 +90,127 @@ export function formatUpiTransactionNote(orderId: string): string {
 }
 
 /**
+ * Constructs a standardized query string for UPI intents according to NPCI specifications.
+ * Mandatory parameters: pa, pn, am, cu=INR, tn
+ * Recommended reference parameter: tr (Transaction Reference ID)
+ */
+export function buildUpiQueryString(params: {
+  upiId?: string;
+  payeeName?: string;
+  amountInRupees: string;
+  orderId: string;
+  transactionReference?: string;
+}): string {
+  const upiId = (params.upiId || DEFAULT_UPI_CREDENTIALS.upiId).trim();
+  const payeeName = (params.payeeName || DEFAULT_UPI_CREDENTIALS.payeeName).trim();
+  const amount = params.amountInRupees;
+  const tn = formatUpiTransactionNote(params.orderId);
+  const tr = (params.transactionReference || params.orderId || '').trim();
+
+  const queryParts = [
+    `pa=${encodeURIComponent(upiId)}`,
+    `pn=${encodeURIComponent(payeeName)}`,
+    `am=${amount}`,
+    'cu=INR',
+    `tn=${encodeURIComponent(tn)}`,
+  ];
+
+  if (tr) {
+    queryParts.push(`tr=${encodeURIComponent(tr)}`);
+  }
+
+  return queryParts.join('&');
+}
+
+/**
  * Constructs a fully compliant NPCI UPI deep link (upi://pay)
- * carrying pa, pn, am, cu=INR, and tn.
+ * carrying pa, pn, am, cu=INR, tn, and tr.
  */
 export function generateUpiIntentUri(params: {
   upiId?: string;
   payeeName?: string;
   amountInRupees: string;
   orderId: string;
+  transactionReference?: string;
 }): string {
-  const upiId = (params.upiId || DEFAULT_UPI_CREDENTIALS.upiId).trim();
-  const payeeName = (params.payeeName || DEFAULT_UPI_CREDENTIALS.payeeName).trim();
-  const amount = params.amountInRupees;
-  const tn = formatUpiTransactionNote(params.orderId);
-
-  return `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(
-    payeeName
-  )}&am=${amount}&cu=INR&tn=${encodeURIComponent(tn)}`;
+  const query = buildUpiQueryString(params);
+  return `upi://pay?${query}`;
 }
 
 /**
- * Generates centralized, synchronized payment details for both
- * dynamic QR Code generation and Direct UPI Payment links.
+ * Generates app-specific UPI deep links for supported Indian UPI applications
+ * Useful for direct 1-tap app launching on iOS Safari and fallback scenarios.
+ */
+export function generateAppSpecificUpiUris(params: {
+  upiId?: string;
+  payeeName?: string;
+  amountInRupees: string;
+  orderId: string;
+  transactionReference?: string;
+}): UpiAppUris {
+  const query = buildUpiQueryString(params);
+  return {
+    generic: `upi://pay?${query}`,
+    phonePe: `phonepe://pay?${query}`,
+    gPay: `tez://upi/pay?${query}`,
+    paytm: `paytmmp://pay?${query}`,
+    bhim: `bhim://pay?${query}`,
+    cred: `cred://pay?${query}`,
+  };
+}
+
+/**
+ * Generates the authoritative HTTPS shareable payment link for an order.
+ * This URL is universally copyable and shareable on WhatsApp, SMS, Telegram,
+ * Email, and any browser address bar without breaking.
+ */
+export function generateShareablePaymentUrl(
+  orderId: string,
+  token?: string | null,
+  context?: any
+): string {
+  return getPaymentUrl(orderId, token, context);
+}
+
+/**
+ * Generates a pre-filled, friendly WhatsApp click-to-pay sharing link.
+ * Allows customers or admins to share the payment request directly to WhatsApp chats.
+ */
+export function generateWhatsAppShareUrl(params: {
+  orderId: string;
+  amountInRupees: string;
+  paymentUrl: string;
+}): string {
+  const text = [
+    '🛍️ *InfiniCharm Order Payment*',
+    '',
+    `Order Reference: *${params.orderId}*`,
+    `Payable Amount: *₹${params.amountInRupees}*`,
+    '',
+    'Click the link below to view order details and pay via any UPI app (GPay / PhonePe / Paytm / BHIM):',
+    params.paymentUrl,
+    '',
+    '✓ 100% Genuine Heritage Harvesters | TechilyFly',
+  ].join('\n');
+
+  return `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+}
+
+/**
+ * Generates centralized, synchronized payment details for:
+ * 1. Dynamic QR Code generation
+ * 2. Universal Direct UPI Payment link (upi://pay)
+ * 3. App-specific UPI deep links (PhonePe, GPay, Paytm, BHIM, Cred)
+ * 4. Shareable HTTPS Payment Link (https://infinicharm.com/pay/[ORDER_ID])
+ * 5. Pre-filled WhatsApp Share Link
  */
 export function generateUpiPaymentDetails(params: {
   credentials?: UpiCredentials;
   totalInPaise: number;
   orderId: string;
+  transactionReference?: string;
+  token?: string | null;
+  context?: any;
 }): UpiPaymentDetails {
   const creds = params.credentials || {};
   const upiId = (creds.upiId || DEFAULT_UPI_CREDENTIALS.upiId).trim();
@@ -113,13 +223,24 @@ export function generateUpiPaymentDetails(params: {
   const totalPaise = Math.max(0, params.totalInPaise || 0);
   const amountInRupees = (totalPaise / 100).toFixed(2);
   const orderId = (params.orderId || '').trim();
+  const transactionReference = (params.transactionReference || orderId).trim();
   const transactionNote = formatUpiTransactionNote(orderId);
 
-  const upiIntentUri = generateUpiIntentUri({
+  const queryParams = {
     upiId,
     payeeName,
     amountInRupees,
     orderId,
+    transactionReference,
+  };
+
+  const upiIntentUri = generateUpiIntentUri(queryParams);
+  const appUris = generateAppSpecificUpiUris(queryParams);
+  const shareablePaymentUrl = generateShareablePaymentUrl(orderId, params.token, params.context);
+  const whatsAppShareUrl = generateWhatsAppShareUrl({
+    orderId,
+    amountInRupees,
+    paymentUrl: shareablePaymentUrl,
   });
 
   const isAmountExceedingLimit = totalPaise > NPCI_UPI_SINGLE_TRANSACTION_LIMIT_PAISE;
@@ -146,7 +267,11 @@ export function generateUpiPaymentDetails(params: {
     amountInPaise: totalPaise,
     orderId,
     transactionNote,
+    transactionReference,
     upiIntentUri,
+    shareablePaymentUrl,
+    whatsAppShareUrl,
+    appUris,
     isAmountExceedingLimit,
     isHighValueTransaction,
     limitWarningMessage,

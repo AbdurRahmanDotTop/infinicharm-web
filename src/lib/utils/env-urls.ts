@@ -439,6 +439,24 @@ export function getOrderTrackingUrl(orderNumberOrId: string, context?: RequestCo
 }
 
 /**
+ * Returns absolute shareable HTTPS payment page URL.
+ * Standard web URL copyable into WhatsApp, SMS, Telegram, Email, and browsers.
+ */
+export function getPaymentUrl(
+  orderNumberOrId: string,
+  token?: string | null,
+  context?: RequestContext
+): string {
+  const clean = (orderNumberOrId || '').trim();
+  const subpath = clean ? `/pay/${encodeURIComponent(clean)}` : '/pay';
+  if (token && token.trim()) {
+    const sep = subpath.includes('?') ? '&' : '?';
+    return buildAbsoluteUrl(`${subpath}${sep}token=${encodeURIComponent(token.trim())}`, context);
+  }
+  return buildAbsoluteUrl(subpath, context);
+}
+
+/**
  * Returns absolute admin portal URL.
  */
 export function getAdminUrl(subpath: string = '', context?: RequestContext): string {

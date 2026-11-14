@@ -390,6 +390,59 @@ export default function CheckoutPage() {
     setTimeout(() => setCopiedField(null), 2000);
   };
 
+  const syncPendingOrderDraft = async () => {
+    try {
+      const orderRef = checkoutOrderNumber || effectiveOrderId;
+      if (!orderRef || items.length === 0) return;
+
+      await fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: orderRef,
+          orderNumber: orderRef,
+          status: 'PENDING',
+          paymentStatus: 'PENDING',
+          paymentMethod: 'CUSTOM_UPI',
+          items: items.map((i) => ({
+            id: `item-${i.product.id}-${i.variantId}`,
+            orderId: orderRef,
+            productId: i.product.id,
+            variantId: i.variantId,
+            productTitle: i.product.title,
+            variantTitle: i.variant.title || 'Standard',
+            sku: i.variant.sku || i.product.id,
+            priceInPaise: i.variant.priceInPaise,
+            quantity: i.quantity,
+            totalInPaise: i.variant.priceInPaise * i.quantity,
+          })),
+          subtotalInPaise,
+          shippingInPaise,
+          discountInPaise,
+          totalInPaise,
+          customerEmail: email || 'guest@infinicharm.com',
+          customerPhone: phone || '8825164657',
+          shippingAddress: {
+            id: `addr-draft-${Date.now()}`,
+            customerId: customerId || 'guest',
+            fullName: fullName || 'Valued Guest',
+            phone: phone || '8825164657',
+            addressLine1: addressLine1 || 'Pending Customer Checkout Address',
+            addressLine2: addressLine2 || '',
+            city: city || 'East Champaran',
+            state: stateName || 'Bihar',
+            postalCode: pinCode || '845427',
+            country: 'India',
+            isDefaultShipping: true,
+            isDefaultBilling: false,
+          },
+        }),
+      });
+    } catch {
+      // Non-blocking sync
+    }
+  };
+
   const [couponInput, setCouponInput] = useState('');
   const [couponError, setCouponError] = useState<string | null>(null);
 
@@ -1498,9 +1551,12 @@ export default function CheckoutPage() {
                                     <button
                                       type="button"
                                       data-testid="copy-upi-link-btn"
-                                      onClick={() => handleCopy(upiPaymentData.upiIntentUri, 'upi_link')}
+                                      onClick={() => {
+                                        handleCopy(upiPaymentData.shareablePaymentUrl, 'upi_link');
+                                        syncPendingOrderDraft();
+                                      }}
                                       className="py-1.5 px-2 bg-surface hover:bg-surface-container text-primary border border-border rounded-lg text-[10px] font-semibold flex items-center justify-center gap-1 shadow-2xs transition-colors"
-                                      title="Copy Direct UPI Intent Deep Link"
+                                      title="Copy Universal Shareable HTTPS Payment Link (WhatsApp / SMS / Browser)"
                                     >
                                       {copiedField === 'upi_link' ? (
                                         <Check className="w-3 h-3 text-emerald-600" />
@@ -1508,7 +1564,7 @@ export default function CheckoutPage() {
                                         <Copy className="w-3 h-3 text-accent" />
                                       )}
                                       <span className="truncate">
-                                        {copiedField === 'upi_link' ? 'Copied Link!' : 'Copy UPI Link'}
+                                        {copiedField === 'upi_link' ? 'Copied Link!' : 'Copy Payment Link'}
                                       </span>
                                     </button>
 
@@ -1524,6 +1580,20 @@ export default function CheckoutPage() {
                                       </a>
                                     )}
                                   </div>
+
+                                  {/* WhatsApp Click-to-Pay Share Link */}
+                                  <a
+                                    href={upiPaymentData.whatsAppShareUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    data-testid="share-whatsapp-checkout-btn"
+                                    onClick={() => syncPendingOrderDraft()}
+                                    className="w-full py-1.5 px-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-lg text-[10px] font-semibold flex items-center justify-center gap-1.5 shadow-2xs transition-colors text-center"
+                                    title="Share payment request directly to WhatsApp"
+                                  >
+                                    <span>💬</span>
+                                    <span>Share on WhatsApp</span>
+                                  </a>
                                 </div>
                               </div>
 
