@@ -44,36 +44,37 @@ function computeTokenChecksum(dataString: string, secret: string = TOKEN_SECRET)
 
 /**
  * Universal Base64URL encoder that works in browser, Node.js, and edge runtimes.
+ * Avoids Buffer 'base64url' encoding which fails in webpack browser polyfills.
  */
 function toBase64Url(str: string): string {
-  if (typeof Buffer !== 'undefined') {
-    return Buffer.from(str, 'utf8').toString('base64url');
-  }
+  let b64 = '';
   if (typeof btoa === 'function') {
     const bin = encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (_, p1) =>
       String.fromCharCode(parseInt(p1, 16))
     );
-    return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    b64 = btoa(bin);
+  } else if (typeof Buffer !== 'undefined') {
+    b64 = Buffer.from(str, 'utf8').toString('base64');
   }
-  return '';
+  return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
 /**
  * Universal Base64URL decoder that works in browser, Node.js, and edge runtimes.
+ * Avoids Buffer 'base64url' encoding which fails in webpack browser polyfills.
  */
 function fromBase64Url(b64url: string): string {
-  if (typeof Buffer !== 'undefined') {
-    return Buffer.from(b64url, 'base64url').toString('utf8');
-  }
+  let base64 = b64url.replace(/-/g, '+').replace(/_/g, '/');
+  while (base64.length % 4) base64 += '=';
   if (typeof atob === 'function') {
-    let base64 = b64url.replace(/-/g, '+').replace(/_/g, '/');
-    while (base64.length % 4) base64 += '=';
     const bin = atob(base64);
     return decodeURIComponent(
       Array.from(bin)
         .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
         .join('')
     );
+  } else if (typeof Buffer !== 'undefined') {
+    return Buffer.from(base64, 'base64').toString('utf8');
   }
   return '';
 }
