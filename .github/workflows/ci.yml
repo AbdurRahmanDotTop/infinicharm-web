@@ -92,10 +92,10 @@ jobs:
         run: npm run build
         env:
           NEXT_PUBLIC_APP_URL: http://localhost:3000
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://ziafauuodnmktzmsjpka.supabase.co' }}
-          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_8Up2lFm0QMVuqdc5PLRhTQ_oUB3ccJK' }}
-          NEXT_PUBLIC_TAWKTO_PROPERTY_ID: ${{ secrets.NEXT_PUBLIC_TAWKTO_PROPERTY_ID || '6ae76c24e068a73c41821c1f' }}
-          NEXT_PUBLIC_TAWKTO_WIDGET_ID: ${{ secrets.NEXT_PUBLIC_TAWKTO_WIDGET_ID || '1k6bvsse1' }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+          NEXT_PUBLIC_TAWKTO_PROPERTY_ID: ${{ secrets.NEXT_PUBLIC_TAWKTO_PROPERTY_ID }}
+          NEXT_PUBLIC_TAWKTO_WIDGET_ID: ${{ secrets.NEXT_PUBLIC_TAWKTO_WIDGET_ID }}
 
       - name: Run Unit & Integration Suite
         run: npm test

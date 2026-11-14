@@ -349,7 +349,7 @@ test.describe('Complete Authentication, Email Verification, Checkout & Admin Aut
     await expect(page.getByTestId('verify-email-card')).toContainText(/replaced|newer|Verification/i);
 
     // Invalid verification link MUST be rejected
-    await page.goto('/verify-email?token=0000111122223333444455556666777788889999aaaabbbbccccddddeeeeffff');
+    await page.goto('/verify-email?token=invalid-mock-token-for-test-verification-flow');
     await expect(page.getByTestId('verify-email-card')).toContainText(/invalid|does not exist/i);
 
     // Valid latest verification link activates account cleanly
@@ -500,7 +500,7 @@ test.describe('Complete Authentication, Email Verification, Checkout & Admin Aut
     const resetUrl = new URL(resetMail.url);
 
     // Invalid reset token rejected
-    await page.goto('/reset-password?token=1111222233334444555566667777888899990000aaaabbbbccccddddeeee');
+    await page.goto('/reset-password?token=invalid-mock-token-for-test-reset-flow');
     await expect(page.getByTestId('reset-token-invalid-card')).toBeVisible();
 
     // Open real token -> reset password cleanly

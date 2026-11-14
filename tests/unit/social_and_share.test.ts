@@ -13,13 +13,12 @@ import {
 } from '../../src/lib/server/social-share-store.ts';
 
 describe('Social Media Links & Content Sharing Single Source of Truth', () => {
-  const rootDir = path.resolve(process.cwd(), '..', '..');
-  const socialLinksMdPath = path.join(
-    rootDir,
-    'All_Docs',
-    'Credentials_and_other',
-    'SocialLinks.md'
-  );
+  const candidatePaths = [
+    path.join(process.cwd(), 'All_Docs', 'Credentials_and_other', 'SocialLinks.md'),
+    path.resolve(process.cwd(), '..', '..', 'All_Docs', 'Credentials_and_other', 'SocialLinks.md'),
+    path.resolve(process.cwd(), '..', 'All_Docs', 'Credentials_and_other', 'SocialLinks.md'),
+  ];
+  const socialLinksMdPath = candidatePaths.find((p) => fs.existsSync(p)) || candidatePaths[0];
 
   it('verifies SocialLinks.md exists and contains verified links', () => {
     assert.ok(fs.existsSync(socialLinksMdPath), 'SocialLinks.md must exist');

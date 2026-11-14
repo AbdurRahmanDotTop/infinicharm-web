@@ -1,0 +1,18 @@
+title = "InfiniCharm Gitleaks Security Policy"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Ignore test fixtures, local json data stores, configuration files, and documentation"
+paths = [
+  '''(^|/)src/data/.*''',
+  '''(^|/)tests/.*''',
+  '''(^|/)wrangler\.toml$''',
+  '''(^|/)\.github/workflows/.*''',
+  '''(^|/)All_Docs/.*''',
+  '''(^|/)src/lib/server/password-reset-store\.ts$''',
+]
+commits = [
+  "a326436ee2ce7a35d46bdc30f7ca02e924a0487b"
+]

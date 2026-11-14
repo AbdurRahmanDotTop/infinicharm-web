@@ -34,7 +34,8 @@ function writeRecords(records: PasswordResetRecord[], filePath: string = TOKENS_
 }
 
 function getPepper(): string {
-  return process.env.SMTP_ENCRYPTION_SECRET || 'infinicharm-otp-pepper-v1';
+  const custom = process.env.OTP_SALT;
+  return custom ? custom : 'infinicharm_otp_pepper';
 }
 
 function hashOtp(email: string, otp: string): string {

@@ -1,5 +1,135 @@
 [
   {
+    "id": "saud-1794634454810-8316",
+    "actorId": "admin-action",
+    "actorEmail": "test-cleanup@infinicharm.com",
+    "action": "BACKUP_DELETE",
+    "resourceType": "backup",
+    "resourceId": "BCK-CATALOGUE-20261114-EFF5AA",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-14T05:34:14.810Z"
+  },
+  {
+    "id": "saud-1794634454805-9389",
+    "actorId": "admin-action",
+    "actorEmail": "test-admin@infinicharm.com",
+    "action": "BACKUP_DELETE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261114-80BF72",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-14T05:34:14.805Z"
+  },
+  {
+    "id": "saud-1794634454795-5667",
+    "actorId": "admin-action",
+    "actorEmail": "test-admin@infinicharm.com",
+    "action": "COLLECTION_IMPORT",
+    "resourceType": "categories",
+    "resourceId": "import-1794634454795",
+    "diff": {
+      "strategy": "SKIP",
+      "format": "json",
+      "insertedCount": 1,
+      "updatedCount": 0,
+      "skippedCount": 1,
+      "totalRecordsNow": 6
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-14T05:34:14.795Z"
+  },
+  {
+    "id": "saud-1794634454788-9295",
+    "actorId": "admin-action",
+    "actorEmail": "test-cleanup@infinicharm.com",
+    "action": "BACKUP_DELETE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261114-4B646F",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-14T05:34:14.788Z"
+  },
+  {
+    "id": "saud-1794634454783-7613",
+    "actorId": "admin-action",
+    "actorEmail": "test-admin@infinicharm.com",
+    "action": "BACKUP_RESTORE",
+    "resourceType": "backup",
+    "resourceId": "BCK-CATALOGUE-20261114-EFF5AA",
+    "diff": {
+      "restoredCollections": [
+        "products",
+        "categories",
+        "media_assets",
+        "storefront_badges"
+      ],
+      "recordsRestored": {
+        "products": 4,
+        "categories": 5,
+        "media_assets": 7,
+        "storefront_badges": 2
+      },
+      "rollbackSnapshotId": "BCK-FULL-20261114-4B646F"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-14T05:34:14.784Z"
+  },
+  {
+    "id": "saud-1794634454777-8848",
+    "actorId": "admin-action",
+    "actorEmail": "system-rollback@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261114-4B646F",
+    "diff": {
+      "type": "FULL",
+      "totalRecords": 147,
+      "totalCollections": 22,
+      "checksum": "1f6c747ffb816cb0c01dd60d966542f8c996e7ce56b541c841e8f075adaf2f03"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-14T05:34:14.777Z"
+  },
+  {
+    "id": "saud-1794634454757-1559",
+    "actorId": "admin-action",
+    "actorEmail": "test-admin@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-CATALOGUE-20261114-EFF5AA",
+    "diff": {
+      "type": "SECTION",
+      "section": "catalogue",
+      "totalRecords": 18,
+      "totalCollections": 4,
+      "checksum": "97c565f08b2dc06acfb2457ad8bcb46200623e365f2ee52bacdbe40846c1afb1"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-14T05:34:14.757Z"
+  },
+  {
+    "id": "saud-1794634454745-1283",
+    "actorId": "admin-action",
+    "actorEmail": "test-admin@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261114-80BF72",
+    "diff": {
+      "type": "FULL",
+      "totalRecords": 147,
+      "totalCollections": 22,
+      "checksum": "1f6c747ffb816cb0c01dd60d966542f8c996e7ce56b541c841e8f075adaf2f03"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-14T05:34:14.745Z"
+  },
+  {
     "id": "saud-1794633215596-1121",
     "actorId": "admin-action",
     "actorEmail": "test-cleanup@infinicharm.com",
