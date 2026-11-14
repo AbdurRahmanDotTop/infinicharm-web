@@ -1431,7 +1431,12 @@ export default function CheckoutPage() {
                                 <div className="w-full flex items-center justify-between text-[11px] mb-2 px-1">
                                   <span className="text-muted font-medium">Order Ref:</span>
                                   <div className="flex items-center gap-1">
-                                    <span className="font-mono font-bold text-primary">{effectiveOrderId}</span>
+                                    <span
+                                      className="font-mono font-bold text-primary"
+                                      data-testid="checkout-order-ref"
+                                    >
+                                      {effectiveOrderId}
+                                    </span>
                                     <button
                                       type="button"
                                       onClick={() => handleCopy(effectiveOrderId, 'order_ref')}
@@ -1469,6 +1474,7 @@ export default function CheckoutPage() {
                                   <span
                                     className="text-[10px] text-muted block mt-0.5 truncate"
                                     title={upiPaymentData.transactionNote}
+                                    data-testid="upi-transaction-note"
                                   >
                                     Note: <strong className="text-primary font-mono">{upiPaymentData.transactionNote}</strong>
                                   </span>
