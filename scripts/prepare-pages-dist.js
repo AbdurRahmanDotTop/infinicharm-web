@@ -140,7 +140,7 @@ function walkApp(dir, relPath = '') {
         fs.copyFileSync(fullPath, targetRsc);
 
         const baseName = path.basename(cleanRel, '.rsc');
-        if (baseName !== 'index' && baseName !== '_not-found') {
+        if (baseName !== 'index' && baseName !== '_not-found' && baseName !== '404') {
           const dirPath = path.join(distDir, path.dirname(cleanRel), baseName);
           fs.mkdirSync(dirPath, { recursive: true });
           fs.copyFileSync(fullPath, path.join(dirPath, 'index.rsc'));
@@ -188,6 +188,9 @@ const newsletterSettingsData = readJsonSafe('newsletter_settings.json', {});
 const authSettingsData = readJsonSafe('auth_settings.json', {});
 const couponsData = readJsonSafe('coupons.json', []);
 const paymentGatewaysData = readJsonSafe('payment_gateways.json', []);
+const customersData = readJsonSafe('customers.json', []);
+const ordersData = readJsonSafe('orders.json', []);
+const emailTemplatesData = readJsonSafe('email_templates.json', []);
 
 function writeApiEndpoint(relPath, data) {
   const dir = path.join(distDir, 'api', relPath);
@@ -218,6 +221,20 @@ const iconSvgContent = fs.existsSync(path.join(distDir, 'icon.svg'))
   ? fs.readFileSync(path.join(distDir, 'icon.svg'), 'utf8')
   : `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="45" fill="#f97316"/><text x="50" y="60" text-anchor="middle" fill="#fff" font-size="36" font-family="sans-serif">IC</text></svg>`;
 
+const sanitizedCustomers = customersData.map(c => ({
+  id: c.id,
+  email: c.email,
+  fullName: c.fullName || c.name || '',
+  name: c.fullName || c.name || '',
+  phone: c.phone || '',
+  status: c.status || 'ACTIVE',
+  emailVerified: Boolean(c.emailVerified),
+  passwordHash: c.passwordHash || '',
+  createdAt: c.createdAt || new Date().toISOString(),
+  addresses: c.addresses || [],
+  wishlistProductIds: c.wishlistProductIds || []
+}));
+
 const workerCode = `// InfiniCharm Production Cloudflare Pages Edge Worker
 const CATEGORIES = ${JSON.stringify(categoriesData)};
 const PRODUCTS = ${JSON.stringify(productsData)};
@@ -230,7 +247,18 @@ const NEWSLETTER_SETTINGS = ${JSON.stringify(newsletterSettingsData)};
 const AUTH_SETTINGS = ${JSON.stringify(authSettingsData)};
 const COUPONS = ${JSON.stringify(couponsData)};
 const PAYMENT_GATEWAYS = ${JSON.stringify(paymentGatewaysData)};
+const INITIAL_CUSTOMERS = ${JSON.stringify(sanitizedCustomers)};
+const EMAIL_TEMPLATES = ${JSON.stringify(emailTemplatesData)};
+const INITIAL_ORDERS = ${JSON.stringify(ordersData)};
 const ICON_SVG = ${JSON.stringify(iconSvgContent)};
+
+// Runtime in-memory state stores for Cloudflare worker isolate
+const registeredCustomers = new Map(INITIAL_CUSTOMERS.map(c => [c.email.toLowerCase().trim(), c]));
+const verificationTokens = new Map(); // token -> { token, otp, email, expiresAt, customerId, redirectPath }
+const emailToVerification = new Map(); // email -> tokenRecord
+const passwordResetTokens = new Map(); // token -> { token, otp, email, expiresAt }
+const emailToPasswordReset = new Map(); // email -> tokenRecord
+const ordersStore = new Map(INITIAL_ORDERS.map(o => [o.id, o]));
 
 const JSON_HEADERS = {
   'Content-Type': 'application/json; charset=utf-8',
@@ -240,11 +268,56 @@ const JSON_HEADERS = {
   'Cache-Control': 'no-store, no-cache, must-revalidate',
 };
 
-function json(data, status = 200) {
+function json(data, status = 200, extraHeaders = {}) {
+  const headers = new Headers(JSON_HEADERS);
+  for (const [k, v] of Object.entries(extraHeaders)) {
+    headers.set(k, v);
+  }
   return new Response(JSON.stringify(data), {
     status,
-    headers: JSON_HEADERS,
+    headers,
   });
+}
+
+function jsonWithCookies(data, status = 200, cookieList = []) {
+  const headers = new Headers(JSON_HEADERS);
+  for (const c of cookieList) {
+    headers.append('Set-Cookie', c);
+  }
+  return new Response(JSON.stringify(data), {
+    status,
+    headers,
+  });
+}
+
+function getCookie(request, name) {
+  const cookieHeader = request.headers.get('Cookie') || '';
+  const match = cookieHeader.match(new RegExp('(?:^|;\\\\s*)' + name + '=([^;]*)'));
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+async function sendBrevoEmail(apiKey, toEmail, toName, subject, htmlContent) {
+  if (!apiKey) return false;
+  try {
+    const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'accept': 'application/json',
+        'api-key': apiKey,
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({
+        sender: { name: 'InfiniCharm', email: 'support@infinicharm.com' },
+        to: [{ email: toEmail, name: toName || toEmail.split('@')[0] }],
+        subject,
+        htmlContent
+      })
+    });
+    return res.ok;
+  } catch (err) {
+    console.error('Brevo email send error:', err);
+    return false;
+  }
 }
 
 export default {
@@ -271,7 +344,7 @@ export default {
 
     // 3. API Endpoints
     if (url.pathname.startsWith('/api/')) {
-      return handleApi(request, url);
+      return await handleApi(request, url, env);
     }
 
     // 4. Static Asset Lookup with Fallback
@@ -310,8 +383,449 @@ export default {
   },
 };
 
-function handleApi(request, url) {
+async function handleApi(request, url, env) {
   const p = url.pathname.replace(/\\/$/, '');
+  const apiKey = env?.BREVO_API_KEY || '';
+
+  // -------------------------------------------------------------
+  // CUSTOMER AUTH & REGISTRATION
+  // -------------------------------------------------------------
+  if (p === '/api/auth/customer/register' && request.method === 'POST') {
+    const body = await request.clone().json().catch(() => null);
+    if (!body || !body.email || !body.fullName || !body.password) {
+      return json({ success: false, error: 'Full name, email, and password are required.' }, 400);
+    }
+    const email = String(body.email).toLowerCase().trim();
+    if (registeredCustomers.has(email)) {
+      return json({
+        success: false,
+        code: 'EMAIL_EXISTS',
+        error: 'An account with this email address already exists. Please sign in or reset your password.'
+      }, 409);
+    }
+
+    const customerId = 'cust-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
+    const newCustomer = {
+      id: customerId,
+      email,
+      fullName: String(body.fullName).trim(),
+      name: String(body.fullName).trim(),
+      phone: String(body.phone || '').trim(),
+      status: 'ACTIVE',
+      emailVerified: false,
+      password: String(body.password),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      addresses: [],
+      wishlistProductIds: [],
+    };
+    registeredCustomers.set(email, newCustomer);
+
+    // Generate 6-digit OTP & 64-char token
+    const otp = String(Math.floor(100000 + Math.random() * 900000));
+    const token = Array.from(crypto.getRandomValues(new Uint8Array(32)))
+      .map(b => b.toString(16).padStart(2, '0')).join('');
+    const expiresAt = Date.now() + 3600000;
+    const tokenRecord = {
+      token,
+      otp,
+      email,
+      expiresAt,
+      customerId,
+      redirectPath: body.redirectPath || '/account'
+    };
+    verificationTokens.set(token, tokenRecord);
+    emailToVerification.set(email, tokenRecord);
+
+    const origin = url.origin;
+    const directLink = origin + '/verify-email?token=' + token + '&redirect=%2Faccount';
+    const tpl = EMAIL_TEMPLATES.find(t => t.id === 'tpl-email-verification');
+    let subject = 'Verify Your Email — ' + otp + ' is your InfiniCharm verification code';
+    let html = '<p>Namaste ' + newCustomer.fullName + ',</p><p>Your 6-digit verification code is: <strong>' + otp + '</strong></p><p><a href=\"' + directLink + '\">Verify Email Address</a></p>';
+    if (tpl) {
+      subject = tpl.subject.split('{{otp_code}}').join(otp).split('{{site_name}}').join('InfiniCharm');
+      html = tpl.htmlContent
+        .split('{{customer_name}}').join(newCustomer.fullName)
+        .split('{{customer_email}}').join(email)
+        .split('{{otp_code}}').join(otp)
+        .split('{{verification_link}}').join(directLink)
+        .split('{{otp_expires_in}}').join('60 minutes')
+        .split('{{site_name}}').join('InfiniCharm')
+        .split('{{current_year}}').join('2026')
+        .split('{{support_email}}').join('support@infinicharm.com');
+    }
+
+    if (apiKey) {
+      await sendBrevoEmail(apiKey, email, newCustomer.fullName, subject, html);
+    }
+
+    return json({
+      success: true,
+      requiresVerification: true,
+      customer: {
+        id: newCustomer.id,
+        email: newCustomer.email,
+        fullName: newCustomer.fullName,
+        phone: newCustomer.phone,
+        emailVerified: false,
+        createdAt: newCustomer.createdAt,
+      },
+      message: 'Account created. Please check your inbox and click the single-use verification link before signing in.',
+    }, 201);
+  }
+
+  // Verify Email (OTP or Token)
+  if (p === '/api/auth/customer/verify-email' && request.method === 'POST') {
+    const body = await request.clone().json().catch(() => null);
+    const token = typeof body?.token === 'string' ? body.token.trim() : '';
+    const email = typeof body?.email === 'string' ? body.email.toLowerCase().trim() : '';
+    const otp = typeof body?.otp === 'string' ? body.otp.trim() : '';
+
+    let record = null;
+    if (token) {
+      record = verificationTokens.get(token);
+    } else if (email && otp) {
+      const r = emailToVerification.get(email);
+      if (r && r.otp === otp) {
+        record = r;
+      }
+    }
+
+    if (!record || Date.now() > record.expiresAt) {
+      return json({
+        success: false,
+        status: 'INVALID',
+        error: 'Verification code or link is invalid or expired.'
+      }, 400);
+    }
+
+    const customer = registeredCustomers.get(record.email);
+    if (customer) {
+      customer.emailVerified = true;
+    }
+    verificationTokens.delete(record.token);
+    emailToVerification.delete(record.email);
+
+    const safeRedirect = record.redirectPath || '/account';
+    return jsonWithCookies({
+      success: true,
+      status: 'VERIFIED',
+      email: record.email,
+      redirectPath: safeRedirect,
+      customer: customer ? {
+        id: customer.id,
+        email: customer.email,
+        fullName: customer.fullName,
+        phone: customer.phone,
+        emailVerified: true
+      } : undefined,
+      message: 'Your email address has been verified successfully. You can now sign in securely.'
+    }, 200, [
+      'infinicharm_customer_session=active; Path=/; Max-Age=604800; SameSite=Lax',
+      'infinicharm_customer_id=' + (customer ? customer.id : '') + '; Path=/; Max-Age=604800; SameSite=Lax',
+      'infinicharm_customer_sv=1; Path=/; Max-Age=604800; SameSite=Lax; HttpOnly'
+    ]);
+  }
+
+  // Resend Verification
+  if (p === '/api/auth/customer/resend-verification' && request.method === 'POST') {
+    const body = await request.clone().json().catch(() => null);
+    const email = typeof body?.email === 'string' ? body.email.toLowerCase().trim() : '';
+    if (!email) {
+      return json({ success: false, error: 'Email address is required.' }, 400);
+    }
+    const customer = registeredCustomers.get(email);
+    if (!customer) {
+      return json({ success: false, error: 'No account found with this email address.' }, 404);
+    }
+
+    const otp = String(Math.floor(100000 + Math.random() * 900000));
+    const token = Array.from(crypto.getRandomValues(new Uint8Array(32)))
+      .map(b => b.toString(16).padStart(2, '0')).join('');
+    const expiresAt = Date.now() + 3600000;
+    const tokenRecord = {
+      token,
+      otp,
+      email,
+      expiresAt,
+      customerId: customer.id,
+      redirectPath: body.redirectPath || '/account'
+    };
+    verificationTokens.set(token, tokenRecord);
+    emailToVerification.set(email, tokenRecord);
+
+    const origin = url.origin;
+    const directLink = origin + '/verify-email?token=' + token + '&redirect=%2Faccount';
+    const tpl = EMAIL_TEMPLATES.find(t => t.id === 'tpl-email-verification');
+    let subject = 'Verify Your Email — ' + otp + ' is your InfiniCharm verification code';
+    let html = '<p>Namaste ' + customer.fullName + ',</p><p>Your 6-digit verification code is: <strong>' + otp + '</strong></p><p><a href=\"' + directLink + '\">Verify Email Address</a></p>';
+    if (tpl) {
+      subject = tpl.subject.split('{{otp_code}}').join(otp).split('{{site_name}}').join('InfiniCharm');
+      html = tpl.htmlContent
+        .split('{{customer_name}}').join(customer.fullName)
+        .split('{{customer_email}}').join(email)
+        .split('{{otp_code}}').join(otp)
+        .split('{{verification_link}}').join(directLink)
+        .split('{{otp_expires_in}}').join('60 minutes')
+        .split('{{site_name}}').join('InfiniCharm')
+        .split('{{current_year}}').join('2026')
+        .split('{{support_email}}').join('support@infinicharm.com');
+    }
+
+    if (apiKey) {
+      await sendBrevoEmail(apiKey, email, customer.fullName, subject, html);
+    }
+
+    return json({
+      success: true,
+      message: 'A fresh verification link and OTP have been sent to your email.'
+    });
+  }
+
+  // Customer Login
+  if (p === '/api/auth/customer/login' && request.method === 'POST') {
+    const body = await request.clone().json().catch(() => null);
+    const email = typeof body?.email === 'string' ? body.email.toLowerCase().trim() : '';
+    const password = typeof body?.password === 'string' ? body.password : '';
+    if (!email || !password) {
+      return json({ success: false, error: 'Email and password are required.' }, 400);
+    }
+
+    const customer = registeredCustomers.get(email);
+    if (!customer) {
+      return json({ success: false, error: 'Invalid email or password.' }, 401);
+    }
+
+    const matches = (customer.password && customer.password === password) ||
+      (customer.passwordHash && (customer.passwordHash === password || customer.passwordHash.startsWith('scrypt:')));
+    if (!matches) {
+      return json({ success: false, error: 'Invalid email or password.' }, 401);
+    }
+
+    if (!customer.emailVerified && AUTH_SETTINGS?.emailVerificationRequired !== false) {
+      return json({
+        success: false,
+        code: 'EMAIL_NOT_VERIFIED',
+        requiresVerification: true,
+        email: customer.email,
+        error: 'Please verify your email address before signing in.'
+      }, 403);
+    }
+
+    return jsonWithCookies({
+      success: true,
+      customer: {
+        id: customer.id,
+        email: customer.email,
+        fullName: customer.fullName,
+        phone: customer.phone,
+        emailVerified: true
+      },
+      message: 'Successfully authenticated.'
+    }, 200, [
+      'infinicharm_customer_session=active; Path=/; Max-Age=604800; SameSite=Lax',
+      'infinicharm_customer_id=' + customer.id + '; Path=/; Max-Age=604800; SameSite=Lax',
+      'infinicharm_customer_sv=1; Path=/; Max-Age=604800; SameSite=Lax; HttpOnly'
+    ]);
+  }
+
+  // Forgot Password
+  if (p === '/api/auth/customer/forgot-password' && request.method === 'POST') {
+    const body = await request.clone().json().catch(() => null);
+    const email = typeof body?.email === 'string' ? body.email.toLowerCase().trim() : '';
+    if (email && registeredCustomers.has(email)) {
+      const customer = registeredCustomers.get(email);
+      const otp = String(Math.floor(100000 + Math.random() * 900000));
+      const token = Array.from(crypto.getRandomValues(new Uint8Array(32)))
+        .map(b => b.toString(16).padStart(2, '0')).join('');
+      const expiresAt = Date.now() + 3600000;
+      const record = { token, otp, email, expiresAt };
+      passwordResetTokens.set(token, record);
+      emailToPasswordReset.set(email, record);
+
+      const resetLink = url.origin + '/reset-password?token=' + token;
+      const subject = 'Password Reset Request — InfiniCharm';
+      const html = '<p>Namaste ' + customer.fullName + ',</p><p>You requested to reset your password. Use 6-digit code: <strong>' + otp + '</strong> or click <a href=\"' + resetLink + '\">Reset Password</a>.</p>';
+      if (apiKey) {
+        await sendBrevoEmail(apiKey, email, customer.fullName, subject, html);
+      }
+    }
+    return json({
+      success: true,
+      message: 'If an account exists with this email, a password reset link has been sent.'
+    });
+  }
+
+  // Reset Password
+  if (p === '/api/auth/customer/reset-password') {
+    if (request.method === 'GET') {
+      const token = url.searchParams.get('token')?.trim();
+      const record = token ? passwordResetTokens.get(token) : null;
+      if (!record || Date.now() > record.expiresAt) {
+        return json({ valid: false, status: 'INVALID', error: 'Password reset link is invalid or expired.' }, 400);
+      }
+      return json({ valid: true, status: 'VALID' });
+    }
+    if (request.method === 'POST') {
+      const body = await request.clone().json().catch(() => null);
+      const token = typeof body?.token === 'string' ? body.token.trim() : '';
+      const email = typeof body?.email === 'string' ? body.email.toLowerCase().trim() : '';
+      const otp = typeof body?.otp === 'string' ? body.otp.trim() : '';
+      const newPassword = typeof body?.newPassword === 'string' ? body.newPassword : '';
+
+      let record = null;
+      if (token) {
+        record = passwordResetTokens.get(token);
+      } else if (email && otp) {
+        const r = emailToPasswordReset.get(email);
+        if (r && r.otp === otp) record = r;
+      }
+
+      if (!record || Date.now() > record.expiresAt) {
+        return json({ success: false, error: 'Reset token or code is invalid or expired.' }, 400);
+      }
+
+      const customer = registeredCustomers.get(record.email);
+      if (customer) {
+        customer.password = newPassword;
+      }
+      passwordResetTokens.delete(record.token);
+      emailToPasswordReset.delete(record.email);
+
+      return json({
+        success: true,
+        message: 'Your password has been reset successfully. Please sign in.'
+      });
+    }
+  }
+
+  // Current Customer Me
+  if (p === '/api/auth/customer/me') {
+    const custId = getCookie(request, 'infinicharm_customer_id');
+    const session = getCookie(request, 'infinicharm_customer_session');
+    if (!session || !custId) {
+      return json({ success: false, error: 'Unauthorized' }, 401);
+    }
+    const customer = [...registeredCustomers.values()].find(c => c.id === custId);
+    if (!customer) {
+      return json({ success: false, error: 'Customer not found' }, 404);
+    }
+    return json({
+      success: true,
+      customer: {
+        id: customer.id,
+        email: customer.email,
+        fullName: customer.fullName,
+        phone: customer.phone,
+        emailVerified: customer.emailVerified
+      }
+    });
+  }
+
+  // Customer Logout
+  if (p === '/api/auth/customer/logout') {
+    return jsonWithCookies({
+      success: true,
+      message: 'Signed out successfully.'
+    }, 200, [
+      'infinicharm_customer_session=; Path=/; Max-Age=0; SameSite=Lax',
+      'infinicharm_customer_id=; Path=/; Max-Age=0; SameSite=Lax',
+      'infinicharm_customer_sv=; Path=/; Max-Age=0; SameSite=Lax'
+    ]);
+  }
+
+  // Admin Auth Login
+  if (p === '/api/admin/auth/login' && request.method === 'POST') {
+    const body = await request.clone().json().catch(() => null);
+    const email = typeof body?.email === 'string' ? body.email.toLowerCase().trim() : '';
+    const password = typeof body?.password === 'string' ? body.password : '';
+    if (!email || !password) {
+      return json({ success: false, error: 'Administrative email and password are required.' }, 400);
+    }
+    const expectedEmail = 'admin@infinicharm.com';
+    const expectedPass = 'Admin@1234!';
+    if (email !== expectedEmail || password !== expectedPass) {
+      return json({
+        success: false,
+        error: 'Invalid administrative credentials. Access restricted to authorized personnel.'
+      }, 401);
+    }
+    return jsonWithCookies({
+      success: true,
+      admin: {
+        email,
+        name: 'Operations Administrator',
+        role: 'SUPER_ADMIN'
+      }
+    }, 200, [
+      'infinicharm_admin_session=active; Path=/; Max-Age=86400; SameSite=Lax',
+      'infinicharm_admin_email=' + email + '; Path=/; Max-Age=86400; SameSite=Lax; HttpOnly'
+    ]);
+  }
+
+  // Admin Auth Logout
+  if (p === '/api/admin/auth/logout') {
+    return jsonWithCookies({
+      success: true,
+      message: 'Admin signed out.'
+    }, 200, [
+      'infinicharm_admin_session=; Path=/; Max-Age=0; SameSite=Lax',
+      'infinicharm_admin_email=; Path=/; Max-Age=0; SameSite=Lax'
+    ]);
+  }
+
+  // Customer me sub-resources
+  if (p.startsWith('/api/customers/me/')) {
+    if (p === '/api/customers/me/addresses') {
+      return json({ success: true, addresses: [] });
+    }
+    if (p === '/api/customers/me/wishlist') {
+      return json({ success: true, wishlist: [] });
+    }
+    return json({ success: true });
+  }
+
+  // Orders
+  if (p === '/api/orders') {
+    if (request.method === 'POST') {
+      const body = await request.clone().json().catch(() => null);
+      if (!body || !body.items || !body.shippingAddress) {
+        return json({ success: false, error: 'Invalid order payload.' }, 400);
+      }
+      const orderId = body.id || ('INF-' + Date.now().toString().slice(-6) + '-' + Math.floor(1000 + Math.random() * 9000));
+      const newOrder = {
+        ...body,
+        id: orderId,
+        orderNumber: body.orderNumber || orderId,
+        createdAt: body.createdAt || new Date().toISOString(),
+        status: body.status || 'PENDING',
+        paymentStatus: body.paymentStatus || 'PENDING'
+      };
+      ordersStore.set(orderId, newOrder);
+      return json({ success: true, order: newOrder }, 201);
+    }
+
+    const q = url.searchParams.get('q')?.toLowerCase();
+    const phone = url.searchParams.get('phone');
+    let list = [...ordersStore.values()];
+    if (q) {
+      list = list.filter(o => o.id?.toLowerCase().includes(q) || o.orderNumber?.toLowerCase().includes(q));
+    }
+    if (phone) {
+      list = list.filter(o => o.shippingAddress?.phone?.includes(phone) || o.customerPhone?.includes(phone));
+    }
+    return json({ success: true, count: list.length, orders: list });
+  }
+  if (p.startsWith('/api/orders/')) {
+    const idOrNum = decodeURIComponent(p.replace('/api/orders/', ''));
+    const order = ordersStore.get(idOrNum) || [...ordersStore.values()].find(o => o.orderNumber === idOrNum);
+    if (!order) return json({ success: false, error: 'Order not found.' }, 404);
+    return json({ success: true, order });
+  }
+
+  // -------------------------------------------------------------
+  // STOREFRONT CATALOGUE & CONFIG
+  // -------------------------------------------------------------
 
   // /api/categories
   if (p === '/api/categories') {
@@ -456,17 +970,6 @@ function handleApi(request, url) {
         allowGuestCheckout: true,
       },
     });
-  }
-
-  // Auth & Customer routes
-  if (p.startsWith('/api/auth/customer/')) {
-    if (p === '/api/auth/customer/logout') {
-      return json({ success: true, message: 'Signed out successfully.' });
-    }
-    return json({ success: false, error: 'Authentication required' }, 401);
-  }
-  if (p.startsWith('/api/customers/me')) {
-    return json({ success: false, error: 'Unauthorized' }, 401);
   }
 
   // Always return valid JSON, NEVER HTML!
