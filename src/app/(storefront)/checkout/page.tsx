@@ -37,6 +37,7 @@ import { getPaymentGateways, fetchPaymentGateways, recordPaymentTransaction } fr
 import { generateInitialOrderTimeline } from '@/lib/services/orders';
 import { PasswordInput } from '@/components/auth/PasswordInput';
 import { ResendVerificationBox } from '@/components/auth/ResendVerificationBox';
+import { InlineOtpVerification } from '@/components/auth/InlineOtpVerification';
 import { persistClientCustomerSession } from '@/lib/auth/client-session';
 import { isValidEmail, validatePasswordAgainstPolicy } from '@/lib/validation/auth';
 
@@ -456,6 +457,27 @@ export default function CheckoutPage() {
     } finally {
       setInlineLoginLoading(false);
     }
+  };
+
+  const handleCustomerVerified = async (cust: any) => {
+    if (!cust) return;
+    persistClientCustomerSession(cust);
+    if (cust.id) setCustomerId(cust.id);
+    if (cust.email) {
+      setSignedInEmail(cust.email);
+      setEmail((prev) => prev || cust.email);
+    }
+    if (cust.fullName) setFullName((prev) => prev || cust.fullName);
+    if (cust.phone) setPhone((prev) => prev || cust.phone);
+    if (Array.isArray(cust.addresses)) {
+      setSavedAddresses(cust.addresses);
+    }
+    setInlineUnverifiedEmail(null);
+    setPendingCheckoutVerificationEmail(null);
+    setShowInlineLogin(false);
+    setCreateAccountDuringCheckout(false);
+    setInlineVerifiedNotice(null);
+    await loadCustomerData(true);
   };
 
   const handleSubmitOrder = async (e: React.FormEvent) => {
@@ -928,10 +950,13 @@ export default function CheckoutPage() {
                     )}
 
                     {inlineUnverifiedEmail && (
-                      <ResendVerificationBox
-                        initialEmail={inlineUnverifiedEmail}
+                      <InlineOtpVerification
+                        email={inlineUnverifiedEmail}
                         redirectPath="/checkout"
                         compact
+                        autoRedirect={false}
+                        onSuccess={handleCustomerVerified}
+                        onCancel={() => setInlineUnverifiedEmail(null)}
                       />
                     )}
 
@@ -998,9 +1023,13 @@ export default function CheckoutPage() {
                       </div>
                     </div>
 
-                    <ResendVerificationBox
-                      initialEmail={pendingCheckoutVerificationEmail}
+                    <InlineOtpVerification
+                      email={pendingCheckoutVerificationEmail}
                       redirectPath="/checkout"
+                      compact
+                      autoRedirect={false}
+                      onSuccess={handleCustomerVerified}
+                      onCancel={() => setPendingCheckoutVerificationEmail(null)}
                     />
 
                     <div className="flex flex-wrap items-center justify-between gap-2 pt-1">

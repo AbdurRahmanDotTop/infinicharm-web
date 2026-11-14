@@ -32,6 +32,7 @@ import {
   getAuthSettings,
   updateAuthSettings,
 } from '../../src/lib/server/auth-settings-store.ts';
+import { verifyEmailWithTokenOrOtp } from '../../src/lib/server/auth-service.ts';
 
 function makeTmpFile(name: string): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'infinicharm-auth-test-'));
@@ -212,6 +213,52 @@ describe('InfiniCharm Centralized Authentication & Security Unit Suite', () => {
       const prevVer = Number(okLogin.customer.sessionVersion || 1);
       const bumped = incrementCustomerSessionVersion(created.id);
       assert.equal(bumped, prevVer + 1);
+    } finally {
+      deleteCustomer(created.id);
+    }
+  });
+
+  test('unverified customer verification via OTP token activates customer for authentication', () => {
+    const testEmail = `otp.unit.${Date.now()}@example.com`;
+    const created = createCustomer({
+      fullName: 'OTP Customer',
+      email: testEmail,
+      phone: '9876543211',
+      password: 'UnitPass!2026',
+      emailVerified: false,
+      registrationSource: 'REGISTER_PAGE',
+    });
+
+    try {
+      const unverifiedAttempt = authenticateCustomer(testEmail, 'UnitPass!2026');
+      assert.equal(unverifiedAttempt.customer, null);
+      assert.equal(unverifiedAttempt.code, 'EMAIL_NOT_VERIFIED');
+
+      // Issue verification token with 6-digit OTP
+      const issued = createEmailVerificationToken({
+        customerId: created.id,
+        email: testEmail,
+        fullName: 'OTP Customer',
+        phone: '9876543211',
+        purpose: 'REGISTRATION',
+      });
+      assert.ok(issued.token);
+      assert.ok(/^\d{6}$/.test(issued.otp), 'must generate 6-digit OTP code');
+
+      // Verify with OTP
+      const verified = verifyEmailWithTokenOrOtp({
+        email: testEmail,
+        otp: issued.otp,
+      });
+      assert.equal(verified.valid, true);
+      assert.equal(verified.status, 'VERIFIED');
+      assert.ok(verified.customer);
+      assert.equal(verified.customer.emailVerified, true);
+
+      // Subsequent login succeeds
+      const okLogin = authenticateCustomer(testEmail, 'UnitPass!2026');
+      assert.ok(okLogin.customer);
+      assert.equal(okLogin.customer.email, testEmail);
     } finally {
       deleteCustomer(created.id);
     }

@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/Button';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { PasswordInput } from '@/components/auth/PasswordInput';
 import { ResendVerificationBox } from '@/components/auth/ResendVerificationBox';
+import { InlineOtpVerification } from '@/components/auth/InlineOtpVerification';
 import { persistClientCustomerSession } from '@/lib/auth/client-session';
 import { sanitizeRedirectPath } from '@/lib/validation/auth';
 import type { PublicAuthSettings } from '@/types';
@@ -22,6 +23,7 @@ function LoginFormContent() {
   const redirectPath = sanitizeRedirectPath(searchParams?.get('redirect'), '/account');
   const isVerifiedNotice = searchParams?.get('verified') === '1';
   const isResetNotice = searchParams?.get('reset') === '1';
+  const isUnverifiedParam = searchParams?.get('unverified') === '1' || searchParams?.get('verify') === '1';
   const prefillEmail = searchParams?.get('email') || '';
 
   const [policy, setPolicy] = useState<PublicAuthSettings | null>(null);
@@ -43,8 +45,13 @@ function LoginFormContent() {
   }, []);
 
   useEffect(() => {
-    if (prefillEmail) setEmail(prefillEmail);
-  }, [prefillEmail]);
+    if (prefillEmail) {
+      setEmail(prefillEmail);
+      if (isUnverifiedParam) {
+        setUnverifiedEmail(prefillEmail.toLowerCase().trim());
+      }
+    }
+  }, [prefillEmail, isUnverifiedParam]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -129,7 +136,7 @@ function LoginFormContent() {
         </div>
       )}
 
-      {error && (
+      {error && !unverifiedEmail && (
         <div
           role="alert"
           className="p-3 rounded-md bg-state-error/10 border border-state-error/20 flex items-start gap-2 text-xs text-state-error font-medium"
@@ -139,14 +146,6 @@ function LoginFormContent() {
         </div>
       )}
 
-      {unverifiedEmail && (
-        <ResendVerificationBox
-          initialEmail={unverifiedEmail}
-          redirectPath={redirectPath}
-          compact={true}
-        />
-      )}
-
       {success && (
         <div className="p-3 rounded-md bg-emerald-50 border border-emerald-200 flex items-start gap-2 text-xs text-emerald-800 font-medium">
           <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 text-emerald-600" />
@@ -154,54 +153,71 @@ function LoginFormContent() {
         </div>
       )}
 
-      <form onSubmit={handleLogin} className="space-y-4">
-        <Input
-          label="Email Address"
-          type="email"
-          placeholder="e.g. name@example.com"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-          autoComplete="email"
+      {unverifiedEmail ? (
+        <InlineOtpVerification
+          email={unverifiedEmail}
+          redirectPath={redirectPath}
+          onSuccess={() => {
+            setSuccess(true);
+            setTimeout(() => {
+              window.location.href = redirectPath;
+            }, 400);
+          }}
+          onCancel={() => {
+            setUnverifiedEmail(null);
+            setError(null);
+          }}
         />
+      ) : (
+        <form onSubmit={handleLogin} className="space-y-4">
+          <Input
+            label="Email Address"
+            type="email"
+            placeholder="e.g. name@example.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            autoComplete="email"
+          />
 
-        <PasswordInput
-          label="Password"
-          placeholder="Enter your password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          autoComplete="current-password"
-        />
+          <PasswordInput
+            label="Password"
+            placeholder="Enter your password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            autoComplete="current-password"
+          />
 
-        <div className="flex items-center justify-between text-xs gap-2">
-          <label className="flex items-center gap-1.5 cursor-pointer text-muted hover:text-primary">
-            <input
-              type="checkbox"
-              checked={rememberMe}
-              onChange={(e) => setRememberMe(e.target.checked)}
-              className="rounded border-border text-accent focus:ring-accent"
-            />
-            <span>Remember me for 7 days</span>
-          </label>
-          <Link
-            href="/forgot-password"
-            className="text-xs text-muted hover:text-accent underline"
+          <div className="flex items-center justify-between text-xs gap-2">
+            <label className="flex items-center gap-1.5 cursor-pointer text-muted hover:text-primary">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="rounded border-border text-accent focus:ring-accent"
+              />
+              <span>Remember me for 7 days</span>
+            </label>
+            <Link
+              href="/forgot-password"
+              className="text-xs text-muted hover:text-accent underline"
+            >
+              Forgot password?
+            </Link>
+          </div>
+
+          <Button
+            type="submit"
+            variant="primary"
+            size="md"
+            className="w-full"
+            isLoading={loading}
           >
-            Forgot password?
-          </Link>
-        </div>
-
-        <Button
-          type="submit"
-          variant="primary"
-          size="md"
-          className="w-full"
-          isLoading={loading}
-        >
-          Sign In to Account
-        </Button>
-      </form>
+            Sign In to Account
+          </Button>
+        </form>
+      )}
 
       <div className="pt-4 border-t border-border text-center space-y-3">
         {(!policy || policy.registrationEnabled) && (
