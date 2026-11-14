@@ -400,7 +400,7 @@ function PaymentPageContent() {
   // RENDER: Full Authoritative Payment Page
   // ---------------------------------------------------------------------------
   return (
-    <div className="min-h-screen bg-[#FAF7F2] py-8 md:py-12 px-4 sm:px-6">
+    <div className="min-h-screen bg-[#FAF7F2] py-8 md:py-12 px-3 sm:px-6 overflow-x-hidden">
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Top Header & Security Banner */}
         <div className="bg-white border border-stone-200 rounded-2xl p-5 md:p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -697,15 +697,15 @@ function PaymentPageContent() {
                   Share this secure link with whoever is paying (via WhatsApp, SMS, or Telegram). Anyone with this link can view the order and pay via their UPI app.
                 </p>
 
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-col sm:flex-row flex-wrap gap-2">
                   {/* Copy HTTPS Link Button */}
                   <button
                     type="button"
                     onClick={() => handleCopy(upiDetails.shareablePaymentUrl, 'payment_link')}
-                    className="flex-1 min-w-[160px] py-2.5 px-4 bg-stone-100 hover:bg-stone-200 text-slate text-xs font-bold rounded-xl border border-stone-300 transition-all flex items-center justify-center gap-1.5"
+                    className="w-full sm:flex-1 py-2.5 px-3 bg-stone-100 hover:bg-stone-200 text-slate text-xs font-bold rounded-xl border border-stone-300 transition-all flex items-center justify-center gap-1.5"
                   >
                     <span>🔗</span>
-                    <span>{copiedKey === 'payment_link' ? '✓ Copied Link!' : 'Copy Payment Link'}</span>
+                    <span className="truncate">{copiedKey === 'payment_link' ? '✓ Copied Link!' : 'Copy Payment Link'}</span>
                   </button>
 
                   {/* Share on WhatsApp */}
@@ -713,7 +713,7 @@ function PaymentPageContent() {
                     href={upiDetails.whatsAppShareUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex-1 min-w-[160px] py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-xs"
+                    className="w-full sm:flex-1 py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-xs"
                   >
                     <span>💬</span>
                     <span>Share on WhatsApp</span>
@@ -723,7 +723,7 @@ function PaymentPageContent() {
                   <button
                     type="button"
                     onClick={handleNativeShare}
-                    className="py-2.5 px-4 bg-white hover:bg-stone-50 text-slate text-xs font-bold rounded-xl border border-stone-200 transition-all flex items-center justify-center gap-1.5"
+                    className="w-full sm:w-auto py-2.5 px-3 bg-white hover:bg-stone-50 text-slate text-xs font-bold rounded-xl border border-stone-200 transition-all flex items-center justify-center gap-1.5"
                   >
                     <span>📤</span>
                     <span>Share Link</span>
