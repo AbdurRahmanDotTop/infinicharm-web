@@ -104,11 +104,32 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Prevent duplicate / replay order creation
-    if (getServerOrderByIdOrNumber(body.orderNumber)) {
+    // Idempotent Single Order Authority: Prevent duplicate orders while allowing safe replay/updates
+    const existingOrder = getServerOrderByIdOrNumber(body.orderNumber);
+    if (existingOrder) {
+      if (existingOrder.status === 'PENDING' || body.utrNumber) {
+        const mergedOrder: Order = {
+          ...existingOrder,
+          ...body,
+          id: existingOrder.id,
+          orderNumber: existingOrder.orderNumber,
+          createdAt: existingOrder.createdAt,
+          updatedAt: new Date().toISOString(),
+          utrNumber: body.utrNumber || existingOrder.utrNumber,
+          paymentStatus: body.paymentStatus || existingOrder.paymentStatus,
+          manualApprovalStatus: (body.utrNumber || existingOrder.utrNumber)
+            ? 'PENDING_REVIEW'
+            : existingOrder.manualApprovalStatus,
+        };
+        const saved = saveServerOrder(mergedOrder);
+        return NextResponse.json(
+          { success: true, order: saved, isIdempotent: true },
+          { status: 200 }
+        );
+      }
       return NextResponse.json(
-        { success: false, error: `Order ${body.orderNumber} already exists. Duplicate submission prevented.` },
-        { status: 409 }
+        { success: true, order: existingOrder, isIdempotent: true },
+        { status: 200 }
       );
     }
 

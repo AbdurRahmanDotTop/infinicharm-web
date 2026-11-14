@@ -28,6 +28,8 @@ export function StickyCartBar({ docked = false }: { docked?: boolean } = {}) {
     pathname === '/cart' ||
     pathname === '/checkout' ||
     pathname.startsWith('/checkout/') ||
+    pathname === '/pay' ||
+    pathname.startsWith('/pay/') ||
     pathname === '/login' ||
     pathname === '/register'
   ) {

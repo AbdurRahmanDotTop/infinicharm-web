@@ -12,7 +12,7 @@ import {
   shouldRestockOnTransition,
   getCourierTrackingUrl,
 } from '@/lib/services/orders';
-import { parseUtrInput } from '@/lib/services/upi';
+import { parseUtrInput, verifyPaymentToken } from '@/lib/services/upi';
 import { updateServerProductStock } from './products-store';
 
 function restockOrderItems(order: Order): void {
@@ -410,12 +410,77 @@ export function addServerOrderTimelineEvent(
 export function submitServerOrderUtr(
   idOrNumber: string,
   rawUtr: string,
-  payerName = 'Customer / Payer'
+  payerName = 'Customer / Payer',
+  token?: string
 ): { success: boolean; order?: Order; error?: string } {
   const orders = getServerOrders();
-  const idx = orders.findIndex(
+  let idx = orders.findIndex(
     (o) => o.id === idOrNumber || o.orderNumber === idOrNumber
   );
+
+  if (idx < 0 && token) {
+    const decoded = verifyPaymentToken(token);
+    if (decoded) {
+      const tokenOrder: Order = {
+        id: decoded.orderId || decoded.orderNumber || idOrNumber,
+        orderNumber: decoded.orderNumber || decoded.orderId || idOrNumber,
+        customerId: 'guest',
+        customerEmail: decoded.customerEmail || 'guest@infinicharm.com',
+        customerPhone: decoded.customerPhone || '8825164657',
+        status: 'PENDING',
+        subtotalInPaise: decoded.totalInPaise,
+        discountInPaise: 0,
+        shippingInPaise: 0,
+        taxInPaise: 0,
+        totalInPaise: decoded.totalInPaise,
+        paymentMethod: 'CUSTOM_UPI',
+        paymentStatus: 'PENDING',
+        shippingAddress: {
+          id: `addr-token-${Date.now()}`,
+          customerId: 'guest',
+          fullName: decoded.customerName || payerName || 'Valued Patron',
+          phone: decoded.customerPhone || '8825164657',
+          addressLine1: 'Consignment Delivery Address',
+          city: 'East Champaran',
+          state: 'Bihar',
+          postalCode: '845427',
+          country: 'India',
+          isDefaultShipping: true,
+          isDefaultBilling: false,
+        },
+        billingAddress: {
+          id: `bill-token-${Date.now()}`,
+          customerId: 'guest',
+          fullName: decoded.customerName || payerName || 'Valued Patron',
+          phone: decoded.customerPhone || '8825164657',
+          addressLine1: 'Consignment Delivery Address',
+          city: 'East Champaran',
+          state: 'Bihar',
+          postalCode: '845427',
+          country: 'India',
+          isDefaultShipping: true,
+          isDefaultBilling: false,
+        },
+        items: decoded.items?.map((it, i) => ({
+          id: `item-token-${i}`,
+          orderId: decoded.orderNumber || idOrNumber,
+          productId: 'prod-item',
+          variantId: 'var-item',
+          productTitle: it.title,
+          variantTitle: 'Standard',
+          sku: 'SKU-UPI',
+          priceInPaise: it.priceInPaise,
+          quantity: it.quantity,
+          totalInPaise: it.priceInPaise * it.quantity,
+        })) || [],
+        timeline: [],
+        createdAt: decoded.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      orders.unshift(tokenOrder);
+      idx = 0;
+    }
+  }
 
   if (idx < 0) {
     return { success: false, error: `Order "${idOrNumber}" not found.` };

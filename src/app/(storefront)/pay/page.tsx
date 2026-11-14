@@ -13,6 +13,7 @@ import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import QRCode from 'qrcode';
 import { Order } from '@/types';
+import { useCart } from '@/lib/context/CartContext';
 import {
   generateUpiPaymentDetails,
   DEFAULT_UPI_CREDENTIALS,
@@ -52,12 +53,16 @@ function PaymentPageContent() {
   const [loading, setLoading] = useState<boolean>(true);
   const [notFound, setNotFound] = useState<boolean>(false);
 
+  // Cart state for auto-clearing upon order placement
+  const { clearCart } = useCart();
+
   // UTR submission state
   const [utrInput, setUtrInput] = useState<string>('');
   const [payerName, setPayerName] = useState<string>('');
   const [isSubmittingUtr, setIsSubmittingUtr] = useState<boolean>(false);
   const [utrError, setUtrError] = useState<string | null>(null);
   const [utrSuccessMessage, setUtrSuccessMessage] = useState<string | null>(null);
+  const [isEditingUtr, setIsEditingUtr] = useState<boolean>(false);
 
   // UI state
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
@@ -277,7 +282,7 @@ function PaymentPageContent() {
     }
   };
 
-  // 6. UTR Submission Handler
+  // 6. Authoritative Order Placement & UTR Submission Handler
   const handleSubmitUtr = async (e: React.FormEvent) => {
     e.preventDefault();
     setUtrError(null);
@@ -304,15 +309,60 @@ function PaymentPageContent() {
       const data = await res.json();
       if (res.ok && data.success && data.order) {
         setOrder(data.order);
+        setIsEditingUtr(false);
         setUtrSuccessMessage(
-          `Payment Reference "${validation.rawCleaned}" submitted successfully! Our banking desk is reconciling this with our IndusInd Bank Current Account. Your order will be confirmed upon verification.`
+          `Order #${activeOrderId} placed & Payment Reference "${validation.rawCleaned}" submitted successfully! Our banking desk is reconciling this with our IndusInd Bank Current Account.`
         );
+
+        // 1. Clear shopping cart on client
+        try {
+          clearCart();
+        } catch {}
+
+        // 2. Broadcast to other open tabs (e.g. /checkout) via BroadcastChannel
+        try {
+          const syncChan = new BroadcastChannel('infinicharm_checkout_sync');
+          syncChan.postMessage({
+            type: 'ORDER_SUBMITTED_FROM_PAYMENT_PAGE',
+            orderNumber: activeOrderId,
+            orderId: activeOrderId,
+            utrNumber: validation.rawCleaned,
+            order: data.order,
+            timestamp: Date.now(),
+          });
+          syncChan.close();
+        } catch {}
+
+        // 3. Update localStorage and notify across browser windows
+        try {
+          localStorage.setItem(
+            'infinicharm_active_order_completed',
+            JSON.stringify({
+              orderNumber: activeOrderId,
+              orderId: activeOrderId,
+              utrNumber: validation.rawCleaned,
+              timestamp: Date.now(),
+            })
+          );
+          const stored = localStorage.getItem('infinicharm_orders');
+          const list = stored ? JSON.parse(stored) : [];
+          const idx = list.findIndex(
+            (o: any) => o.orderNumber === activeOrderId || o.id === activeOrderId
+          );
+          if (idx >= 0) {
+            list[idx] = data.order;
+          } else {
+            list.unshift(data.order);
+          }
+          localStorage.setItem('infinicharm_orders', JSON.stringify(list));
+          window.dispatchEvent(new Event('infinicharm_orders_updated'));
+        } catch {}
       } else {
-        setUtrError(data.error || 'Failed to submit UTR. Please verify details and try again.');
+        setUtrError(data.error || 'Failed to submit payment reference. Please verify details and try again.');
       }
     } catch (err: any) {
       console.error('Error submitting UTR:', err);
-      setUtrError('Network error while submitting UTR. Please try again.');
+      setUtrError('Network error while submitting payment reference. Please check your connection and try again.');
     } finally {
       setIsSubmittingUtr(false);
     }
@@ -535,31 +585,31 @@ function PaymentPageContent() {
                     <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
                       <a
                         href={upiDetails.appUris.phonePe}
-                        className="flex items-center justify-center py-2 px-2.5 bg-purple-50 hover:bg-purple-100 text-purple-900 border border-purple-200 rounded-lg text-xs font-bold transition-all text-center"
+                        className="flex items-center justify-center py-2 px-1 sm:px-2.5 bg-purple-50 hover:bg-purple-100 text-purple-900 border border-purple-200 rounded-lg text-[11px] sm:text-xs font-bold transition-all text-center truncate"
                       >
                         PhonePe
                       </a>
                       <a
                         href={upiDetails.appUris.gPay}
-                        className="flex items-center justify-center py-2 px-2.5 bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-200 rounded-lg text-xs font-bold transition-all text-center"
+                        className="flex items-center justify-center py-2 px-1 sm:px-2.5 bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-200 rounded-lg text-[11px] sm:text-xs font-bold transition-all text-center truncate"
                       >
                         Google Pay
                       </a>
                       <a
                         href={upiDetails.appUris.paytm}
-                        className="flex items-center justify-center py-2 px-2.5 bg-sky-50 hover:bg-sky-100 text-sky-900 border border-sky-200 rounded-lg text-xs font-bold transition-all text-center"
+                        className="flex items-center justify-center py-2 px-1 sm:px-2.5 bg-sky-50 hover:bg-sky-100 text-sky-900 border border-sky-200 rounded-lg text-[11px] sm:text-xs font-bold transition-all text-center truncate"
                       >
                         Paytm
                       </a>
                       <a
                         href={upiDetails.appUris.bhim}
-                        className="flex items-center justify-center py-2 px-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-200 rounded-lg text-xs font-bold transition-all text-center"
+                        className="flex items-center justify-center py-2 px-1 sm:px-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-200 rounded-lg text-[11px] sm:text-xs font-bold transition-all text-center truncate"
                       >
                         BHIM UPI
                       </a>
                       <a
                         href={upiDetails.appUris.cred}
-                        className="flex items-center justify-center py-2 px-2.5 bg-stone-100 hover:bg-stone-200 text-stone-900 border border-stone-300 rounded-lg text-xs font-bold transition-all text-center col-span-2 sm:col-span-1"
+                        className="flex items-center justify-center py-2 px-1 sm:px-2.5 bg-stone-100 hover:bg-stone-200 text-stone-900 border border-stone-300 rounded-lg text-[11px] sm:text-xs font-bold transition-all text-center truncate col-span-2 sm:col-span-1"
                       >
                         CRED
                       </a>
@@ -788,49 +838,120 @@ function PaymentPageContent() {
               </div>
             </div>
 
-            {/* UTR Submission Card (Self-Service Settlement) */}
+            {/* Order Placement & UTR Settlement Card */}
             <div className="bg-white border border-stone-200 rounded-2xl p-5 md:p-6 shadow-sm space-y-4">
               <div className="flex items-center gap-2">
-                <span className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs">
+                <span className="w-6 h-6 rounded-full bg-accent text-white flex items-center justify-center font-bold text-xs">
                   2
                 </span>
                 <h3 className="font-bold text-sm text-slate">
-                  Submit Payment Reference (UTR)
+                  {order.utrNumber && !isEditingUtr
+                    ? 'Order Placed & Payment Submitted'
+                    : 'Finalize & Place Order (Payment Verification)'}
                 </h3>
               </div>
 
-              <p className="text-xs text-muted leading-relaxed">
-                After completing your transfer in your UPI app, enter the <strong>12-digit UTR Number</strong> (found in your UPI transaction receipt under "UPI Ref No." or "UTR") below.
-              </p>
-
               {utrSuccessMessage && (
-                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-900 leading-relaxed">
-                  {utrSuccessMessage}
+                <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs sm:text-sm text-emerald-900 leading-relaxed flex items-start gap-2.5">
+                  <span className="w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">
+                    ✓
+                  </span>
+                  <span>{utrSuccessMessage}</span>
                 </div>
               )}
 
               {utrError && (
-                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-900 leading-relaxed">
-                  {utrError}
+                <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-xs sm:text-sm text-rose-900 leading-relaxed flex items-start gap-2.5">
+                  <span className="w-5 h-5 rounded-full bg-rose-500 text-white flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">
+                    ✕
+                  </span>
+                  <span>{utrError}</span>
                 </div>
               )}
 
-              {order.utrNumber && !utrSuccessMessage && (
-                <div className="p-3 bg-stone-50 border border-stone-200 rounded-xl text-xs">
-                  <span className="text-muted block text-[10px] font-bold uppercase">
-                    Submitted Reference on Record:
-                  </span>
-                  <span className="font-mono font-bold text-slate text-sm">
-                    {order.utrNumber}
-                  </span>
-                  <span className="block text-[11px] text-amber-700 mt-1">
-                    ⏳ Payment is under bank statement verification.
-                  </span>
-                </div>
-              )}
+              {/* Already Submitted / Confirmed View */}
+              {order.utrNumber && !isEditingUtr ? (
+                <div className="space-y-4">
+                  <div className="p-4 bg-stone-50 border border-stone-200 rounded-xl space-y-3">
+                    <div className="flex items-center justify-between pb-2 border-b border-stone-200">
+                      <span className="text-[11px] text-muted font-bold uppercase tracking-wider">
+                        Order Reference
+                      </span>
+                      <strong className="font-mono text-slate text-xs sm:text-sm font-bold">
+                        {activeOrderId}
+                      </strong>
+                    </div>
 
-              {!isPaid && !isCancelled && (
-                <form onSubmit={handleSubmitUtr} className="space-y-3 pt-1">
+                    <div className="flex items-center justify-between pb-2 border-b border-stone-200">
+                      <span className="text-[11px] text-muted font-bold uppercase tracking-wider">
+                        Submitted UTR
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <strong className="font-mono text-emerald-700 text-xs sm:text-sm font-bold">
+                          {order.utrNumber}
+                        </strong>
+                        <button
+                          type="button"
+                          onClick={() => handleCopy(order.utrNumber || '', 'submitted_utr')}
+                          className="text-[10px] text-primary hover:underline px-1.5 py-0.5 bg-white border border-stone-200 rounded"
+                        >
+                          {copiedKey === 'submitted_utr' ? '✓' : 'Copy'}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] text-muted font-bold uppercase tracking-wider">
+                        Reconciliation Status
+                      </span>
+                      <span className="text-xs font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                        ⏳ Under Bank Verification
+                      </span>
+                    </div>
+
+                    <p className="text-[11px] text-muted leading-relaxed pt-1">
+                      Our accounts desk is reconciling your payment against our <strong>IndusInd Bank Current Account (258825164657)</strong>. Your order will be confirmed upon verification.
+                    </p>
+                  </div>
+
+                  {/* Actions for Placed Order */}
+                  <div className="flex flex-col sm:flex-row gap-2 pt-1">
+                    <Link
+                      href={getOrderTrackingUrl(activeOrderId)}
+                      className="w-full sm:flex-1 py-3 px-4 bg-primary text-white text-xs sm:text-sm font-bold rounded-xl hover:bg-primary/95 transition-all shadow-sm text-center flex items-center justify-center gap-1.5"
+                    >
+                      <span>Track Order Status</span>
+                      <span>→</span>
+                    </Link>
+                    <Link
+                      href="/account/orders"
+                      className="w-full sm:flex-1 py-3 px-4 bg-stone-100 hover:bg-stone-200 text-slate text-xs sm:text-sm font-bold rounded-xl transition-all border border-stone-200 text-center"
+                    >
+                      View Order History
+                    </Link>
+                  </div>
+
+                  {!isPaid && !isCancelled && (
+                    <div className="text-center pt-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setUtrInput(order.utrNumber || '');
+                          setIsEditingUtr(true);
+                        }}
+                        className="text-xs text-primary hover:underline font-medium"
+                      >
+                        Need to update or re-submit UTR reference?
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : !isPaid && !isCancelled ? (
+                <form onSubmit={handleSubmitUtr} className="space-y-3.5 pt-1">
+                  <p className="text-xs text-muted leading-relaxed">
+                    After completing your transfer in your UPI app, enter the <strong>12-digit UTR Number</strong> (found in your UPI transaction receipt under "UPI Ref No." or "UTR") below to place and verify your order.
+                  </p>
+
                   <div>
                     <label className="block text-[11px] font-bold uppercase tracking-wider text-muted mb-1">
                       12-Digit UPI Transaction Reference / UTR *
@@ -841,7 +962,7 @@ function PaymentPageContent() {
                       value={utrInput}
                       onChange={(e) => setUtrInput(e.target.value)}
                       placeholder="e.g. 431902847190 (or comma-separated if split)"
-                      className="w-full px-3.5 py-2.5 bg-white border border-stone-200 rounded-xl font-mono text-xs md:text-sm focus:outline-none focus:ring-1 focus:ring-primary uppercase tracking-wide"
+                      className="w-full px-3.5 py-2.5 bg-white border border-stone-200 rounded-xl font-mono text-xs md:text-sm focus:outline-none focus:ring-1 focus:ring-primary uppercase tracking-wide shadow-2xs"
                       required
                     />
                   </div>
@@ -855,26 +976,48 @@ function PaymentPageContent() {
                       value={payerName}
                       onChange={(e) => setPayerName(e.target.value)}
                       placeholder={order.shippingAddress?.fullName || 'Name on bank account'}
-                      className="w-full px-3.5 py-2.5 bg-white border border-stone-200 rounded-xl text-xs md:text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                      className="w-full px-3.5 py-2.5 bg-white border border-stone-200 rounded-xl text-xs md:text-sm focus:outline-none focus:ring-1 focus:ring-primary shadow-2xs"
                     />
                   </div>
 
+                  {/* Primary Submit / Place Order Button */}
                   <button
                     type="submit"
+                    data-testid="payment-page-submit-order-btn"
                     disabled={isSubmittingUtr}
-                    className="w-full py-3 px-4 bg-slate text-white text-xs md:text-sm font-bold rounded-xl hover:bg-black transition-all shadow-sm disabled:opacity-50"
+                    className="w-full py-3.5 px-4 bg-accent hover:bg-accent-hover text-white text-xs sm:text-sm md:text-base font-bold rounded-xl transition-all shadow-md active:scale-[0.99] flex items-center justify-center gap-2 disabled:opacity-60 cursor-pointer"
                   >
-                    {isSubmittingUtr ? 'Verifying Reference...' : 'Submit UTR for Verification'}
+                    {isSubmittingUtr ? (
+                      <>
+                        <span className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                        <span>Validating & Placing Order...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>✓</span>
+                        <span>Submit & Place Order</span>
+                      </>
+                    )}
                   </button>
-                </form>
-              )}
 
-              <div className="pt-2 text-[11px] text-muted space-y-1">
-                <span className="font-semibold block text-slate">Verification Policy:</span>
-                <p>
-                  Orders are dispatched upon confirmation of funds in our IndusInd Bank Current account. Please allow 15–30 minutes during banking hours.
-                </p>
-              </div>
+                  {isEditingUtr && (
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingUtr(false)}
+                      className="w-full py-2 text-xs text-muted hover:text-slate transition-colors text-center"
+                    >
+                      Cancel and keep previous reference
+                    </button>
+                  )}
+
+                  <div className="pt-2 text-[11px] text-muted space-y-1">
+                    <span className="font-semibold block text-slate">Verification Policy:</span>
+                    <p>
+                      Orders are dispatched upon confirmation of funds in our IndusInd Bank Current account. Please allow 15–30 minutes during banking hours.
+                    </p>
+                  </div>
+                </form>
+              ) : null}
             </div>
           </div>
         </div>

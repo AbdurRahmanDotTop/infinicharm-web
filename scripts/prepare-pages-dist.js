@@ -2051,6 +2051,27 @@ async function handleApi(request, url, env) {
         }
       }
 
+      const effectiveOrderNum = body.orderNumber || orderId;
+      const existingOrder = ordersStore.get(orderId) || ordersStore.get(effectiveOrderNum) || [...ordersStore.values()].find(o => o.orderNumber === effectiveOrderNum || o.id === orderId);
+      if (existingOrder) {
+        const mergedOrder = {
+          ...existingOrder,
+          ...body,
+          id: existingOrder.id,
+          orderNumber: existingOrder.orderNumber,
+          createdAt: existingOrder.createdAt,
+          updatedAt: new Date().toISOString(),
+          utrNumber: body.utrNumber || existingOrder.utrNumber,
+          paymentStatus: body.paymentStatus || existingOrder.paymentStatus,
+          manualApprovalStatus: (body.utrNumber || existingOrder.utrNumber)
+            ? 'PENDING_REVIEW'
+            : existingOrder.manualApprovalStatus,
+        };
+        ordersStore.set(existingOrder.id, mergedOrder);
+        if (existingOrder.orderNumber) ordersStore.set(existingOrder.orderNumber, mergedOrder);
+        return json({ success: true, order: mergedOrder, isIdempotent: true }, 200);
+      }
+
       const newOrder = {
         ...body,
         id: orderId,

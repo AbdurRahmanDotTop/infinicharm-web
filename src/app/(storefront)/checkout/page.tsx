@@ -110,12 +110,15 @@ export default function CheckoutPage() {
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [checkoutOrderNumber, setCheckoutOrderNumber] = useState<string>('');
   const [desktopUpiNotice, setDesktopUpiNotice] = useState<boolean>(false);
+  const [remoteSyncNotice, setRemoteSyncNotice] = useState<string | null>(null);
 
   // Initialize or restore stable checkout order number
   useEffect(() => {
     if (typeof window === 'undefined') return;
     try {
-      const existing = sessionStorage.getItem('infinicharm_checkout_order_id');
+      const existing =
+        sessionStorage.getItem('infinicharm_checkout_order_id') ||
+        localStorage.getItem('infinicharm_checkout_order_id');
       if (existing && existing.startsWith('INF-')) {
         setCheckoutOrderNumber(existing);
         return;
@@ -125,8 +128,95 @@ export default function CheckoutPage() {
     setCheckoutOrderNumber(newOrderNum);
     try {
       sessionStorage.setItem('infinicharm_checkout_order_id', newOrderNum);
+      localStorage.setItem('infinicharm_checkout_order_id', newOrderNum);
     } catch {}
   }, []);
+
+  // Real-Time Synchronization with Dedicated Payment Page (/pay) across tabs, windows, and devices
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const activeOrderNum = checkoutOrderNumber;
+    if (!activeOrderNum) return;
+
+    let isCompleted = false;
+
+    const completeCheckoutFromRemote = (orderNum: string, utr?: string) => {
+      if (isCompleted) return;
+      isCompleted = true;
+      if (utr) setCustomUpiUtr(utr);
+      clearCart();
+      try {
+        sessionStorage.removeItem('infinicharm_checkout_order_id');
+        localStorage.removeItem('infinicharm_checkout_order_id');
+        localStorage.removeItem('infinicharm_checkout_draft');
+      } catch {}
+      setRemoteSyncNotice(
+        `Order #${orderNum} placed & payment submitted via Payment Desk! Redirecting to confirmation...`
+      );
+      setTimeout(() => {
+        router.push(`/checkout/success?order_id=${encodeURIComponent(orderNum)}`);
+      }, 1200);
+    };
+
+    // 1. BroadcastChannel API for instant cross-tab sync in same browser
+    let channel: BroadcastChannel | null = null;
+    try {
+      channel = new BroadcastChannel('infinicharm_checkout_sync');
+      channel.onmessage = (event) => {
+        const data = event.data;
+        if (!data) return;
+        if (
+          data.type === 'ORDER_SUBMITTED_FROM_PAYMENT_PAGE' &&
+          (data.orderNumber === activeOrderNum || data.orderId === activeOrderNum)
+        ) {
+          completeCheckoutFromRemote(data.orderNumber || activeOrderNum, data.utrNumber);
+        }
+      };
+    } catch {}
+
+    // 2. Storage event for cross-window / tab localStorage fallback
+    const handleStorageEvent = (e: StorageEvent) => {
+      if (e.key === 'infinicharm_active_order_completed' && e.newValue) {
+        try {
+          const payload = JSON.parse(e.newValue);
+          if (payload?.orderNumber === activeOrderNum || payload?.orderId === activeOrderNum) {
+            completeCheckoutFromRemote(payload.orderNumber || activeOrderNum, payload.utrNumber);
+          }
+        } catch {}
+      }
+    };
+    window.addEventListener('storage', handleStorageEvent);
+
+    // 3. Server-side polling for cross-device synchronization (e.g. PC checkout + Mobile payment page)
+    const pollTimer = setInterval(async () => {
+      if (isCompleted || paymentMethod !== 'CUSTOM_UPI') return;
+      try {
+        const res = await fetch(`/api/orders/${encodeURIComponent(activeOrderNum)}`, {
+          cache: 'no-store',
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && json.order) {
+            const ord = json.order;
+            if (
+              ord.utrNumber &&
+              (ord.manualApprovalStatus === 'PENDING_REVIEW' ||
+                ord.paymentStatus === 'PAID' ||
+                ord.status === 'CONFIRMED')
+            ) {
+              completeCheckoutFromRemote(activeOrderNum, ord.utrNumber);
+            }
+          }
+        }
+      } catch {}
+    }, 3000);
+
+    return () => {
+      if (channel) channel.close();
+      window.removeEventListener('storage', handleStorageEvent);
+      clearInterval(pollTimer);
+    };
+  }, [checkoutOrderNumber, paymentMethod, clearCart, router]);
 
   // PayGlocal States
   const [payglocalCurrency, setPayglocalCurrency] = useState<'INR' | 'USD' | 'GBP' | 'EUR'>('INR');
@@ -1014,6 +1104,13 @@ export default function CheckoutPage() {
             <span>256-Bit Encrypted Direct Dispatch from East Champaran, Bihar</span>
           </p>
         </div>
+
+        {remoteSyncNotice && (
+          <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-start gap-3 text-emerald-900 text-xs sm:text-sm font-semibold animate-in fade-in">
+            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+            <span>{remoteSyncNotice}</span>
+          </div>
+        )}
 
         {formError && (
           <div className="mb-6 p-4 bg-rose-50 border border-rose-200 rounded-2xl flex items-start gap-3 text-rose-800 text-xs">
