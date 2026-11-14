@@ -559,6 +559,10 @@ function getAuthenticatedCustomer(request) {
 
   if (!Array.isArray(cust.addresses)) cust.addresses = [];
   if (!Array.isArray(cust.wishlistProductIds)) cust.wishlistProductIds = [];
+  try {
+    const validIds = new Set(PRODUCTS.filter(p => p.status === 'PUBLISHED').map(p => p.id));
+    cust.wishlistProductIds = cust.wishlistProductIds.filter(id => validIds.has(id));
+  } catch {}
   if (!cust.preferences) {
     cust.preferences = {
       newsletterSubscribed: true,
@@ -1230,6 +1234,10 @@ async function handleApi(request, url, env) {
         (o.shippingAddress && o.shippingAddress.email && o.shippingAddress.email.toLowerCase() === customer.email.toLowerCase()) ||
         (customer.phone && o.shippingAddress && o.shippingAddress.phone === customer.phone)
       );
+      const validProductIds = new Set(PRODUCTS.filter(p => p.status === 'PUBLISHED').map(p => p.id));
+      const cleanWishlist = (customer.wishlistProductIds || []).filter(id => validProductIds.has(id));
+      customer.wishlistProductIds = cleanWishlist;
+
       return json({
         success: true,
         customer: {
@@ -1243,7 +1251,7 @@ async function handleApi(request, url, env) {
           role: customer.role || 'CUSTOMER',
           preferences: customer.preferences,
           addresses: customer.addresses || [],
-          wishlistProductIds: customer.wishlistProductIds || [],
+          wishlistProductIds: cleanWishlist,
           createdAt: customer.createdAt
         },
         orders: customerOrders

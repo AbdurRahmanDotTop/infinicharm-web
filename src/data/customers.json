@@ -7,7 +7,7 @@
     "phone": "8825164657",
     "status": "ACTIVE",
     "role": "SUPER_ADMIN",
-    "emailVerified": false,
+    "emailVerified": true,
     "emailVerifiedAt": "2026-11-14T08:00:00.000Z",
     "registrationSource": "ORGANIC",
     "sessionVersion": 1,
@@ -36,7 +36,6 @@
       }
     ],
     "wishlistProductIds": [
-      "prod-dates-ajwa-01",
       "S-01-P-03"
     ],
     "createdAt": "2026-11-14T08:00:00.000Z",
@@ -93,11 +92,11 @@
       }
     ],
     "wishlistProductIds": [
-      "prod-dates-ajwa-01"
+      "S-01-P-01"
     ],
     "createdAt": "2026-11-01T08:00:00.000Z",
-    "updatedAt": "2026-11-14T11:07:23.162Z",
-    "lastLoginAt": "2026-11-14T11:07:23.018Z"
+    "updatedAt": "2026-11-14T12:23:30.603Z",
+    "lastLoginAt": "2026-11-14T12:23:30.444Z"
   },
   {
     "id": "cust-1794542649402-961",

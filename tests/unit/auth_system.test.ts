@@ -238,8 +238,6 @@ describe('InfiniCharm Centralized Authentication & Security Unit Suite', () => {
       const issued = createEmailVerificationToken({
         customerId: created.id,
         email: testEmail,
-        fullName: 'OTP Customer',
-        phone: '9876543211',
         purpose: 'REGISTRATION',
       });
       assert.ok(issued.token);

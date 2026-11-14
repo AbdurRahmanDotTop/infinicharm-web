@@ -52,27 +52,53 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
       // Check if user is authenticated via /api/customers/me only when session cookie exists
       const hasSessionCookie =
         typeof document !== 'undefined' && document.cookie.includes('infinicharm_customer_session=active');
-      if (hasSessionCookie) {
-        const res = await fetch('/api/customers/me');
-        if (res.ok) {
-          const data = await res.json();
-          if (data.success && data.customer) {
+
+      // Parallel fetch for active catalog products and customer profile
+      const [prodRes, customerRes] = await Promise.all([
+        fetch('/api/products').catch(() => null),
+        hasSessionCookie ? fetch('/api/customers/me').catch(() => null) : Promise.resolve(null),
+      ]);
+
+      let validProductIds: Set<string> | null = null;
+      if (prodRes && prodRes.ok) {
+        try {
+          const pData = await prodRes.json();
+          if (pData?.success && Array.isArray(pData?.products)) {
+            validProductIds = new Set(
+              pData.products.filter((p: any) => p.status === 'PUBLISHED').map((p: any) => p.id)
+            );
+          }
+        } catch {}
+      }
+
+      const sanitizeList = (ids: string[]) => {
+        if (!validProductIds || validProductIds.size === 0) return ids;
+        return ids.filter((id) => validProductIds!.has(id));
+      };
+
+      if (customerRes && customerRes.ok) {
+        try {
+          const data = await customerRes.json();
+          if (data?.success && data?.customer) {
             const serverWishlist: string[] = Array.isArray(data.customer.wishlistProductIds)
               ? data.customer.wishlistProductIds
               : [];
 
             // Merge any locally saved items that might not have been pushed yet
             const merged = Array.from(new Set([...serverWishlist, ...localIds]));
-            setWishlistProductIds(merged);
-            persistLocally(merged);
+            const sanitized = sanitizeList(merged);
+            setWishlistProductIds(sanitized);
+            persistLocally(sanitized);
             setIsLoading(false);
             return;
           }
-        }
+        } catch {}
       }
 
-      // If guest, use local items
-      setWishlistProductIds(localIds);
+      // If guest or unauthenticated, use local items sanitized against live catalog
+      const sanitized = sanitizeList(localIds);
+      setWishlistProductIds(sanitized);
+      persistLocally(sanitized);
     } catch (err) {
       console.warn('Wishlist sync warning:', err);
     } finally {
