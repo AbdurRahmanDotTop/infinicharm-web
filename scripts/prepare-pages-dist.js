@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { execSync } = require('child_process');
 
 const baseDir = path.resolve(__dirname, '..');
 const nextServerApp = path.join(baseDir, '.next', 'server', 'app');
@@ -46,6 +47,34 @@ if (fs.existsSync(nextStatic)) {
   copyDirSync(nextStatic, distNextStatic);
 }
 
+// 3b. Guarantee Tailwind CSS compilation into dist/_next/static/css
+const distCssDir = path.join(distNextStatic, 'css');
+fs.mkdirSync(distCssDir, { recursive: true });
+const cssFiles = fs.readdirSync(distCssDir).filter(f => f.endsWith('.css'));
+let hasCompiledTailwind = false;
+for (const f of cssFiles) {
+  const code = fs.readFileSync(path.join(distCssDir, f), 'utf8');
+  if (code.includes('--tw-') && !code.includes('@tailwind')) {
+    hasCompiledTailwind = true;
+    break;
+  }
+}
+
+let bundledCssName = null;
+if (!hasCompiledTailwind) {
+  console.log('Compiling Tailwind CSS directly via tailwindcss CLI...');
+  bundledCssName = 'tailwind.bundle.css';
+  const compiledCssPath = path.join(distCssDir, bundledCssName);
+  try {
+    execSync(`npx tailwindcss -i "${path.join(srcDir, 'app', 'globals.css')}" -o "${compiledCssPath}" --minify`, {
+      cwd: baseDir,
+      stdio: 'inherit'
+    });
+  } catch (err) {
+    console.warn('Tailwind CLI fallback warning:', err.message);
+  }
+}
+
 // 4. Ensure icons are in root of dist
 const iconSources = [
   path.join(srcDir, 'app', 'icon.svg'),
@@ -74,11 +103,9 @@ function walkApp(dir, relPath = '') {
     const subRel = path.join(relPath, entry.name);
 
     if (entry.isDirectory()) {
-      // Don't recurse into api routes for static HTML
       if (entry.name === 'api') continue;
       walkApp(fullPath, subRel);
     } else if (entry.isFile()) {
-      // Strip route group parens like (storefront) or (admin)
       const cleanRel = subRel
         .split(path.sep)
         .filter(segment => !segment.startsWith('(') || !segment.endsWith(')'))
@@ -86,24 +113,28 @@ function walkApp(dir, relPath = '') {
 
       if (entry.name.endsWith('.html')) {
         routeCount++;
+        let htmlContent = fs.readFileSync(fullPath, 'utf8');
+
+        // If fallback tailwind bundle was generated, inject it into head
+        if (bundledCssName && !htmlContent.includes(bundledCssName)) {
+          htmlContent = htmlContent.replace('</head>', `<link rel="stylesheet" href="/_next/static/css/${bundledCssName}"/></head>`);
+        }
+
         const targetFile = path.join(distDir, cleanRel);
         fs.mkdirSync(path.dirname(targetFile), { recursive: true });
-        fs.copyFileSync(fullPath, targetFile);
+        fs.writeFileSync(targetFile, htmlContent, 'utf8');
 
-        // Also create index.html in subfolder for clean URLs: /product/100-kashmiri-honey -> /product/100-kashmiri-honey/index.html
         const baseName = path.basename(cleanRel, '.html');
         if (baseName !== 'index' && baseName !== '_not-found' && baseName !== '404') {
           const dirPath = path.join(distDir, path.dirname(cleanRel), baseName);
           fs.mkdirSync(dirPath, { recursive: true });
-          fs.copyFileSync(fullPath, path.join(dirPath, 'index.html'));
+          fs.writeFileSync(path.join(dirPath, 'index.html'), htmlContent, 'utf8');
         }
 
-        // 404 fallback
         if (baseName === '_not-found') {
-          fs.copyFileSync(fullPath, path.join(distDir, '404.html'));
+          fs.writeFileSync(path.join(distDir, '404.html'), htmlContent, 'utf8');
         }
       } else if (entry.name.endsWith('.rsc')) {
-        // Copy RSC payload files so ?_rsc= prefetches and navigations succeed
         const targetRsc = path.join(distDir, cleanRel);
         fs.mkdirSync(path.dirname(targetRsc), { recursive: true });
         fs.copyFileSync(fullPath, targetRsc);
@@ -128,7 +159,6 @@ if (fs.existsSync(nextServerApp)) {
   walkApp(nextServerApp);
 }
 
-// Ensure fallback 404.html exists
 if (!fs.existsSync(path.join(distDir, '404.html')) && fs.existsSync(path.join(distDir, 'index.html'))) {
   fs.copyFileSync(path.join(distDir, 'index.html'), path.join(distDir, '404.html'));
 }

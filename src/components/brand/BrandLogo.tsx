@@ -96,6 +96,7 @@ export function BrandLogo({
       {/* Handcrafted Infinity Logo Icon matching supplied specification */}
       <div
         className={`relative ${sizeStyles.box} flex items-center justify-center shrink-0 group-hover:scale-105 transition-all ${getContainerClasses()}`}
+        style={{ width: size === 'lg' ? 40 : size === 'sm' ? 28 : 32, height: size === 'lg' ? 40 : size === 'sm' ? 28 : 32 }}
       >
         <svg
           viewBox="0 0 24 24"
@@ -105,6 +106,7 @@ export function BrandLogo({
           strokeLinecap="round"
           strokeLinejoin="round"
           className={`${sizeStyles.svg} text-accent shrink-0`}
+          style={{ width: size === 'lg' ? 24 : size === 'sm' ? 16 : 20, height: size === 'lg' ? 24 : size === 'sm' ? 16 : 20, maxWidth: '100%', maxHeight: '100%' }}
           aria-hidden="true"
         >
           {/* Exact Brand Symbol Infinity Loop Specification */}
