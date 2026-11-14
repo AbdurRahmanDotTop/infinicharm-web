@@ -1,0 +1,5 @@
+{
+  "autoApproveVerifiedPurchases": true,
+  "requireDeliveredStatus": true,
+  "minCommentLength": 10
+}

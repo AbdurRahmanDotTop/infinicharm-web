@@ -1,0 +1,3863 @@
+[
+  {
+    "id": "saud-1794633215596-1121",
+    "actorId": "admin-action",
+    "actorEmail": "test-cleanup@infinicharm.com",
+    "action": "BACKUP_DELETE",
+    "resourceType": "backup",
+    "resourceId": "BCK-CATALOGUE-20261114-918BAA",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-14T05:13:35.596Z"
+  },
+  {
+    "id": "saud-1794633215584-4129",
+    "actorId": "admin-action",
+    "actorEmail": "test-admin@infinicharm.com",
+    "action": "BACKUP_DELETE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261114-B40628",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-14T05:13:35.584Z"
+  },
+  {
+    "id": "saud-1794633215561-5514",
+    "actorId": "admin-action",
+    "actorEmail": "test-admin@infinicharm.com",
+    "action": "COLLECTION_IMPORT",
+    "resourceType": "categories",
+    "resourceId": "import-1794633215559",
+    "diff": {
+      "strategy": "SKIP",
+      "format": "json",
+      "insertedCount": 1,
+      "updatedCount": 0,
+      "skippedCount": 1,
+      "totalRecordsNow": 6
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-14T05:13:35.561Z"
+  },
+  {
+    "id": "saud-1794633215540-5426",
+    "actorId": "admin-action",
+    "actorEmail": "test-cleanup@infinicharm.com",
+    "action": "BACKUP_DELETE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261114-FFD7F1",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-14T05:13:35.540Z"
+  },
+  {
+    "id": "saud-1794633215530-8945",
+    "actorId": "admin-action",
+    "actorEmail": "test-admin@infinicharm.com",
+    "action": "BACKUP_RESTORE",
+    "resourceType": "backup",
+    "resourceId": "BCK-CATALOGUE-20261114-918BAA",
+    "diff": {
+      "restoredCollections": [
+        "products",
+        "categories",
+        "media_assets",
+        "storefront_badges"
+      ],
+      "recordsRestored": {
+        "products": 4,
+        "categories": 5,
+        "media_assets": 7,
+        "storefront_badges": 2
+      },
+      "rollbackSnapshotId": "BCK-FULL-20261114-FFD7F1"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-14T05:13:35.530Z"
+  },
+  {
+    "id": "saud-1794633215509-3530",
+    "actorId": "admin-action",
+    "actorEmail": "system-rollback@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261114-FFD7F1",
+    "diff": {
+      "type": "FULL",
+      "totalRecords": 147,
+      "totalCollections": 22,
+      "checksum": "8c4d027fdbcafdff420e0d7a6fdb30f25998998a83ba05cebfb97c40af0142d4"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-14T05:13:35.509Z"
+  },
+  {
+    "id": "saud-1794633215450-8571",
+    "actorId": "admin-action",
+    "actorEmail": "test-admin@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-CATALOGUE-20261114-918BAA",
+    "diff": {
+      "type": "SECTION",
+      "section": "catalogue",
+      "totalRecords": 18,
+      "totalCollections": 4,
+      "checksum": "5c7e50b6e48f8b82dddf4ea02da19b3a09b1b4fe8344e240785709c40ef16b0b"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-14T05:13:35.451Z"
+  },
+  {
+    "id": "saud-1794633215413-8453",
+    "actorId": "admin-action",
+    "actorEmail": "test-admin@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261114-B40628",
+    "diff": {
+      "type": "FULL",
+      "totalRecords": 147,
+      "totalCollections": 22,
+      "checksum": "8c4d027fdbcafdff420e0d7a6fdb30f25998998a83ba05cebfb97c40af0142d4"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-14T05:13:35.414Z"
+  },
+  {
+    "id": "saud-1794625097308-3669",
+    "actorId": "admin-action",
+    "actorEmail": "test-cleanup@infinicharm.com",
+    "action": "BACKUP_DELETE",
+    "resourceType": "backup",
+    "resourceId": "BCK-CATALOGUE-20261114-3882B4",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-14T02:58:17.308Z"
+  },
+  {
+    "id": "saud-1794625097303-6282",
+    "actorId": "admin-action",
+    "actorEmail": "test-admin@infinicharm.com",
+    "action": "BACKUP_DELETE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261114-6CA167",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-14T02:58:17.303Z"
+  },
+  {
+    "id": "saud-1794625097294-5705",
+    "actorId": "admin-action",
+    "actorEmail": "test-admin@infinicharm.com",
+    "action": "COLLECTION_IMPORT",
+    "resourceType": "categories",
+    "resourceId": "import-1794625097293",
+    "diff": {
+      "strategy": "SKIP",
+      "format": "json",
+      "insertedCount": 1,
+      "updatedCount": 0,
+      "skippedCount": 1,
+      "totalRecordsNow": 6
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-14T02:58:17.294Z"
+  },
+  {
+    "id": "saud-1794625097287-1610",
+    "actorId": "admin-action",
+    "actorEmail": "test-cleanup@infinicharm.com",
+    "action": "BACKUP_DELETE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261114-B71EC8",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-14T02:58:17.287Z"
+  },
+  {
+    "id": "saud-1794625097284-9184",
+    "actorId": "admin-action",
+    "actorEmail": "test-admin@infinicharm.com",
+    "action": "BACKUP_RESTORE",
+    "resourceType": "backup",
+    "resourceId": "BCK-CATALOGUE-20261114-3882B4",
+    "diff": {
+      "restoredCollections": [
+        "products",
+        "categories",
+        "media_assets",
+        "storefront_badges"
+      ],
+      "recordsRestored": {
+        "products": 4,
+        "categories": 5,
+        "media_assets": 7,
+        "storefront_badges": 2
+      },
+      "rollbackSnapshotId": "BCK-FULL-20261114-B71EC8"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-14T02:58:17.284Z"
+  },
+  {
+    "id": "saud-1794625097277-9113",
+    "actorId": "admin-action",
+    "actorEmail": "system-rollback@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261114-B71EC8",
+    "diff": {
+      "type": "FULL",
+      "totalRecords": 147,
+      "totalCollections": 22,
+      "checksum": "d92c02d6085f4a0a652db8a34bb39a48d134c123034d4b579ebfb11106ce0ff1"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-14T02:58:17.277Z"
+  },
+  {
+    "id": "saud-1794625097260-5819",
+    "actorId": "admin-action",
+    "actorEmail": "test-admin@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-CATALOGUE-20261114-3882B4",
+    "diff": {
+      "type": "SECTION",
+      "section": "catalogue",
+      "totalRecords": 18,
+      "totalCollections": 4,
+      "checksum": "9604841fea9beeb1afd45efb05d43431a11d0ac20c40fa938eed62fada7473bf"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-14T02:58:17.260Z"
+  },
+  {
+    "id": "saud-1794625097250-2601",
+    "actorId": "admin-action",
+    "actorEmail": "test-admin@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261114-6CA167",
+    "diff": {
+      "type": "FULL",
+      "totalRecords": 147,
+      "totalCollections": 22,
+      "checksum": "d92c02d6085f4a0a652db8a34bb39a48d134c123034d4b579ebfb11106ce0ff1"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-14T02:58:17.250Z"
+  },
+  {
+    "id": "saud-1794624130424-4828",
+    "actorId": "admin",
+    "actorEmail": "admin@infinicharm.com",
+    "action": "EMAIL_TEMPLATE_DELETED",
+    "resourceType": "email_template",
+    "resourceId": "tpl-1794624106189-31",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-14T02:42:10.424Z"
+  },
+  {
+    "id": "saud-1794624106193-2925",
+    "actorId": "admin",
+    "actorEmail": "admin@infinicharm.com",
+    "action": "EMAIL_TEMPLATE_CREATED",
+    "resourceType": "email_template",
+    "resourceId": "tpl-1794624106189-31",
+    "diff": {
+      "name": "E2E Template 1794624105959",
+      "purpose": "MARKETING",
+      "slug": "e2e-template-1794624105959"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-14T02:41:46.193Z"
+  },
+  {
+    "id": "saud-1794623989812-8579",
+    "actorId": "admin",
+    "actorEmail": "admin@infinicharm.com",
+    "action": "EMAIL_TEMPLATE_CREATED",
+    "resourceType": "email_template",
+    "resourceId": "tpl-1794623989804-484",
+    "diff": {
+      "name": "E2E Template 1794623989517",
+      "purpose": "MARKETING",
+      "slug": "e2e-template-1794623989517"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-14T02:39:49.812Z"
+  },
+  {
+    "id": "saud-1794623562298-8817",
+    "actorId": "cust-01",
+    "actorEmail": "customer@infinicharm.com",
+    "action": "CUSTOMER_LOGIN_SUCCESS",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-01",
+    "diff": {
+      "authenticated": true
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-14T02:32:42.298Z"
+  },
+  {
+    "id": "saud-1794623552102-7353",
+    "actorId": "cust-01",
+    "actorEmail": "customer@infinicharm.com",
+    "action": "CUSTOMER_LOGIN_SUCCESS",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-01",
+    "diff": {
+      "authenticated": true
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-14T02:32:32.102Z"
+  },
+  {
+    "id": "saud-1794623467142-5362",
+    "actorId": "cust-01",
+    "actorEmail": "customer@infinicharm.com",
+    "action": "CUSTOMER_LOGIN_SUCCESS",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-01",
+    "diff": {
+      "authenticated": true
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-14T02:31:07.142Z"
+  },
+  {
+    "id": "saud-1794623434261-8568",
+    "actorId": "cust-01",
+    "actorEmail": "customer@infinicharm.com",
+    "action": "CUSTOMER_LOGIN_SUCCESS",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-01",
+    "diff": {
+      "authenticated": true
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-14T02:30:34.261Z"
+  },
+  {
+    "id": "saud-1794623100311-8310",
+    "actorId": "cust-1794623099966-854",
+    "actorEmail": "ui.test.1794623099691@example.com",
+    "action": "CUSTOMER_REGISTERED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794623099966-854",
+    "diff": {
+      "source": "REGISTER_PAGE",
+      "emailVerified": false,
+      "requiresVerification": true
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-14T02:25:00.311Z"
+  },
+  {
+    "id": "saud-1794623100110-8116",
+    "actorId": "cust-1794623099966-854",
+    "actorEmail": "ui.test.1794623099691@example.com",
+    "action": "EMAIL_VERIFICATION_DISPATCHED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794623099966-854",
+    "diff": {
+      "purpose": "REGISTRATION",
+      "redirectPath": "/account",
+      "smtpDispatched": false,
+      "expiresAt": "2026-11-14T03:25:00.005Z",
+      "otpExpiresAt": "[REDACTED]",
+      "hasOtp": "[REDACTED]"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-14T02:25:00.110Z"
+  },
+  {
+    "id": "saud-1794623060610-8058",
+    "actorId": "cust-1794623060188-201",
+    "actorEmail": "ui.test.1794623059752@example.com",
+    "action": "CUSTOMER_REGISTERED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794623060188-201",
+    "diff": {
+      "source": "REGISTER_PAGE",
+      "emailVerified": false,
+      "requiresVerification": true
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-14T02:24:20.610Z"
+  },
+  {
+    "id": "saud-1794623060420-4875",
+    "actorId": "cust-1794623060188-201",
+    "actorEmail": "ui.test.1794623059752@example.com",
+    "action": "EMAIL_VERIFICATION_DISPATCHED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794623060188-201",
+    "diff": {
+      "purpose": "REGISTRATION",
+      "redirectPath": "/account",
+      "smtpDispatched": false,
+      "expiresAt": "2026-11-14T03:24:20.247Z",
+      "otpExpiresAt": "[REDACTED]",
+      "hasOtp": "[REDACTED]"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-14T02:24:20.420Z"
+  },
+  {
+    "id": "saud-1794622915032-5045",
+    "actorId": "cust-1794622914586-645",
+    "actorEmail": "audit.verify.test@example.com",
+    "action": "CUSTOMER_REGISTERED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794622914586-645",
+    "diff": {
+      "source": "REGISTER_PAGE",
+      "emailVerified": false,
+      "requiresVerification": true
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-14T02:21:55.032Z"
+  },
+  {
+    "id": "saud-1794622914782-2198",
+    "actorId": "cust-1794622914586-645",
+    "actorEmail": "audit.verify.test@example.com",
+    "action": "EMAIL_VERIFICATION_DISPATCHED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794622914586-645",
+    "diff": {
+      "purpose": "REGISTRATION",
+      "redirectPath": "/account",
+      "smtpDispatched": false,
+      "expiresAt": "2026-11-14T03:21:54.656Z",
+      "otpExpiresAt": "[REDACTED]",
+      "hasOtp": "[REDACTED]"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-14T02:21:54.782Z"
+  },
+  {
+    "id": "saud-1794621291893-4502",
+    "actorId": "admin-action",
+    "actorEmail": "admin@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261114-463479",
+    "diff": {
+      "type": "FULL",
+      "totalRecords": 130,
+      "totalCollections": 22,
+      "checksum": "1458e381de0e75ea9af27b19217ae176dbffc1cf245d1afbac35387e9d328389"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-14T01:54:51.893Z"
+  },
+  {
+    "id": "saud-1794620461410-1317",
+    "actorId": "cust-01",
+    "actorEmail": "customer@infinicharm.com",
+    "action": "CUSTOMER_LOGOUT",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-01",
+    "diff": {
+      "newSessionVersion": 2
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-14T01:41:01.411Z"
+  },
+  {
+    "id": "saud-1794620399170-1202",
+    "actorId": "cust-01",
+    "actorEmail": "customer@infinicharm.com",
+    "action": "CUSTOMER_LOGIN_SUCCESS",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-01",
+    "diff": {
+      "authenticated": true
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-14T01:39:59.171Z"
+  },
+  {
+    "id": "saud-1794620282728-9049",
+    "actorId": "anonymous",
+    "actorEmail": "vikram.singh@example.com",
+    "action": "CUSTOMER_LOGIN_FAILED",
+    "resourceType": "customer_auth",
+    "resourceId": "vikram.singh@example.com",
+    "diff": {
+      "authenticated": false,
+      "code": "INVALID_CREDENTIALS"
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-14T01:38:02.729Z"
+  },
+  {
+    "id": "saud-1794620235811-1500",
+    "actorId": "cust-01",
+    "actorEmail": "customer@infinicharm.com",
+    "action": "CUSTOMER_LOGIN_SUCCESS",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-01",
+    "diff": {
+      "authenticated": true
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-14T01:37:15.812Z"
+  },
+  {
+    "id": "saud-1794610431231-9645",
+    "actorId": "admin-action",
+    "actorEmail": "test-cleanup@infinicharm.com",
+    "action": "BACKUP_DELETE",
+    "resourceType": "backup",
+    "resourceId": "BCK-CATALOGUE-20261113-942876",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T22:53:51.231Z"
+  },
+  {
+    "id": "saud-1794610431227-6871",
+    "actorId": "admin-action",
+    "actorEmail": "test-admin@infinicharm.com",
+    "action": "BACKUP_DELETE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261113-ECF943",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T22:53:51.227Z"
+  },
+  {
+    "id": "saud-1794610431222-8755",
+    "actorId": "admin-action",
+    "actorEmail": "test-admin@infinicharm.com",
+    "action": "COLLECTION_IMPORT",
+    "resourceType": "categories",
+    "resourceId": "import-1794610431221",
+    "diff": {
+      "strategy": "SKIP",
+      "format": "json",
+      "insertedCount": 1,
+      "updatedCount": 0,
+      "skippedCount": 1,
+      "totalRecordsNow": 6
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T22:53:51.222Z"
+  },
+  {
+    "id": "saud-1794610431214-6008",
+    "actorId": "admin-action",
+    "actorEmail": "test-cleanup@infinicharm.com",
+    "action": "BACKUP_DELETE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261113-763239",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T22:53:51.214Z"
+  },
+  {
+    "id": "saud-1794610431212-3935",
+    "actorId": "admin-action",
+    "actorEmail": "test-admin@infinicharm.com",
+    "action": "BACKUP_RESTORE",
+    "resourceType": "backup",
+    "resourceId": "BCK-CATALOGUE-20261113-942876",
+    "diff": {
+      "restoredCollections": [
+        "products",
+        "categories",
+        "media_assets",
+        "storefront_badges"
+      ],
+      "recordsRestored": {
+        "products": 4,
+        "categories": 5,
+        "media_assets": 7,
+        "storefront_badges": 2
+      },
+      "rollbackSnapshotId": "BCK-FULL-20261113-763239"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T22:53:51.212Z"
+  },
+  {
+    "id": "saud-1794610431206-4081",
+    "actorId": "admin-action",
+    "actorEmail": "system-rollback@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261113-763239",
+    "diff": {
+      "type": "FULL",
+      "totalRecords": 129,
+      "totalCollections": 22,
+      "checksum": "7d1699dcc7d40c8c214c5a2a47eea32750223df41ad6c27de70ad30b731dbef2"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T22:53:51.206Z"
+  },
+  {
+    "id": "saud-1794610431190-4263",
+    "actorId": "admin-action",
+    "actorEmail": "test-admin@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-CATALOGUE-20261113-942876",
+    "diff": {
+      "type": "SECTION",
+      "section": "catalogue",
+      "totalRecords": 18,
+      "totalCollections": 4,
+      "checksum": "c91ee30ce0285041fa08fb09582eb29d745827215c015bd67ac161e736113244"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T22:53:51.190Z"
+  },
+  {
+    "id": "saud-1794610431179-2591",
+    "actorId": "admin-action",
+    "actorEmail": "test-admin@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261113-ECF943",
+    "diff": {
+      "type": "FULL",
+      "totalRecords": 129,
+      "totalCollections": 22,
+      "checksum": "7d1699dcc7d40c8c214c5a2a47eea32750223df41ad6c27de70ad30b731dbef2"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T22:53:51.179Z"
+  },
+  {
+    "id": "saud-1794609825870-3984",
+    "actorId": "cust-01",
+    "actorEmail": "customer@infinicharm.com",
+    "action": "CUSTOMER_LOGIN_SUCCESS",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-01",
+    "diff": {
+      "authenticated": true
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T22:43:45.871Z"
+  },
+  {
+    "id": "saud-1794589188849-4192",
+    "actorId": "admin-action",
+    "actorEmail": "test-cleanup@infinicharm.com",
+    "action": "BACKUP_DELETE",
+    "resourceType": "backup",
+    "resourceId": "BCK-CATALOGUE-20261113-9195B7",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T16:59:48.849Z"
+  },
+  {
+    "id": "saud-1794589188845-8118",
+    "actorId": "admin-action",
+    "actorEmail": "test-admin@infinicharm.com",
+    "action": "BACKUP_DELETE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261113-5EFCD6",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T16:59:48.845Z"
+  },
+  {
+    "id": "saud-1794589188836-6534",
+    "actorId": "admin-action",
+    "actorEmail": "test-admin@infinicharm.com",
+    "action": "COLLECTION_IMPORT",
+    "resourceType": "categories",
+    "resourceId": "import-1794589188834",
+    "diff": {
+      "strategy": "SKIP",
+      "format": "json",
+      "insertedCount": 1,
+      "updatedCount": 0,
+      "skippedCount": 1,
+      "totalRecordsNow": 6
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T16:59:48.836Z"
+  },
+  {
+    "id": "saud-1794589188827-2736",
+    "actorId": "admin-action",
+    "actorEmail": "test-cleanup@infinicharm.com",
+    "action": "BACKUP_DELETE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261113-478B7D",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T16:59:48.827Z"
+  },
+  {
+    "id": "saud-1794589188822-4140",
+    "actorId": "admin-action",
+    "actorEmail": "test-admin@infinicharm.com",
+    "action": "BACKUP_RESTORE",
+    "resourceType": "backup",
+    "resourceId": "BCK-CATALOGUE-20261113-9195B7",
+    "diff": {
+      "restoredCollections": [
+        "products",
+        "categories",
+        "media_assets",
+        "storefront_badges"
+      ],
+      "recordsRestored": {
+        "products": 4,
+        "categories": 5,
+        "media_assets": 7,
+        "storefront_badges": 2
+      },
+      "rollbackSnapshotId": "BCK-FULL-20261113-478B7D"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T16:59:48.822Z"
+  },
+  {
+    "id": "saud-1794589188813-3796",
+    "actorId": "admin-action",
+    "actorEmail": "system-rollback@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261113-478B7D",
+    "diff": {
+      "type": "FULL",
+      "totalRecords": 129,
+      "totalCollections": 22,
+      "checksum": "4394797966f687342e6c795fdc88a41c44e1e9576e7b5f2e9589be96f6bda395"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T16:59:48.814Z"
+  },
+  {
+    "id": "saud-1794589188796-3341",
+    "actorId": "admin-action",
+    "actorEmail": "test-admin@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-CATALOGUE-20261113-9195B7",
+    "diff": {
+      "type": "SECTION",
+      "section": "catalogue",
+      "totalRecords": 18,
+      "totalCollections": 4,
+      "checksum": "0707e6ad38b8fb70aa666e4e5e22df110a6ecdb76167a0dcebe41ce27bda734d"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T16:59:48.796Z"
+  },
+  {
+    "id": "saud-1794589188783-1880",
+    "actorId": "admin-action",
+    "actorEmail": "test-admin@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261113-5EFCD6",
+    "diff": {
+      "type": "FULL",
+      "totalRecords": 129,
+      "totalCollections": 22,
+      "checksum": "4394797966f687342e6c795fdc88a41c44e1e9576e7b5f2e9589be96f6bda395"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T16:59:48.783Z"
+  },
+  {
+    "id": "saud-1794584712740-2885",
+    "actorId": "cust-1794584707896-825",
+    "actorEmail": "test.link.1794584706053@example.com",
+    "action": "EMAIL_VERIFICATION_FAILED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794584707896-825",
+    "diff": {
+      "method": "OTP",
+      "status": "ALREADY_USED",
+      "error": "This verification code has already been used. Your email is already verified."
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:45:12.740Z"
+  },
+  {
+    "id": "saud-1794584712570-5951",
+    "actorId": "cust-1794584707896-825",
+    "actorEmail": "test.link.1794584706053@example.com",
+    "action": "EMAIL_VERIFICATION_FAILED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794584707896-825",
+    "diff": {
+      "method": "OTP",
+      "status": "ALREADY_USED",
+      "error": "This verification code has already been used. Your email is already verified."
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:45:12.570Z"
+  },
+  {
+    "id": "saud-1794584710657-9167",
+    "actorId": "cust-1794584707896-825",
+    "actorEmail": "test.link.1794584706053@example.com",
+    "action": "CUSTOMER_EMAIL_VERIFIED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794584707896-825",
+    "diff": {
+      "method": "DIRECT_LINK",
+      "purpose": "REGISTRATION",
+      "redirectPath": "/account"
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:45:10.657Z"
+  },
+  {
+    "id": "saud-1794584708613-2296",
+    "actorId": "cust-1794584707896-825",
+    "actorEmail": "test.link.1794584706053@example.com",
+    "action": "CUSTOMER_REGISTERED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794584707896-825",
+    "diff": {
+      "source": "REGISTER_PAGE",
+      "emailVerified": false,
+      "requiresVerification": true
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:45:08.613Z"
+  },
+  {
+    "id": "saud-1794584708341-9973",
+    "actorId": "cust-1794584707896-825",
+    "actorEmail": "test.link.1794584706053@example.com",
+    "action": "EMAIL_VERIFICATION_DISPATCHED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794584707896-825",
+    "diff": {
+      "purpose": "REGISTRATION",
+      "redirectPath": "/account",
+      "smtpDispatched": false,
+      "expiresAt": "2026-11-13T16:45:08.090Z",
+      "otpExpiresAt": "[REDACTED]",
+      "hasOtp": "[REDACTED]"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:45:08.341Z"
+  },
+  {
+    "id": "saud-1794584704833-1472",
+    "actorId": "anonymous",
+    "actorEmail": "test.otp.1794584702067@example.com",
+    "action": "EMAIL_VERIFICATION_FAILED",
+    "resourceType": "customer_auth",
+    "resourceId": "otp",
+    "diff": {
+      "method": "OTP",
+      "status": "INVALID",
+      "error": "The 6-digit verification code entered is incorrect."
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:45:04.833Z"
+  },
+  {
+    "id": "saud-1794584704683-5949",
+    "actorId": "anonymous",
+    "actorEmail": "test.otp.1794584702067@example.com",
+    "action": "EMAIL_VERIFICATION_FAILED",
+    "resourceType": "customer_auth",
+    "resourceId": "otp",
+    "diff": {
+      "method": "OTP",
+      "status": "INVALID",
+      "error": "The 6-digit verification code entered is incorrect."
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:45:04.683Z"
+  },
+  {
+    "id": "saud-1794584704031-8388",
+    "actorId": "cust-1794584703624-860",
+    "actorEmail": "test.otp.1794584702067@example.com",
+    "action": "CUSTOMER_REGISTERED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794584703624-860",
+    "diff": {
+      "source": "REGISTER_PAGE",
+      "emailVerified": false,
+      "requiresVerification": true
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:45:04.031Z"
+  },
+  {
+    "id": "saud-1794584703797-4099",
+    "actorId": "cust-1794584703624-860",
+    "actorEmail": "test.otp.1794584702067@example.com",
+    "action": "EMAIL_VERIFICATION_DISPATCHED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794584703624-860",
+    "diff": {
+      "purpose": "REGISTRATION",
+      "redirectPath": "/account",
+      "smtpDispatched": false,
+      "expiresAt": "2026-11-13T16:45:03.676Z",
+      "otpExpiresAt": "[REDACTED]",
+      "hasOtp": "[REDACTED]"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:45:03.797Z"
+  },
+  {
+    "id": "saud-1794584700786-3416",
+    "actorId": "cust-1794584696646-103",
+    "actorEmail": "test.link.1794584694539@example.com",
+    "action": "EMAIL_VERIFICATION_FAILED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794584696646-103",
+    "diff": {
+      "method": "OTP",
+      "status": "ALREADY_USED",
+      "error": "This verification code has already been used. Your email is already verified."
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:45:00.786Z"
+  },
+  {
+    "id": "saud-1794584700643-9301",
+    "actorId": "cust-1794584696646-103",
+    "actorEmail": "test.link.1794584694539@example.com",
+    "action": "EMAIL_VERIFICATION_FAILED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794584696646-103",
+    "diff": {
+      "method": "OTP",
+      "status": "ALREADY_USED",
+      "error": "This verification code has already been used. Your email is already verified."
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:45:00.643Z"
+  },
+  {
+    "id": "saud-1794584698882-3976",
+    "actorId": "cust-1794584696646-103",
+    "actorEmail": "test.link.1794584694539@example.com",
+    "action": "CUSTOMER_EMAIL_VERIFIED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794584696646-103",
+    "diff": {
+      "method": "DIRECT_LINK",
+      "purpose": "REGISTRATION",
+      "redirectPath": "/account"
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:44:58.882Z"
+  },
+  {
+    "id": "saud-1794584697039-1171",
+    "actorId": "cust-1794584696646-103",
+    "actorEmail": "test.link.1794584694539@example.com",
+    "action": "CUSTOMER_REGISTERED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794584696646-103",
+    "diff": {
+      "source": "REGISTER_PAGE",
+      "emailVerified": false,
+      "requiresVerification": true
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:44:57.039Z"
+  },
+  {
+    "id": "saud-1794584696809-3809",
+    "actorId": "cust-1794584696646-103",
+    "actorEmail": "test.link.1794584694539@example.com",
+    "action": "EMAIL_VERIFICATION_DISPATCHED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794584696646-103",
+    "diff": {
+      "purpose": "REGISTRATION",
+      "redirectPath": "/account",
+      "smtpDispatched": false,
+      "expiresAt": "2026-11-13T16:44:56.690Z",
+      "otpExpiresAt": "[REDACTED]",
+      "hasOtp": "[REDACTED]"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:44:56.809Z"
+  },
+  {
+    "id": "saud-1794584693305-2393",
+    "actorId": "anonymous",
+    "actorEmail": "test.otp.1794584690714@example.com",
+    "action": "EMAIL_VERIFICATION_FAILED",
+    "resourceType": "customer_auth",
+    "resourceId": "otp",
+    "diff": {
+      "method": "OTP",
+      "status": "INVALID",
+      "error": "The 6-digit verification code entered is incorrect."
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:44:53.305Z"
+  },
+  {
+    "id": "saud-1794584693107-6261",
+    "actorId": "anonymous",
+    "actorEmail": "test.otp.1794584690714@example.com",
+    "action": "EMAIL_VERIFICATION_FAILED",
+    "resourceType": "customer_auth",
+    "resourceId": "otp",
+    "diff": {
+      "method": "OTP",
+      "status": "INVALID",
+      "error": "The 6-digit verification code entered is incorrect."
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:44:53.107Z"
+  },
+  {
+    "id": "saud-1794584692462-6549",
+    "actorId": "cust-1794584692085-268",
+    "actorEmail": "test.otp.1794584690714@example.com",
+    "action": "CUSTOMER_REGISTERED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794584692085-268",
+    "diff": {
+      "source": "REGISTER_PAGE",
+      "emailVerified": false,
+      "requiresVerification": true
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:44:52.462Z"
+  },
+  {
+    "id": "saud-1794584692254-2184",
+    "actorId": "cust-1794584692085-268",
+    "actorEmail": "test.otp.1794584690714@example.com",
+    "action": "EMAIL_VERIFICATION_DISPATCHED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794584692085-268",
+    "diff": {
+      "purpose": "REGISTRATION",
+      "redirectPath": "/account",
+      "smtpDispatched": false,
+      "expiresAt": "2026-11-13T16:44:52.138Z",
+      "otpExpiresAt": "[REDACTED]",
+      "hasOtp": "[REDACTED]"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:44:52.254Z"
+  },
+  {
+    "id": "saud-1794584689490-1953",
+    "actorId": "cust-1794584685556-580",
+    "actorEmail": "test.link.1794584683433@example.com",
+    "action": "EMAIL_VERIFICATION_FAILED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794584685556-580",
+    "diff": {
+      "method": "OTP",
+      "status": "ALREADY_USED",
+      "error": "This verification code has already been used. Your email is already verified."
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:44:49.490Z"
+  },
+  {
+    "id": "saud-1794584689307-5331",
+    "actorId": "cust-1794584685556-580",
+    "actorEmail": "test.link.1794584683433@example.com",
+    "action": "EMAIL_VERIFICATION_FAILED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794584685556-580",
+    "diff": {
+      "method": "OTP",
+      "status": "ALREADY_USED",
+      "error": "This verification code has already been used. Your email is already verified."
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:44:49.307Z"
+  },
+  {
+    "id": "saud-1794584687574-3608",
+    "actorId": "cust-1794584685556-580",
+    "actorEmail": "test.link.1794584683433@example.com",
+    "action": "CUSTOMER_EMAIL_VERIFIED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794584685556-580",
+    "diff": {
+      "method": "DIRECT_LINK",
+      "purpose": "REGISTRATION",
+      "redirectPath": "/account"
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:44:47.574Z"
+  },
+  {
+    "id": "saud-1794584685934-1925",
+    "actorId": "cust-1794584685556-580",
+    "actorEmail": "test.link.1794584683433@example.com",
+    "action": "CUSTOMER_REGISTERED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794584685556-580",
+    "diff": {
+      "source": "REGISTER_PAGE",
+      "emailVerified": false,
+      "requiresVerification": true
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:44:45.934Z"
+  },
+  {
+    "id": "saud-1794584685718-5129",
+    "actorId": "cust-1794584685556-580",
+    "actorEmail": "test.link.1794584683433@example.com",
+    "action": "EMAIL_VERIFICATION_DISPATCHED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794584685556-580",
+    "diff": {
+      "purpose": "REGISTRATION",
+      "redirectPath": "/account",
+      "smtpDispatched": false,
+      "expiresAt": "2026-11-13T16:44:45.602Z",
+      "otpExpiresAt": "[REDACTED]",
+      "hasOtp": "[REDACTED]"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:44:45.718Z"
+  },
+  {
+    "id": "saud-1794584683312-8300",
+    "actorId": "anonymous",
+    "actorEmail": "test.otp.1794584679953@example.com",
+    "action": "EMAIL_VERIFICATION_FAILED",
+    "resourceType": "customer_auth",
+    "resourceId": "otp",
+    "diff": {
+      "method": "OTP",
+      "status": "INVALID",
+      "error": "The 6-digit verification code entered is incorrect."
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:44:43.312Z"
+  },
+  {
+    "id": "saud-1794584682983-1640",
+    "actorId": "anonymous",
+    "actorEmail": "test.otp.1794584679953@example.com",
+    "action": "EMAIL_VERIFICATION_FAILED",
+    "resourceType": "customer_auth",
+    "resourceId": "otp",
+    "diff": {
+      "method": "OTP",
+      "status": "INVALID",
+      "error": "The 6-digit verification code entered is incorrect."
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:44:42.983Z"
+  },
+  {
+    "id": "saud-1794584682502-8430",
+    "actorId": "cust-1794584682132-593",
+    "actorEmail": "test.otp.1794584679953@example.com",
+    "action": "CUSTOMER_REGISTERED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794584682132-593",
+    "diff": {
+      "source": "REGISTER_PAGE",
+      "emailVerified": false,
+      "requiresVerification": true
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:44:42.502Z"
+  },
+  {
+    "id": "saud-1794584682302-9368",
+    "actorId": "cust-1794584682132-593",
+    "actorEmail": "test.otp.1794584679953@example.com",
+    "action": "EMAIL_VERIFICATION_DISPATCHED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794584682132-593",
+    "diff": {
+      "purpose": "REGISTRATION",
+      "redirectPath": "/account",
+      "smtpDispatched": false,
+      "expiresAt": "2026-11-13T16:44:42.186Z",
+      "otpExpiresAt": "[REDACTED]",
+      "hasOtp": "[REDACTED]"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:44:42.302Z"
+  },
+  {
+    "id": "saud-1794584678790-7182",
+    "actorId": "cust-1794584674574-892",
+    "actorEmail": "test.link.1794584672196@example.com",
+    "action": "EMAIL_VERIFICATION_FAILED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794584674574-892",
+    "diff": {
+      "method": "OTP",
+      "status": "ALREADY_USED",
+      "error": "This verification code has already been used. Your email is already verified."
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:44:38.790Z"
+  },
+  {
+    "id": "saud-1794584678607-7940",
+    "actorId": "cust-1794584674574-892",
+    "actorEmail": "test.link.1794584672196@example.com",
+    "action": "EMAIL_VERIFICATION_FAILED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794584674574-892",
+    "diff": {
+      "method": "OTP",
+      "status": "ALREADY_USED",
+      "error": "This verification code has already been used. Your email is already verified."
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:44:38.607Z"
+  },
+  {
+    "id": "saud-1794584676775-9697",
+    "actorId": "cust-1794584674574-892",
+    "actorEmail": "test.link.1794584672196@example.com",
+    "action": "CUSTOMER_EMAIL_VERIFIED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794584674574-892",
+    "diff": {
+      "method": "DIRECT_LINK",
+      "purpose": "REGISTRATION",
+      "redirectPath": "/account"
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:44:36.776Z"
+  },
+  {
+    "id": "saud-1794584675099-6199",
+    "actorId": "anonymous",
+    "actorEmail": "test.otp.1794584670781@example.com",
+    "action": "EMAIL_VERIFICATION_FAILED",
+    "resourceType": "customer_auth",
+    "resourceId": "otp",
+    "diff": {
+      "method": "OTP",
+      "status": "INVALID",
+      "error": "The 6-digit verification code entered is incorrect."
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:44:35.099Z"
+  },
+  {
+    "id": "saud-1794584674916-1388",
+    "actorId": "cust-1794584674574-892",
+    "actorEmail": "test.link.1794584672196@example.com",
+    "action": "CUSTOMER_REGISTERED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794584674574-892",
+    "diff": {
+      "source": "REGISTER_PAGE",
+      "emailVerified": false,
+      "requiresVerification": true
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:44:34.916Z"
+  },
+  {
+    "id": "saud-1794584674716-9832",
+    "actorId": "cust-1794584674574-892",
+    "actorEmail": "test.link.1794584672196@example.com",
+    "action": "EMAIL_VERIFICATION_DISPATCHED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794584674574-892",
+    "diff": {
+      "purpose": "REGISTRATION",
+      "redirectPath": "/account",
+      "smtpDispatched": false,
+      "expiresAt": "2026-11-13T16:44:34.615Z",
+      "otpExpiresAt": "[REDACTED]",
+      "hasOtp": "[REDACTED]"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:44:34.716Z"
+  },
+  {
+    "id": "saud-1794584674201-3463",
+    "actorId": "anonymous",
+    "actorEmail": "test.otp.1794584670781@example.com",
+    "action": "EMAIL_VERIFICATION_FAILED",
+    "resourceType": "customer_auth",
+    "resourceId": "otp",
+    "diff": {
+      "method": "OTP",
+      "status": "INVALID",
+      "error": "The 6-digit verification code entered is incorrect."
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:44:34.201Z"
+  },
+  {
+    "id": "saud-1794584673573-8635",
+    "actorId": "cust-1794584673219-991",
+    "actorEmail": "test.otp.1794584670781@example.com",
+    "action": "CUSTOMER_REGISTERED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794584673219-991",
+    "diff": {
+      "source": "REGISTER_PAGE",
+      "emailVerified": false,
+      "requiresVerification": true
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:44:33.573Z"
+  },
+  {
+    "id": "saud-1794584673373-2931",
+    "actorId": "cust-1794584673219-991",
+    "actorEmail": "test.otp.1794584670781@example.com",
+    "action": "EMAIL_VERIFICATION_DISPATCHED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794584673219-991",
+    "diff": {
+      "purpose": "REGISTRATION",
+      "redirectPath": "/account",
+      "smtpDispatched": false,
+      "expiresAt": "2026-11-13T16:44:33.262Z",
+      "otpExpiresAt": "[REDACTED]",
+      "hasOtp": "[REDACTED]"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:44:33.373Z"
+  },
+  {
+    "id": "saud-1794584669407-5044",
+    "actorId": "cust-1794584663379-963",
+    "actorEmail": "test.link.1794584660804@example.com",
+    "action": "EMAIL_VERIFICATION_FAILED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794584663379-963",
+    "diff": {
+      "method": "OTP",
+      "status": "ALREADY_USED",
+      "error": "This verification code has already been used. Your email is already verified."
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:44:29.407Z"
+  },
+  {
+    "id": "saud-1794584669147-1863",
+    "actorId": "cust-1794584663379-963",
+    "actorEmail": "test.link.1794584660804@example.com",
+    "action": "EMAIL_VERIFICATION_FAILED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794584663379-963",
+    "diff": {
+      "method": "OTP",
+      "status": "ALREADY_USED",
+      "error": "This verification code has already been used. Your email is already verified."
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:44:29.147Z"
+  },
+  {
+    "id": "saud-1794584667204-1383",
+    "actorId": "cust-1794584663379-963",
+    "actorEmail": "test.link.1794584660804@example.com",
+    "action": "CUSTOMER_EMAIL_VERIFIED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794584663379-963",
+    "diff": {
+      "method": "DIRECT_LINK",
+      "purpose": "REGISTRATION",
+      "redirectPath": "/account"
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:44:27.204Z"
+  },
+  {
+    "id": "saud-1794584664000-8885",
+    "actorId": "cust-1794584663379-963",
+    "actorEmail": "test.link.1794584660804@example.com",
+    "action": "CUSTOMER_REGISTERED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794584663379-963",
+    "diff": {
+      "source": "REGISTER_PAGE",
+      "emailVerified": false,
+      "requiresVerification": true
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:44:24.000Z"
+  },
+  {
+    "id": "saud-1794584663654-2867",
+    "actorId": "cust-1794584663379-963",
+    "actorEmail": "test.link.1794584660804@example.com",
+    "action": "EMAIL_VERIFICATION_DISPATCHED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794584663379-963",
+    "diff": {
+      "purpose": "REGISTRATION",
+      "redirectPath": "/account",
+      "smtpDispatched": false,
+      "expiresAt": "2026-11-13T16:44:23.457Z",
+      "otpExpiresAt": "[REDACTED]",
+      "hasOtp": "[REDACTED]"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:44:23.654Z"
+  },
+  {
+    "id": "saud-1794584662091-5988",
+    "actorId": "anonymous",
+    "actorEmail": "test.otp.1794584657602@example.com",
+    "action": "EMAIL_VERIFICATION_FAILED",
+    "resourceType": "customer_auth",
+    "resourceId": "otp",
+    "diff": {
+      "method": "OTP",
+      "status": "INVALID",
+      "error": "The 6-digit verification code entered is incorrect."
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:44:22.091Z"
+  },
+  {
+    "id": "saud-1794584661494-2613",
+    "actorId": "anonymous",
+    "actorEmail": "test.otp.1794584657602@example.com",
+    "action": "EMAIL_VERIFICATION_FAILED",
+    "resourceType": "customer_auth",
+    "resourceId": "otp",
+    "diff": {
+      "method": "OTP",
+      "status": "INVALID",
+      "error": "The 6-digit verification code entered is incorrect."
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:44:21.494Z"
+  },
+  {
+    "id": "saud-1794584660598-1604",
+    "actorId": "cust-1794584659797-571",
+    "actorEmail": "test.otp.1794584657602@example.com",
+    "action": "CUSTOMER_REGISTERED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794584659797-571",
+    "diff": {
+      "source": "REGISTER_PAGE",
+      "emailVerified": false,
+      "requiresVerification": true
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:44:20.598Z"
+  },
+  {
+    "id": "saud-1794584660082-4041",
+    "actorId": "cust-1794584659797-571",
+    "actorEmail": "test.otp.1794584657602@example.com",
+    "action": "EMAIL_VERIFICATION_DISPATCHED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794584659797-571",
+    "diff": {
+      "purpose": "REGISTRATION",
+      "redirectPath": "/account",
+      "smtpDispatched": false,
+      "expiresAt": "2026-11-13T16:44:19.872Z",
+      "otpExpiresAt": "[REDACTED]",
+      "hasOtp": "[REDACTED]"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:44:20.082Z"
+  },
+  {
+    "id": "saud-1794584655924-9025",
+    "actorId": "cust-1794584650814-926",
+    "actorEmail": "test.link.1794584648079@example.com",
+    "action": "EMAIL_VERIFICATION_FAILED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794584650814-926",
+    "diff": {
+      "method": "OTP",
+      "status": "ALREADY_USED",
+      "error": "This verification code has already been used. Your email is already verified."
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:44:15.924Z"
+  },
+  {
+    "id": "saud-1794584655737-5933",
+    "actorId": "cust-1794584650814-926",
+    "actorEmail": "test.link.1794584648079@example.com",
+    "action": "EMAIL_VERIFICATION_FAILED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794584650814-926",
+    "diff": {
+      "method": "OTP",
+      "status": "ALREADY_USED",
+      "error": "This verification code has already been used. Your email is already verified."
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:44:15.737Z"
+  },
+  {
+    "id": "saud-1794584654088-5152",
+    "actorId": "cust-1794584650814-926",
+    "actorEmail": "test.link.1794584648079@example.com",
+    "action": "CUSTOMER_EMAIL_VERIFIED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794584650814-926",
+    "diff": {
+      "method": "DIRECT_LINK",
+      "purpose": "REGISTRATION",
+      "redirectPath": "/account"
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:44:14.088Z"
+  },
+  {
+    "id": "saud-1794584651430-3222",
+    "actorId": "cust-1794584650814-926",
+    "actorEmail": "test.link.1794584648079@example.com",
+    "action": "CUSTOMER_REGISTERED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794584650814-926",
+    "diff": {
+      "source": "REGISTER_PAGE",
+      "emailVerified": false,
+      "requiresVerification": true
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:44:11.430Z"
+  },
+  {
+    "id": "saud-1794584651135-1746",
+    "actorId": "cust-1794584650814-926",
+    "actorEmail": "test.link.1794584648079@example.com",
+    "action": "EMAIL_VERIFICATION_DISPATCHED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794584650814-926",
+    "diff": {
+      "purpose": "REGISTRATION",
+      "redirectPath": "/account",
+      "smtpDispatched": false,
+      "expiresAt": "2026-11-13T16:44:10.924Z",
+      "otpExpiresAt": "[REDACTED]",
+      "hasOtp": "[REDACTED]"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:44:11.135Z"
+  },
+  {
+    "id": "saud-1794584649654-8478",
+    "actorId": "anonymous",
+    "actorEmail": "test.otp.1794584644877@example.com",
+    "action": "EMAIL_VERIFICATION_FAILED",
+    "resourceType": "customer_auth",
+    "resourceId": "otp",
+    "diff": {
+      "method": "OTP",
+      "status": "INVALID",
+      "error": "The 6-digit verification code entered is incorrect."
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:44:09.654Z"
+  },
+  {
+    "id": "saud-1794584648988-7999",
+    "actorId": "anonymous",
+    "actorEmail": "test.otp.1794584644877@example.com",
+    "action": "EMAIL_VERIFICATION_FAILED",
+    "resourceType": "customer_auth",
+    "resourceId": "otp",
+    "diff": {
+      "method": "OTP",
+      "status": "INVALID",
+      "error": "The 6-digit verification code entered is incorrect."
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:44:08.988Z"
+  },
+  {
+    "id": "saud-1794584648282-1089",
+    "actorId": "cust-1794584647518-252",
+    "actorEmail": "test.otp.1794584644877@example.com",
+    "action": "CUSTOMER_REGISTERED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794584647518-252",
+    "diff": {
+      "source": "REGISTER_PAGE",
+      "emailVerified": false,
+      "requiresVerification": true
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:44:08.282Z"
+  },
+  {
+    "id": "saud-1794584647899-2846",
+    "actorId": "cust-1794584647518-252",
+    "actorEmail": "test.otp.1794584644877@example.com",
+    "action": "EMAIL_VERIFICATION_DISPATCHED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794584647518-252",
+    "diff": {
+      "purpose": "REGISTRATION",
+      "redirectPath": "/account",
+      "smtpDispatched": false,
+      "expiresAt": "2026-11-13T16:44:07.588Z",
+      "otpExpiresAt": "[REDACTED]",
+      "hasOtp": "[REDACTED]"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:44:07.899Z"
+  },
+  {
+    "id": "saud-1794584645924-2390",
+    "actorId": "cust-1794584640005-873",
+    "actorEmail": "test.link.1794584637116@example.com",
+    "action": "EMAIL_VERIFICATION_FAILED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794584640005-873",
+    "diff": {
+      "method": "OTP",
+      "status": "ALREADY_USED",
+      "error": "This verification code has already been used. Your email is already verified."
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:44:05.924Z"
+  },
+  {
+    "id": "saud-1794584645290-4371",
+    "actorId": "cust-1794584640005-873",
+    "actorEmail": "test.link.1794584637116@example.com",
+    "action": "EMAIL_VERIFICATION_FAILED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794584640005-873",
+    "diff": {
+      "method": "OTP",
+      "status": "ALREADY_USED",
+      "error": "This verification code has already been used. Your email is already verified."
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:44:05.290Z"
+  },
+  {
+    "id": "saud-1794584642229-9442",
+    "actorId": "cust-1794584640005-873",
+    "actorEmail": "test.link.1794584637116@example.com",
+    "action": "CUSTOMER_EMAIL_VERIFIED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794584640005-873",
+    "diff": {
+      "method": "DIRECT_LINK",
+      "purpose": "REGISTRATION",
+      "redirectPath": "/account"
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:44:02.229Z"
+  },
+  {
+    "id": "saud-1794584640476-1426",
+    "actorId": "cust-1794584640005-873",
+    "actorEmail": "test.link.1794584637116@example.com",
+    "action": "CUSTOMER_REGISTERED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794584640005-873",
+    "diff": {
+      "source": "REGISTER_PAGE",
+      "emailVerified": false,
+      "requiresVerification": true
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:44:00.476Z"
+  },
+  {
+    "id": "saud-1794584640229-5914",
+    "actorId": "cust-1794584640005-873",
+    "actorEmail": "test.link.1794584637116@example.com",
+    "action": "EMAIL_VERIFICATION_DISPATCHED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794584640005-873",
+    "diff": {
+      "purpose": "REGISTRATION",
+      "redirectPath": "/account",
+      "smtpDispatched": false,
+      "expiresAt": "2026-11-13T16:44:00.074Z",
+      "otpExpiresAt": "[REDACTED]",
+      "hasOtp": "[REDACTED]"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:44:00.229Z"
+  },
+  {
+    "id": "saud-1794584636022-2880",
+    "actorId": "cust-1794584627874-989",
+    "actorEmail": "test.link.1794584625490@example.com",
+    "action": "EMAIL_VERIFICATION_FAILED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794584627874-989",
+    "diff": {
+      "method": "OTP",
+      "status": "ALREADY_USED",
+      "error": "This verification code has already been used. Your email is already verified."
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:43:56.022Z"
+  },
+  {
+    "id": "saud-1794584635855-3427",
+    "actorId": "cust-1794584627874-989",
+    "actorEmail": "test.link.1794584625490@example.com",
+    "action": "EMAIL_VERIFICATION_FAILED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794584627874-989",
+    "diff": {
+      "method": "OTP",
+      "status": "ALREADY_USED",
+      "error": "This verification code has already been used. Your email is already verified."
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:43:55.856Z"
+  },
+  {
+    "id": "saud-1794584634356-5880",
+    "actorId": "anonymous",
+    "actorEmail": "test.otp.1794584630310@example.com",
+    "action": "EMAIL_VERIFICATION_FAILED",
+    "resourceType": "customer_auth",
+    "resourceId": "otp",
+    "diff": {
+      "method": "OTP",
+      "status": "INVALID",
+      "error": "The 6-digit verification code entered is incorrect."
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:43:54.356Z"
+  },
+  {
+    "id": "saud-1794584634134-6882",
+    "actorId": "anonymous",
+    "actorEmail": "test.otp.1794584630310@example.com",
+    "action": "EMAIL_VERIFICATION_FAILED",
+    "resourceType": "customer_auth",
+    "resourceId": "otp",
+    "diff": {
+      "method": "OTP",
+      "status": "INVALID",
+      "error": "The 6-digit verification code entered is incorrect."
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:43:54.134Z"
+  },
+  {
+    "id": "saud-1794584633401-2341",
+    "actorId": "cust-1794584632922-292",
+    "actorEmail": "test.otp.1794584630310@example.com",
+    "action": "CUSTOMER_REGISTERED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794584632922-292",
+    "diff": {
+      "source": "REGISTER_PAGE",
+      "emailVerified": false,
+      "requiresVerification": true
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:43:53.401Z"
+  },
+  {
+    "id": "saud-1794584633136-2376",
+    "actorId": "cust-1794584632922-292",
+    "actorEmail": "test.otp.1794584630310@example.com",
+    "action": "EMAIL_VERIFICATION_DISPATCHED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794584632922-292",
+    "diff": {
+      "purpose": "REGISTRATION",
+      "redirectPath": "/account",
+      "smtpDispatched": false,
+      "expiresAt": "2026-11-13T16:43:52.984Z",
+      "otpExpiresAt": "[REDACTED]",
+      "hasOtp": "[REDACTED]"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:43:53.136Z"
+  },
+  {
+    "id": "saud-1794584632525-6425",
+    "actorId": "cust-1794584627874-989",
+    "actorEmail": "test.link.1794584625490@example.com",
+    "action": "CUSTOMER_EMAIL_VERIFIED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794584627874-989",
+    "diff": {
+      "method": "DIRECT_LINK",
+      "purpose": "REGISTRATION",
+      "redirectPath": "/account"
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:43:52.525Z"
+  },
+  {
+    "id": "saud-1794584628834-9703",
+    "actorId": "cust-1794584627874-989",
+    "actorEmail": "test.link.1794584625490@example.com",
+    "action": "CUSTOMER_REGISTERED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794584627874-989",
+    "diff": {
+      "source": "REGISTER_PAGE",
+      "emailVerified": false,
+      "requiresVerification": true
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:43:48.834Z"
+  },
+  {
+    "id": "saud-1794584628195-8033",
+    "actorId": "cust-1794584627874-989",
+    "actorEmail": "test.link.1794584625490@example.com",
+    "action": "EMAIL_VERIFICATION_DISPATCHED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794584627874-989",
+    "diff": {
+      "purpose": "REGISTRATION",
+      "redirectPath": "/account",
+      "smtpDispatched": false,
+      "expiresAt": "2026-11-13T16:43:47.965Z",
+      "otpExpiresAt": "[REDACTED]",
+      "hasOtp": "[REDACTED]"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:43:48.195Z"
+  },
+  {
+    "id": "saud-1794584626419-2017",
+    "actorId": "cust-1794584617717-704",
+    "actorEmail": "test.link.1794584613639@example.com",
+    "action": "EMAIL_VERIFICATION_FAILED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794584617717-704",
+    "diff": {
+      "method": "OTP",
+      "status": "ALREADY_USED",
+      "error": "This verification code has already been used. Your email is already verified."
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:43:46.419Z"
+  },
+  {
+    "id": "saud-1794584625770-4254",
+    "actorId": "cust-1794584617717-704",
+    "actorEmail": "test.link.1794584613639@example.com",
+    "action": "EMAIL_VERIFICATION_FAILED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794584617717-704",
+    "diff": {
+      "method": "OTP",
+      "status": "ALREADY_USED",
+      "error": "This verification code has already been used. Your email is already verified."
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:43:45.770Z"
+  },
+  {
+    "id": "saud-1794584623333-5201",
+    "actorId": "anonymous",
+    "actorEmail": "test.otp.1794584613511@example.com",
+    "action": "EMAIL_VERIFICATION_FAILED",
+    "resourceType": "customer_auth",
+    "resourceId": "otp",
+    "diff": {
+      "method": "OTP",
+      "status": "INVALID",
+      "error": "The 6-digit verification code entered is incorrect."
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:43:43.333Z"
+  },
+  {
+    "id": "saud-1794584623258-2797",
+    "actorId": "cust-1794584617717-704",
+    "actorEmail": "test.link.1794584613639@example.com",
+    "action": "CUSTOMER_EMAIL_VERIFIED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794584617717-704",
+    "diff": {
+      "method": "DIRECT_LINK",
+      "purpose": "REGISTRATION",
+      "redirectPath": "/account"
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:43:43.259Z"
+  },
+  {
+    "id": "saud-1794584621620-8604",
+    "actorId": "anonymous",
+    "actorEmail": "test.otp.1794584613511@example.com",
+    "action": "EMAIL_VERIFICATION_FAILED",
+    "resourceType": "customer_auth",
+    "resourceId": "otp",
+    "diff": {
+      "method": "OTP",
+      "status": "INVALID",
+      "error": "The 6-digit verification code entered is incorrect."
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:43:41.620Z"
+  },
+  {
+    "id": "saud-1794584618162-8042",
+    "actorId": "cust-1794584617717-704",
+    "actorEmail": "test.link.1794584613639@example.com",
+    "action": "CUSTOMER_REGISTERED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794584617717-704",
+    "diff": {
+      "source": "REGISTER_PAGE",
+      "emailVerified": false,
+      "requiresVerification": true
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:43:38.162Z"
+  },
+  {
+    "id": "saud-1794584617921-2674",
+    "actorId": "cust-1794584617717-704",
+    "actorEmail": "test.link.1794584613639@example.com",
+    "action": "EMAIL_VERIFICATION_DISPATCHED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794584617717-704",
+    "diff": {
+      "purpose": "REGISTRATION",
+      "redirectPath": "/account",
+      "smtpDispatched": false,
+      "expiresAt": "2026-11-13T16:43:37.782Z",
+      "otpExpiresAt": "[REDACTED]",
+      "hasOtp": "[REDACTED]"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:43:37.921Z"
+  },
+  {
+    "id": "saud-1794584617647-8808",
+    "actorId": "cust-1794584617295-121",
+    "actorEmail": "test.otp.1794584613511@example.com",
+    "action": "CUSTOMER_REGISTERED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794584617295-121",
+    "diff": {
+      "source": "REGISTER_PAGE",
+      "emailVerified": false,
+      "requiresVerification": true
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:43:37.647Z"
+  },
+  {
+    "id": "saud-1794584617452-4473",
+    "actorId": "cust-1794584617295-121",
+    "actorEmail": "test.otp.1794584613511@example.com",
+    "action": "EMAIL_VERIFICATION_DISPATCHED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794584617295-121",
+    "diff": {
+      "purpose": "REGISTRATION",
+      "redirectPath": "/account",
+      "smtpDispatched": false,
+      "expiresAt": "2026-11-13T16:43:37.338Z",
+      "otpExpiresAt": "[REDACTED]",
+      "hasOtp": "[REDACTED]"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:43:37.452Z"
+  },
+  {
+    "id": "saud-1794584611512-4426",
+    "actorId": "cust-1794584609237-553",
+    "actorEmail": "test.otp.1794584599144@example.com",
+    "action": "CUSTOMER_REGISTERED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794584609237-553",
+    "diff": {
+      "source": "REGISTER_PAGE",
+      "emailVerified": false,
+      "requiresVerification": true
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:43:31.512Z"
+  },
+  {
+    "id": "saud-1794584611495-2860",
+    "actorId": "cust-1794584609137-457",
+    "actorEmail": "test.link.1794584599232@example.com",
+    "action": "CUSTOMER_REGISTERED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794584609137-457",
+    "diff": {
+      "source": "REGISTER_PAGE",
+      "emailVerified": false,
+      "requiresVerification": true
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:43:31.495Z"
+  },
+  {
+    "id": "saud-1794584611473-7090",
+    "actorId": "cust-1794584609018-487",
+    "actorEmail": "test.otp.1794584598885@example.com",
+    "action": "CUSTOMER_REGISTERED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794584609018-487",
+    "diff": {
+      "source": "REGISTER_PAGE",
+      "emailVerified": false,
+      "requiresVerification": true
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:43:31.473Z"
+  },
+  {
+    "id": "saud-1794584610184-8296",
+    "actorId": "cust-1794584609237-553",
+    "actorEmail": "test.otp.1794584599144@example.com",
+    "action": "EMAIL_VERIFICATION_DISPATCHED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794584609237-553",
+    "diff": {
+      "purpose": "REGISTRATION",
+      "redirectPath": "/account",
+      "smtpDispatched": false,
+      "expiresAt": "2026-11-13T16:43:29.396Z",
+      "otpExpiresAt": "[REDACTED]",
+      "hasOtp": "[REDACTED]"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:43:30.184Z"
+  },
+  {
+    "id": "saud-1794584610098-8219",
+    "actorId": "cust-1794584609137-457",
+    "actorEmail": "test.link.1794584599232@example.com",
+    "action": "EMAIL_VERIFICATION_DISPATCHED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794584609137-457",
+    "diff": {
+      "purpose": "REGISTRATION",
+      "redirectPath": "/account",
+      "smtpDispatched": false,
+      "expiresAt": "2026-11-13T16:43:29.184Z",
+      "otpExpiresAt": "[REDACTED]",
+      "hasOtp": "[REDACTED]"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:43:30.098Z"
+  },
+  {
+    "id": "saud-1794584609997-1523",
+    "actorId": "cust-1794584609018-487",
+    "actorEmail": "test.otp.1794584598885@example.com",
+    "action": "EMAIL_VERIFICATION_DISPATCHED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794584609018-487",
+    "diff": {
+      "purpose": "REGISTRATION",
+      "redirectPath": "/account",
+      "smtpDispatched": false,
+      "expiresAt": "2026-11-13T16:43:29.069Z",
+      "otpExpiresAt": "[REDACTED]",
+      "hasOtp": "[REDACTED]"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:43:29.998Z"
+  },
+  {
+    "id": "saud-1794583354028-3163",
+    "actorId": "admin-action",
+    "actorEmail": "test-cleanup@infinicharm.com",
+    "action": "BACKUP_DELETE",
+    "resourceType": "backup",
+    "resourceId": "BCK-CATALOGUE-20261113-E5DA50",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:22:34.028Z"
+  },
+  {
+    "id": "saud-1794583354025-9935",
+    "actorId": "admin-action",
+    "actorEmail": "test-admin@infinicharm.com",
+    "action": "BACKUP_DELETE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261113-2775F6",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:22:34.025Z"
+  },
+  {
+    "id": "saud-1794583354016-9610",
+    "actorId": "admin-action",
+    "actorEmail": "test-admin@infinicharm.com",
+    "action": "COLLECTION_IMPORT",
+    "resourceType": "categories",
+    "resourceId": "import-1794583354016",
+    "diff": {
+      "strategy": "SKIP",
+      "format": "json",
+      "insertedCount": 1,
+      "updatedCount": 0,
+      "skippedCount": 1,
+      "totalRecordsNow": 6
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:22:34.016Z"
+  },
+  {
+    "id": "saud-1794583354010-5867",
+    "actorId": "admin-action",
+    "actorEmail": "test-cleanup@infinicharm.com",
+    "action": "BACKUP_DELETE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261113-D003F9",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:22:34.010Z"
+  },
+  {
+    "id": "saud-1794583354007-1203",
+    "actorId": "admin-action",
+    "actorEmail": "test-admin@infinicharm.com",
+    "action": "BACKUP_RESTORE",
+    "resourceType": "backup",
+    "resourceId": "BCK-CATALOGUE-20261113-E5DA50",
+    "diff": {
+      "restoredCollections": [
+        "products",
+        "categories",
+        "media_assets",
+        "storefront_badges"
+      ],
+      "recordsRestored": {
+        "products": 4,
+        "categories": 5,
+        "media_assets": 7,
+        "storefront_badges": 2
+      },
+      "rollbackSnapshotId": "BCK-FULL-20261113-D003F9"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:22:34.007Z"
+  },
+  {
+    "id": "saud-1794583353997-2235",
+    "actorId": "admin-action",
+    "actorEmail": "system-rollback@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261113-D003F9",
+    "diff": {
+      "type": "FULL",
+      "totalRecords": 109,
+      "totalCollections": 22,
+      "checksum": "fc7db869fcb934c03d68243be771a96f3110c32d440121e473abc167e34b9d21"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:22:33.997Z"
+  },
+  {
+    "id": "saud-1794583353980-1698",
+    "actorId": "admin-action",
+    "actorEmail": "test-admin@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-CATALOGUE-20261113-E5DA50",
+    "diff": {
+      "type": "SECTION",
+      "section": "catalogue",
+      "totalRecords": 18,
+      "totalCollections": 4,
+      "checksum": "cc263c5ec31b9514f6d2a272e7b1fd15490f64fb4ea2634bd6091aac92111986"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:22:33.980Z"
+  },
+  {
+    "id": "saud-1794583353969-9411",
+    "actorId": "admin-action",
+    "actorEmail": "test-admin@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261113-2775F6",
+    "diff": {
+      "type": "FULL",
+      "totalRecords": 109,
+      "totalCollections": 22,
+      "checksum": "fc7db869fcb934c03d68243be771a96f3110c32d440121e473abc167e34b9d21"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:22:33.969Z"
+  },
+  {
+    "id": "saud-1794583046340-7808",
+    "actorId": "admin-action",
+    "actorEmail": "test-cleanup@infinicharm.com",
+    "action": "BACKUP_DELETE",
+    "resourceType": "backup",
+    "resourceId": "BCK-CATALOGUE-20261113-DBF309",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:17:26.340Z"
+  },
+  {
+    "id": "saud-1794583046337-6304",
+    "actorId": "admin-action",
+    "actorEmail": "test-admin@infinicharm.com",
+    "action": "BACKUP_DELETE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261113-B7230B",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:17:26.337Z"
+  },
+  {
+    "id": "saud-1794583046329-5693",
+    "actorId": "admin-action",
+    "actorEmail": "test-admin@infinicharm.com",
+    "action": "COLLECTION_IMPORT",
+    "resourceType": "categories",
+    "resourceId": "import-1794583046328",
+    "diff": {
+      "strategy": "SKIP",
+      "format": "json",
+      "insertedCount": 1,
+      "updatedCount": 0,
+      "skippedCount": 1,
+      "totalRecordsNow": 6
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:17:26.329Z"
+  },
+  {
+    "id": "saud-1794583046322-3927",
+    "actorId": "admin-action",
+    "actorEmail": "test-cleanup@infinicharm.com",
+    "action": "BACKUP_DELETE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261113-AE4E53",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:17:26.322Z"
+  },
+  {
+    "id": "saud-1794583046318-7464",
+    "actorId": "admin-action",
+    "actorEmail": "test-admin@infinicharm.com",
+    "action": "BACKUP_RESTORE",
+    "resourceType": "backup",
+    "resourceId": "BCK-CATALOGUE-20261113-DBF309",
+    "diff": {
+      "restoredCollections": [
+        "products",
+        "categories",
+        "media_assets",
+        "storefront_badges"
+      ],
+      "recordsRestored": {
+        "products": 4,
+        "categories": 5,
+        "media_assets": 7,
+        "storefront_badges": 2
+      },
+      "rollbackSnapshotId": "BCK-FULL-20261113-AE4E53"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:17:26.319Z"
+  },
+  {
+    "id": "saud-1794583046309-2627",
+    "actorId": "admin-action",
+    "actorEmail": "system-rollback@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261113-AE4E53",
+    "diff": {
+      "type": "FULL",
+      "totalRecords": 109,
+      "totalCollections": 22,
+      "checksum": "3a2369cb0f498816ec0f29f421fde27510de141ee2d4628761713113f246dc22"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:17:26.309Z"
+  },
+  {
+    "id": "saud-1794583046292-2413",
+    "actorId": "admin-action",
+    "actorEmail": "test-admin@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-CATALOGUE-20261113-DBF309",
+    "diff": {
+      "type": "SECTION",
+      "section": "catalogue",
+      "totalRecords": 18,
+      "totalCollections": 4,
+      "checksum": "13b81e0785efda45469c20b23b25f580d64fa942ebaaac1024a237cc253f17b0"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:17:26.292Z"
+  },
+  {
+    "id": "saud-1794583046280-8097",
+    "actorId": "admin-action",
+    "actorEmail": "test-admin@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261113-B7230B",
+    "diff": {
+      "type": "FULL",
+      "totalRecords": 109,
+      "totalCollections": 22,
+      "checksum": "3a2369cb0f498816ec0f29f421fde27510de141ee2d4628761713113f246dc22"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T15:17:26.280Z"
+  },
+  {
+    "id": "saud-1794578784717-3339",
+    "actorId": "admin-action",
+    "actorEmail": "test-cleanup@infinicharm.com",
+    "action": "BACKUP_DELETE",
+    "resourceType": "backup",
+    "resourceId": "BCK-CATALOGUE-20261113-F87303",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T14:06:24.717Z"
+  },
+  {
+    "id": "saud-1794578784714-6501",
+    "actorId": "admin-action",
+    "actorEmail": "test-admin@infinicharm.com",
+    "action": "BACKUP_DELETE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261113-2BBC09",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T14:06:24.714Z"
+  },
+  {
+    "id": "saud-1794578784705-8580",
+    "actorId": "admin-action",
+    "actorEmail": "test-admin@infinicharm.com",
+    "action": "COLLECTION_IMPORT",
+    "resourceType": "categories",
+    "resourceId": "import-1794578784704",
+    "diff": {
+      "strategy": "SKIP",
+      "format": "json",
+      "insertedCount": 1,
+      "updatedCount": 0,
+      "skippedCount": 1,
+      "totalRecordsNow": 6
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T14:06:24.705Z"
+  },
+  {
+    "id": "saud-1794578784699-4825",
+    "actorId": "admin-action",
+    "actorEmail": "test-cleanup@infinicharm.com",
+    "action": "BACKUP_DELETE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261113-E00195",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T14:06:24.699Z"
+  },
+  {
+    "id": "saud-1794578784697-2709",
+    "actorId": "admin-action",
+    "actorEmail": "test-admin@infinicharm.com",
+    "action": "BACKUP_RESTORE",
+    "resourceType": "backup",
+    "resourceId": "BCK-CATALOGUE-20261113-F87303",
+    "diff": {
+      "restoredCollections": [
+        "products",
+        "categories",
+        "media_assets",
+        "storefront_badges"
+      ],
+      "recordsRestored": {
+        "products": 4,
+        "categories": 5,
+        "media_assets": 7,
+        "storefront_badges": 2
+      },
+      "rollbackSnapshotId": "BCK-FULL-20261113-E00195"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T14:06:24.697Z"
+  },
+  {
+    "id": "saud-1794578784687-5156",
+    "actorId": "admin-action",
+    "actorEmail": "system-rollback@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261113-E00195",
+    "diff": {
+      "type": "FULL",
+      "totalRecords": 109,
+      "totalCollections": 22,
+      "checksum": "99972c70c3ce0103445d779287d864c24c630c15232c3c07bbb1404cb848c5c5"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T14:06:24.687Z"
+  },
+  {
+    "id": "saud-1794578784670-1908",
+    "actorId": "admin-action",
+    "actorEmail": "test-admin@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-CATALOGUE-20261113-F87303",
+    "diff": {
+      "type": "SECTION",
+      "section": "catalogue",
+      "totalRecords": 18,
+      "totalCollections": 4,
+      "checksum": "802572e2ce994b019d4a764fe78d459c0cf8139943e027823f4b442ff73ed11a"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T14:06:24.670Z"
+  },
+  {
+    "id": "saud-1794578784661-4103",
+    "actorId": "admin-action",
+    "actorEmail": "test-admin@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261113-2BBC09",
+    "diff": {
+      "type": "FULL",
+      "totalRecords": 109,
+      "totalCollections": 22,
+      "checksum": "99972c70c3ce0103445d779287d864c24c630c15232c3c07bbb1404cb848c5c5"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T14:06:24.661Z"
+  },
+  {
+    "id": "saud-1794575466856-7265",
+    "actorId": "admin-action",
+    "actorEmail": "admin@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261113-44687F",
+    "diff": {
+      "type": "FULL",
+      "totalRecords": 109,
+      "totalCollections": 22,
+      "checksum": "2dc0abc0bec58bce177b99420bd69b862a01b50504003cce7c0a0d1703a07877"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T13:11:06.857Z"
+  },
+  {
+    "id": "saud-1794575458325-3615",
+    "actorId": "admin-action",
+    "actorEmail": "admin@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261113-526E13",
+    "diff": {
+      "type": "FULL",
+      "totalRecords": 109,
+      "totalCollections": 22,
+      "checksum": "2dc0abc0bec58bce177b99420bd69b862a01b50504003cce7c0a0d1703a07877"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T13:10:58.326Z"
+  },
+  {
+    "id": "saud-1794575298076-5418",
+    "actorId": "cust-1794575080215-238",
+    "actorEmail": "mehewoc628@artegin.com",
+    "action": "CUSTOMER_LOGIN_SUCCESS",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794575080215-238",
+    "diff": {
+      "authenticated": true
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T13:08:18.077Z"
+  },
+  {
+    "id": "saud-1794575238634-2328",
+    "actorId": "admin-action",
+    "actorEmail": "admin@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261113-DDFA0E",
+    "diff": {
+      "type": "FULL",
+      "totalRecords": 109,
+      "totalCollections": 22,
+      "checksum": "a868a7593d1a7052b15b6391da6231119a2deeb8a5e11303218eff746e4acfe3"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T13:07:18.634Z"
+  },
+  {
+    "id": "saud-1794575230251-6831",
+    "actorId": "admin-action",
+    "actorEmail": "admin@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261113-9585FD",
+    "diff": {
+      "type": "FULL",
+      "totalRecords": 109,
+      "totalCollections": 22,
+      "checksum": "a868a7593d1a7052b15b6391da6231119a2deeb8a5e11303218eff746e4acfe3"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T13:07:10.251Z"
+  },
+  {
+    "id": "saud-1794575222119-7014",
+    "actorId": "admin-action",
+    "actorEmail": "admin@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261113-5E3872",
+    "diff": {
+      "type": "FULL",
+      "totalRecords": 109,
+      "totalCollections": 22,
+      "checksum": "a868a7593d1a7052b15b6391da6231119a2deeb8a5e11303218eff746e4acfe3"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T13:07:02.119Z"
+  },
+  {
+    "id": "saud-1794575212023-2296",
+    "actorId": "admin-action",
+    "actorEmail": "admin@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261113-C5A540",
+    "diff": {
+      "type": "FULL",
+      "totalRecords": 109,
+      "totalCollections": 22,
+      "checksum": "a868a7593d1a7052b15b6391da6231119a2deeb8a5e11303218eff746e4acfe3"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T13:06:52.023Z"
+  },
+  {
+    "id": "saud-1794575209506-7073",
+    "actorId": "admin-action",
+    "actorEmail": "admin@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261113-A31642",
+    "diff": {
+      "type": "FULL",
+      "totalRecords": 109,
+      "totalCollections": 22,
+      "checksum": "a868a7593d1a7052b15b6391da6231119a2deeb8a5e11303218eff746e4acfe3"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T13:06:49.506Z"
+  },
+  {
+    "id": "saud-1794575198134-8274",
+    "actorId": "admin-action",
+    "actorEmail": "admin@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261113-175BA7",
+    "diff": {
+      "type": "FULL",
+      "totalRecords": 109,
+      "totalCollections": 22,
+      "checksum": "a868a7593d1a7052b15b6391da6231119a2deeb8a5e11303218eff746e4acfe3"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T13:06:38.134Z"
+  },
+  {
+    "id": "saud-1794575185916-4106",
+    "actorId": "admin-action",
+    "actorEmail": "admin@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261113-5A3AA7",
+    "diff": {
+      "type": "FULL",
+      "totalRecords": 109,
+      "totalCollections": 22,
+      "checksum": "a868a7593d1a7052b15b6391da6231119a2deeb8a5e11303218eff746e4acfe3"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T13:06:25.917Z"
+  },
+  {
+    "id": "saud-1794575167240-2984",
+    "actorId": "cust-1794575080215-238",
+    "actorEmail": "mehewoc628@artegin.com",
+    "action": "CUSTOMER_EMAIL_VERIFIED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794575080215-238",
+    "diff": {
+      "purpose": "REGISTRATION",
+      "redirectPath": "/account"
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T13:06:07.240Z"
+  },
+  {
+    "id": "saud-1794575140094-1757",
+    "actorId": "admin-action",
+    "actorEmail": "admin@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261113-7EEFB2",
+    "diff": {
+      "type": "FULL",
+      "totalRecords": 109,
+      "totalCollections": 22,
+      "checksum": "7a367201f96860a8a01f3b0ae4ee0f105070d4aab58e269179ce1192d6a09201"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T13:05:40.096Z"
+  },
+  {
+    "id": "saud-1794575117288-2380",
+    "actorId": "admin-action",
+    "actorEmail": "admin@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261113-9DC60A",
+    "diff": {
+      "type": "FULL",
+      "totalRecords": 109,
+      "totalCollections": 22,
+      "checksum": "7a367201f96860a8a01f3b0ae4ee0f105070d4aab58e269179ce1192d6a09201"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T13:05:17.288Z"
+  },
+  {
+    "id": "saud-1794575104435-6102",
+    "actorId": "admin-action",
+    "actorEmail": "admin@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261113-1BCF0C",
+    "diff": {
+      "type": "FULL",
+      "totalRecords": 109,
+      "totalCollections": 22,
+      "checksum": "7a367201f96860a8a01f3b0ae4ee0f105070d4aab58e269179ce1192d6a09201"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T13:05:04.435Z"
+  },
+  {
+    "id": "saud-1794575083988-8586",
+    "actorId": "cust-1794575080215-238",
+    "actorEmail": "mehewoc628@artegin.com",
+    "action": "CUSTOMER_REGISTERED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794575080215-238",
+    "diff": {
+      "source": "REGISTER_PAGE",
+      "emailVerified": false,
+      "requiresVerification": true
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T13:04:43.988Z"
+  },
+  {
+    "id": "saud-1794575082158-4230",
+    "actorId": "cust-1794575080215-238",
+    "actorEmail": "mehewoc628@artegin.com",
+    "action": "EMAIL_VERIFICATION_DISPATCHED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1794575080215-238",
+    "diff": {
+      "purpose": "REGISTRATION",
+      "redirectPath": "/account",
+      "smtpDispatched": true,
+      "expiresAt": "2026-11-13T14:04:40.321Z"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T13:04:42.158Z"
+  },
+  {
+    "id": "saud-1794574742681-7203",
+    "actorId": "admin-action",
+    "actorEmail": "admin@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261113-9C9640",
+    "diff": {
+      "type": "FULL",
+      "totalRecords": 108,
+      "totalCollections": 22,
+      "checksum": "56d5a2f71f75c8779d9766e2c16d9074419c59e59df12aa2f414090eaa3bad7a"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T12:59:02.681Z"
+  },
+  {
+    "id": "saud-1794574738045-3417",
+    "actorId": "admin-action",
+    "actorEmail": "admin@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261113-757396",
+    "diff": {
+      "type": "FULL",
+      "totalRecords": 108,
+      "totalCollections": 22,
+      "checksum": "56d5a2f71f75c8779d9766e2c16d9074419c59e59df12aa2f414090eaa3bad7a"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T12:58:58.045Z"
+  },
+  {
+    "id": "saud-1794574725875-4421",
+    "actorId": "admin-action",
+    "actorEmail": "admin@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261113-494825",
+    "diff": {
+      "type": "FULL",
+      "totalRecords": 108,
+      "totalCollections": 22,
+      "checksum": "56d5a2f71f75c8779d9766e2c16d9074419c59e59df12aa2f414090eaa3bad7a"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T12:58:45.875Z"
+  },
+  {
+    "id": "saud-1794574719564-2936",
+    "actorId": "admin-action",
+    "actorEmail": "admin@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261113-965E6B",
+    "diff": {
+      "type": "FULL",
+      "totalRecords": 108,
+      "totalCollections": 22,
+      "checksum": "56d5a2f71f75c8779d9766e2c16d9074419c59e59df12aa2f414090eaa3bad7a"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T12:58:39.564Z"
+  },
+  {
+    "id": "saud-1794574711208-2646",
+    "actorId": "admin-action",
+    "actorEmail": "admin@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261113-D7DEB0",
+    "diff": {
+      "type": "FULL",
+      "totalRecords": 108,
+      "totalCollections": 22,
+      "checksum": "56d5a2f71f75c8779d9766e2c16d9074419c59e59df12aa2f414090eaa3bad7a"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T12:58:31.208Z"
+  },
+  {
+    "id": "saud-1794574704290-5069",
+    "actorId": "admin-action",
+    "actorEmail": "admin@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261113-713E3E",
+    "diff": {
+      "type": "FULL",
+      "totalRecords": 108,
+      "totalCollections": 22,
+      "checksum": "56d5a2f71f75c8779d9766e2c16d9074419c59e59df12aa2f414090eaa3bad7a"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T12:58:24.290Z"
+  },
+  {
+    "id": "saud-1794574695605-8686",
+    "actorId": "admin-action",
+    "actorEmail": "admin@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261113-6F3860",
+    "diff": {
+      "type": "FULL",
+      "totalRecords": 108,
+      "totalCollections": 22,
+      "checksum": "56d5a2f71f75c8779d9766e2c16d9074419c59e59df12aa2f414090eaa3bad7a"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T12:58:15.605Z"
+  },
+  {
+    "id": "saud-1794574689027-4365",
+    "actorId": "admin-action",
+    "actorEmail": "admin@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261113-006EF2",
+    "diff": {
+      "type": "FULL",
+      "totalRecords": 108,
+      "totalCollections": 22,
+      "checksum": "56d5a2f71f75c8779d9766e2c16d9074419c59e59df12aa2f414090eaa3bad7a"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T12:58:09.027Z"
+  },
+  {
+    "id": "saud-1794574680563-7617",
+    "actorId": "admin-action",
+    "actorEmail": "admin@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261113-CC4AD5",
+    "diff": {
+      "type": "FULL",
+      "totalRecords": 108,
+      "totalCollections": 22,
+      "checksum": "56d5a2f71f75c8779d9766e2c16d9074419c59e59df12aa2f414090eaa3bad7a"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T12:58:00.563Z"
+  },
+  {
+    "id": "saud-1794574675288-4654",
+    "actorId": "admin-action",
+    "actorEmail": "admin@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261113-2A9BA0",
+    "diff": {
+      "type": "FULL",
+      "totalRecords": 108,
+      "totalCollections": 22,
+      "checksum": "56d5a2f71f75c8779d9766e2c16d9074419c59e59df12aa2f414090eaa3bad7a"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T12:57:55.289Z"
+  },
+  {
+    "id": "saud-1794574354142-2340",
+    "actorId": "admin-action",
+    "actorEmail": "admin@infinicharm.com",
+    "action": "BACKUP_DELETE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261113-EDE032",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T12:52:34.142Z"
+  },
+  {
+    "id": "saud-1794574352262-7184",
+    "actorId": "admin-action",
+    "actorEmail": "admin@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261113-EDE032",
+    "diff": {
+      "type": "FULL",
+      "totalRecords": 108,
+      "totalCollections": 22,
+      "checksum": "56d5a2f71f75c8779d9766e2c16d9074419c59e59df12aa2f414090eaa3bad7a"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T12:52:32.262Z"
+  },
+  {
+    "id": "saud-1794574347124-4365",
+    "actorId": "admin-action",
+    "actorEmail": "admin@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261113-2B7C08",
+    "diff": {
+      "type": "FULL",
+      "totalRecords": 108,
+      "totalCollections": 22,
+      "checksum": "56d5a2f71f75c8779d9766e2c16d9074419c59e59df12aa2f414090eaa3bad7a"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T12:52:27.124Z"
+  },
+  {
+    "id": "saud-1794574339534-8828",
+    "actorId": "admin-action",
+    "actorEmail": "admin@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261113-9FFFC2",
+    "diff": {
+      "type": "FULL",
+      "totalRecords": 108,
+      "totalCollections": 22,
+      "checksum": "56d5a2f71f75c8779d9766e2c16d9074419c59e59df12aa2f414090eaa3bad7a"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T12:52:19.534Z"
+  },
+  {
+    "id": "saud-1794574328802-4160",
+    "actorId": "admin-action",
+    "actorEmail": "admin@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261113-AAE559",
+    "diff": {
+      "type": "FULL",
+      "totalRecords": 108,
+      "totalCollections": 22,
+      "checksum": "56d5a2f71f75c8779d9766e2c16d9074419c59e59df12aa2f414090eaa3bad7a"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T12:52:08.802Z"
+  },
+  {
+    "id": "saud-1794574321780-1209",
+    "actorId": "admin-action",
+    "actorEmail": "admin@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261113-CD0B20",
+    "diff": {
+      "type": "FULL",
+      "totalRecords": 108,
+      "totalCollections": 22,
+      "checksum": "56d5a2f71f75c8779d9766e2c16d9074419c59e59df12aa2f414090eaa3bad7a"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T12:52:01.780Z"
+  },
+  {
+    "id": "saud-1794574313719-3118",
+    "actorId": "admin-action",
+    "actorEmail": "admin@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261113-BEED16",
+    "diff": {
+      "type": "FULL",
+      "totalRecords": 108,
+      "totalCollections": 22,
+      "checksum": "56d5a2f71f75c8779d9766e2c16d9074419c59e59df12aa2f414090eaa3bad7a"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T12:51:53.719Z"
+  },
+  {
+    "id": "saud-1794574305982-6936",
+    "actorId": "admin-action",
+    "actorEmail": "admin@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261113-12804D",
+    "diff": {
+      "type": "FULL",
+      "totalRecords": 108,
+      "totalCollections": 22,
+      "checksum": "56d5a2f71f75c8779d9766e2c16d9074419c59e59df12aa2f414090eaa3bad7a"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T12:51:45.982Z"
+  },
+  {
+    "id": "saud-1794574297169-1252",
+    "actorId": "admin-action",
+    "actorEmail": "admin@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261113-10CA8C",
+    "diff": {
+      "type": "FULL",
+      "totalRecords": 108,
+      "totalCollections": 22,
+      "checksum": "56d5a2f71f75c8779d9766e2c16d9074419c59e59df12aa2f414090eaa3bad7a"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T12:51:37.169Z"
+  },
+  {
+    "id": "saud-1794574290334-8668",
+    "actorId": "admin-action",
+    "actorEmail": "admin@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261113-5E9B63",
+    "diff": {
+      "type": "FULL",
+      "totalRecords": 108,
+      "totalCollections": 22,
+      "checksum": "56d5a2f71f75c8779d9766e2c16d9074419c59e59df12aa2f414090eaa3bad7a"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T12:51:30.334Z"
+  },
+  {
+    "id": "saud-1794574287906-9102",
+    "actorId": "admin-action",
+    "actorEmail": "admin@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261113-AB0D3D",
+    "diff": {
+      "type": "FULL",
+      "totalRecords": 108,
+      "totalCollections": 22,
+      "checksum": "56d5a2f71f75c8779d9766e2c16d9074419c59e59df12aa2f414090eaa3bad7a"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T12:51:27.906Z"
+  },
+  {
+    "id": "saud-1794574185018-6014",
+    "actorId": "admin-action",
+    "actorEmail": "test-cleanup@infinicharm.com",
+    "action": "BACKUP_DELETE",
+    "resourceType": "backup",
+    "resourceId": "BCK-CATALOGUE-20261113-62C54F",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T12:49:45.018Z"
+  },
+  {
+    "id": "saud-1794574185014-8128",
+    "actorId": "admin-action",
+    "actorEmail": "test-admin@infinicharm.com",
+    "action": "BACKUP_DELETE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261113-92C09B",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T12:49:45.014Z"
+  },
+  {
+    "id": "saud-1794574185009-7469",
+    "actorId": "admin-action",
+    "actorEmail": "test-admin@infinicharm.com",
+    "action": "COLLECTION_IMPORT",
+    "resourceType": "categories",
+    "resourceId": "import-1794574185008",
+    "diff": {
+      "strategy": "SKIP",
+      "format": "json",
+      "insertedCount": 1,
+      "updatedCount": 0,
+      "skippedCount": 1,
+      "totalRecordsNow": 6
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T12:49:45.009Z"
+  },
+  {
+    "id": "saud-1794574185003-7281",
+    "actorId": "admin-action",
+    "actorEmail": "test-cleanup@infinicharm.com",
+    "action": "BACKUP_DELETE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261113-6D3212",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T12:49:45.003Z"
+  },
+  {
+    "id": "saud-1794574185000-9936",
+    "actorId": "admin-action",
+    "actorEmail": "test-admin@infinicharm.com",
+    "action": "BACKUP_RESTORE",
+    "resourceType": "backup",
+    "resourceId": "BCK-CATALOGUE-20261113-62C54F",
+    "diff": {
+      "restoredCollections": [
+        "products",
+        "categories",
+        "media_assets",
+        "storefront_badges"
+      ],
+      "recordsRestored": {
+        "products": 4,
+        "categories": 5,
+        "media_assets": 7,
+        "storefront_badges": 2
+      },
+      "rollbackSnapshotId": "BCK-FULL-20261113-6D3212"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T12:49:45.000Z"
+  },
+  {
+    "id": "saud-1794574184995-3973",
+    "actorId": "admin-action",
+    "actorEmail": "system-rollback@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261113-6D3212",
+    "diff": {
+      "type": "FULL",
+      "totalRecords": 108,
+      "totalCollections": 22,
+      "checksum": "c3dcfc0f606f9910acc4605bb74a8f3aaf514071bc73967496ed4e8fb4542ab7"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T12:49:44.995Z"
+  },
+  {
+    "id": "saud-1794574184981-3941",
+    "actorId": "admin-action",
+    "actorEmail": "test-admin@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-CATALOGUE-20261113-62C54F",
+    "diff": {
+      "type": "SECTION",
+      "section": "catalogue",
+      "totalRecords": 18,
+      "totalCollections": 4,
+      "checksum": "00748be9bdb6266470b640405f396d4a6133aedbd219f7fdfdca603e1914d798"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T12:49:44.981Z"
+  },
+  {
+    "id": "saud-1794574184973-2709",
+    "actorId": "admin-action",
+    "actorEmail": "test-admin@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261113-92C09B",
+    "diff": {
+      "type": "FULL",
+      "totalRecords": 108,
+      "totalCollections": 22,
+      "checksum": "c3dcfc0f606f9910acc4605bb74a8f3aaf514071bc73967496ed4e8fb4542ab7"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T12:49:44.973Z"
+  },
+  {
+    "id": "saud-1794574172830-1801",
+    "actorId": "admin-action",
+    "actorEmail": "test-cleanup@infinicharm.com",
+    "action": "BACKUP_DELETE",
+    "resourceType": "backup",
+    "resourceId": "BCK-CATALOGUE-20261113-F72C4D",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T12:49:32.830Z"
+  },
+  {
+    "id": "saud-1794574172826-5197",
+    "actorId": "admin-action",
+    "actorEmail": "test-admin@infinicharm.com",
+    "action": "BACKUP_DELETE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261113-825EEB",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T12:49:32.826Z"
+  },
+  {
+    "id": "saud-1794574172820-1905",
+    "actorId": "admin-action",
+    "actorEmail": "test-admin@infinicharm.com",
+    "action": "COLLECTION_IMPORT",
+    "resourceType": "categories",
+    "resourceId": "import-1794574172819",
+    "diff": {
+      "strategy": "SKIP",
+      "format": "json",
+      "insertedCount": 1,
+      "updatedCount": 0,
+      "skippedCount": 1,
+      "totalRecordsNow": 6
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T12:49:32.820Z"
+  },
+  {
+    "id": "saud-1794574172814-3072",
+    "actorId": "admin-action",
+    "actorEmail": "test-cleanup@infinicharm.com",
+    "action": "BACKUP_DELETE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261113-DC5B2F",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T12:49:32.814Z"
+  },
+  {
+    "id": "saud-1794574172812-4641",
+    "actorId": "admin-action",
+    "actorEmail": "test-admin@infinicharm.com",
+    "action": "BACKUP_RESTORE",
+    "resourceType": "backup",
+    "resourceId": "BCK-CATALOGUE-20261113-F72C4D",
+    "diff": {
+      "restoredCollections": [
+        "products",
+        "categories",
+        "media_assets",
+        "storefront_badges"
+      ],
+      "recordsRestored": {
+        "products": 4,
+        "categories": 5,
+        "media_assets": 7,
+        "storefront_badges": 2
+      },
+      "rollbackSnapshotId": "BCK-FULL-20261113-DC5B2F"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T12:49:32.812Z"
+  },
+  {
+    "id": "saud-1794574172805-5989",
+    "actorId": "admin-action",
+    "actorEmail": "system-rollback@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261113-DC5B2F",
+    "diff": {
+      "type": "FULL",
+      "totalRecords": 108,
+      "totalCollections": 22,
+      "checksum": "def3ec825643ba04747759db530c417040b750f0c88ebd6421c4955e70542eab"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T12:49:32.805Z"
+  },
+  {
+    "id": "saud-1794574172790-2098",
+    "actorId": "admin-action",
+    "actorEmail": "test-admin@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-CATALOGUE-20261113-F72C4D",
+    "diff": {
+      "type": "SECTION",
+      "section": "catalogue",
+      "totalRecords": 18,
+      "totalCollections": 4,
+      "checksum": "00748be9bdb6266470b640405f396d4a6133aedbd219f7fdfdca603e1914d798"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T12:49:32.790Z"
+  },
+  {
+    "id": "saud-1794574172783-5899",
+    "actorId": "admin-action",
+    "actorEmail": "test-admin@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261113-825EEB",
+    "diff": {
+      "type": "FULL",
+      "totalRecords": 108,
+      "totalCollections": 22,
+      "checksum": "def3ec825643ba04747759db530c417040b750f0c88ebd6421c4955e70542eab"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T12:49:32.783Z"
+  },
+  {
+    "id": "saud-1794573989169-8475",
+    "actorId": "cust-01",
+    "actorEmail": "customer@infinicharm.com",
+    "action": "CUSTOMER_LOGIN_SUCCESS",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-01",
+    "diff": {
+      "authenticated": true
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T12:46:29.169Z"
+  },
+  {
+    "id": "saud-1794573970272-5609",
+    "actorId": "anonymous",
+    "actorEmail": "admin@infinicharm.com",
+    "action": "CUSTOMER_LOGIN_FAILED",
+    "resourceType": "customer_auth",
+    "resourceId": "admin@infinicharm.com",
+    "diff": {
+      "authenticated": false,
+      "code": "INVALID_CREDENTIALS"
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T12:46:10.273Z"
+  },
+  {
+    "id": "saud-1794573809214-4412",
+    "actorId": "admin-action",
+    "actorEmail": "test-cleanup@infinicharm.com",
+    "action": "BACKUP_DELETE",
+    "resourceType": "backup",
+    "resourceId": "BCK-CATALOGUE-20261113-942D7A",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T12:43:29.215Z"
+  },
+  {
+    "id": "saud-1794573809212-5325",
+    "actorId": "admin-action",
+    "actorEmail": "test-admin@infinicharm.com",
+    "action": "BACKUP_DELETE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261113-C29906",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T12:43:29.212Z"
+  },
+  {
+    "id": "saud-1794573809207-6490",
+    "actorId": "admin-action",
+    "actorEmail": "test-admin@infinicharm.com",
+    "action": "COLLECTION_IMPORT",
+    "resourceType": "categories",
+    "resourceId": "import-1794573809206",
+    "diff": {
+      "strategy": "SKIP",
+      "format": "json",
+      "insertedCount": 1,
+      "updatedCount": 0,
+      "skippedCount": 1,
+      "totalRecordsNow": 6
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T12:43:29.207Z"
+  },
+  {
+    "id": "saud-1794573809200-8019",
+    "actorId": "admin-action",
+    "actorEmail": "test-cleanup@infinicharm.com",
+    "action": "BACKUP_DELETE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261113-CA51E9",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T12:43:29.200Z"
+  },
+  {
+    "id": "saud-1794573809197-6622",
+    "actorId": "admin-action",
+    "actorEmail": "test-admin@infinicharm.com",
+    "action": "BACKUP_RESTORE",
+    "resourceType": "backup",
+    "resourceId": "BCK-CATALOGUE-20261113-942D7A",
+    "diff": {
+      "restoredCollections": [
+        "products",
+        "categories",
+        "media_assets",
+        "storefront_badges"
+      ],
+      "recordsRestored": {
+        "products": 4,
+        "categories": 5,
+        "media_assets": 7,
+        "storefront_badges": 2
+      },
+      "rollbackSnapshotId": "BCK-FULL-20261113-CA51E9"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T12:43:29.197Z"
+  },
+  {
+    "id": "saud-1794573809191-7119",
+    "actorId": "admin-action",
+    "actorEmail": "system-rollback@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261113-CA51E9",
+    "diff": {
+      "type": "FULL",
+      "totalRecords": 108,
+      "totalCollections": 22,
+      "checksum": "16d43d6a15ce282771213011bdcb0fed946957f58c03164acedde716540229dc"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T12:43:29.191Z"
+  },
+  {
+    "id": "saud-1794573809165-2587",
+    "actorId": "admin-action",
+    "actorEmail": "test-admin@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-CATALOGUE-20261113-942D7A",
+    "diff": {
+      "type": "SECTION",
+      "section": "catalogue",
+      "totalRecords": 18,
+      "totalCollections": 4,
+      "checksum": "00748be9bdb6266470b640405f396d4a6133aedbd219f7fdfdca603e1914d798"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T12:43:29.165Z"
+  },
+  {
+    "id": "saud-1794573809157-5544",
+    "actorId": "admin-action",
+    "actorEmail": "test-admin@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261113-C29906",
+    "diff": {
+      "type": "FULL",
+      "totalRecords": 108,
+      "totalCollections": 22,
+      "checksum": "16d43d6a15ce282771213011bdcb0fed946957f58c03164acedde716540229dc"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T12:43:29.157Z"
+  },
+  {
+    "id": "saud-1794573188339-1883",
+    "actorId": "usr-admin-01",
+    "actorEmail": "admin@infinicharm.com",
+    "action": "ADMIN_LOGIN_SUCCESS",
+    "resourceType": "admin_auth",
+    "resourceId": "usr-admin-01",
+    "diff": {
+      "authenticated": true
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T12:33:08.339Z"
+  },
+  {
+    "id": "saud-1794572955861-4515",
+    "actorId": "usr-admin-01",
+    "actorEmail": "admin@infinicharm.com",
+    "action": "ADMIN_LOGOUT",
+    "resourceType": "admin_auth",
+    "resourceId": "usr-admin-01",
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T12:29:15.861Z"
+  },
+  {
+    "id": "saud-1794572867803-9712",
+    "actorId": "usr-admin-01",
+    "actorEmail": "admin@infinicharm.com",
+    "action": "ADMIN_LOGIN_SUCCESS",
+    "resourceType": "admin_auth",
+    "resourceId": "usr-admin-01",
+    "diff": {
+      "authenticated": true
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T12:27:47.803Z"
+  },
+  {
+    "id": "saud-1794548210272-2548",
+    "actorId": "cust-01",
+    "actorEmail": "customer@infinicharm.com",
+    "action": "CUSTOMER_LOGIN_SUCCESS",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-01",
+    "diff": {
+      "authenticated": true
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T05:36:50.273Z"
+  },
+  {
+    "id": "saud-1794548210226-1898",
+    "actorId": "cust-01",
+    "actorEmail": "customer@infinicharm.com",
+    "action": "CUSTOMER_LOGIN_SUCCESS",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-01",
+    "diff": {
+      "authenticated": true
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T05:36:50.227Z"
+  },
+  {
+    "id": "saud-1794548058235-4019",
+    "actorId": "cust-01",
+    "actorEmail": "customer@infinicharm.com",
+    "action": "CUSTOMER_LOGIN_SUCCESS",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-01",
+    "diff": {
+      "authenticated": true
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T05:34:18.236Z"
+  },
+  {
+    "id": "saud-1794548058168-3070",
+    "actorId": "cust-01",
+    "actorEmail": "customer@infinicharm.com",
+    "action": "CUSTOMER_LOGIN_SUCCESS",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-01",
+    "diff": {
+      "authenticated": true
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T05:34:18.168Z"
+  },
+  {
+    "id": "saud-1794547901130-2708",
+    "actorId": "cust-01",
+    "actorEmail": "customer@infinicharm.com",
+    "action": "CUSTOMER_LOGIN_SUCCESS",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-01",
+    "diff": {
+      "authenticated": true
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T05:31:41.130Z"
+  },
+  {
+    "id": "saud-1794547901076-6885",
+    "actorId": "cust-01",
+    "actorEmail": "customer@infinicharm.com",
+    "action": "CUSTOMER_LOGIN_SUCCESS",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-01",
+    "diff": {
+      "authenticated": true
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T05:31:41.076Z"
+  },
+  {
+    "id": "saud-1794547565914-5929",
+    "actorId": "cust-01",
+    "actorEmail": "customer@infinicharm.com",
+    "action": "CUSTOMER_LOGIN_SUCCESS",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-01",
+    "diff": {
+      "authenticated": true
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T05:26:05.915Z"
+  },
+  {
+    "id": "saud-1794547565861-1051",
+    "actorId": "cust-01",
+    "actorEmail": "customer@infinicharm.com",
+    "action": "CUSTOMER_LOGIN_SUCCESS",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-01",
+    "diff": {
+      "authenticated": true
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T05:26:05.861Z"
+  },
+  {
+    "id": "saud-1794547429830-2505",
+    "actorId": "cust-01",
+    "actorEmail": "customer@infinicharm.com",
+    "action": "CUSTOMER_LOGIN_SUCCESS",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-01",
+    "diff": {
+      "authenticated": true
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T05:23:49.830Z"
+  },
+  {
+    "id": "saud-1794547429777-6613",
+    "actorId": "cust-01",
+    "actorEmail": "customer@infinicharm.com",
+    "action": "CUSTOMER_LOGIN_SUCCESS",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-01",
+    "diff": {
+      "authenticated": true
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T05:23:49.778Z"
+  },
+  {
+    "id": "saud-1794547362908-9180",
+    "actorId": "cust-01",
+    "actorEmail": "customer@infinicharm.com",
+    "action": "CUSTOMER_LOGIN_SUCCESS",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-01",
+    "diff": {
+      "authenticated": true
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T05:22:42.908Z"
+  },
+  {
+    "id": "saud-1794547362866-6718",
+    "actorId": "cust-01",
+    "actorEmail": "customer@infinicharm.com",
+    "action": "CUSTOMER_LOGIN_SUCCESS",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-01",
+    "diff": {
+      "authenticated": true
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T05:22:42.867Z"
+  },
+  {
+    "id": "saud-1794546933420-9850",
+    "actorId": "cust-01",
+    "actorEmail": "customer@infinicharm.com",
+    "action": "CUSTOMER_LOGIN_SUCCESS",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-01",
+    "diff": {
+      "authenticated": true
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T05:15:33.421Z"
+  },
+  {
+    "id": "saud-1794546933359-3440",
+    "actorId": "cust-01",
+    "actorEmail": "customer@infinicharm.com",
+    "action": "CUSTOMER_LOGIN_SUCCESS",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-01",
+    "diff": {
+      "authenticated": true
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-13T05:15:33.359Z"
+  }
+]

@@ -1,0 +1,90 @@
+{
+  "socialLinks": [
+    {
+      "id": "social-youtube",
+      "platform": "youtube",
+      "label": "YouTube",
+      "url": "https://www.youtube.com/channel/UCJcnqFc-_JX0uF8-xNrU1rg",
+      "isEnabled": true,
+      "displayOrder": 1,
+      "description": "InfiniCharm Official YouTube Channel",
+      "updatedAt": "2026-11-13T03:30:00.000Z"
+    },
+    {
+      "id": "social-facebook",
+      "platform": "facebook",
+      "label": "Facebook",
+      "url": "https://www.facebook.com/InfiniCharmOfficial",
+      "isEnabled": true,
+      "displayOrder": 2,
+      "description": "InfiniCharm Official Facebook Page",
+      "updatedAt": "2026-11-13T03:30:00.000Z"
+    },
+    {
+      "id": "social-instagram",
+      "platform": "instagram",
+      "label": "Instagram",
+      "url": "https://www.instagram.com/InfiniCharmofficial/",
+      "isEnabled": true,
+      "displayOrder": 3,
+      "description": "InfiniCharm Official Instagram Handle",
+      "updatedAt": "2026-11-13T03:30:00.000Z"
+    },
+    {
+      "id": "social-thecrumb-infinicharm",
+      "platform": "thecrumb",
+      "label": "The Crumb (InfiniCharm)",
+      "url": "https://thecrumb.co/InfiniCharmOfficial",
+      "isEnabled": true,
+      "displayOrder": 4,
+      "description": "Official InfiniCharm Profile on The Crumb",
+      "updatedAt": "2026-11-13T03:30:00.000Z"
+    },
+    {
+      "id": "social-thecrumb-techilyfly",
+      "platform": "thecrumb",
+      "label": "The Crumb (TechilyFly)",
+      "url": "https://thecrumb.co/TechilyFly",
+      "isEnabled": true,
+      "displayOrder": 5,
+      "description": "Operating Brand TechilyFly on The Crumb",
+      "updatedAt": "2026-11-13T03:30:00.000Z"
+    },
+    {
+      "id": "social-thecrumb-founder",
+      "platform": "thecrumb",
+      "label": "The Crumb (AbdurRahman.Top)",
+      "url": "https://thecrumb.co/AbdurRahmanDotTopTechilyFly",
+      "isEnabled": true,
+      "displayOrder": 6,
+      "description": "Founder & CEO Profile on The Crumb",
+      "updatedAt": "2026-11-13T03:30:00.000Z"
+    },
+    {
+      "id": "social-website-official",
+      "platform": "website",
+      "label": "Official Website",
+      "url": "https://infinicharm.com/",
+      "isEnabled": true,
+      "displayOrder": 7,
+      "description": "InfiniCharm Official E-Commerce Website",
+      "updatedAt": "2026-11-13T03:30:00.000Z"
+    }
+  ],
+  "sharing": {
+    "enableProductSharing": true,
+    "enableBlogSharing": true,
+    "enableOrderTrackingSharing": true,
+    "channels": {
+      "whatsapp": true,
+      "twitter": true,
+      "facebook": true,
+      "linkedin": true,
+      "email": true,
+      "copyLink": true
+    },
+    "customShareMessage": "Discover single-origin harvest essentials.",
+    "updatedAt": "2026-11-14T05:13:51.547Z"
+  },
+  "updatedAt": "2026-11-14T05:13:51.547Z"
+}

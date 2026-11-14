@@ -1,0 +1,17 @@
+{
+  "isEnabled": true,
+  "badge": "COMMUNITY DISPATCH",
+  "heading": "Join InfiniCharm Dispatch E2E",
+  "description": "Receive monthly harvest reports, new batch releases, and exclusive community discounts directly to your inbox.",
+  "emailPlaceholder": "Enter your email address...",
+  "buttonText": "Subscribe",
+  "loadingText": "Subscribing...",
+  "successMessage": "Welcome to the InfiniCharm Circle! Your subscription is confirmed and a welcome email is on its way.",
+  "alreadySubscribedMessage": "You are already an active member of the InfiniCharm Circle.",
+  "invalidEmailMessage": "Please enter a valid email address.",
+  "errorMessage": "Unable to process your subscription right now. Please try again in a moment.",
+  "privacyFootnote": "No spam, ever. Unsubscribe anytime with a single click.",
+  "sendWelcomeEmail": false,
+  "welcomeTemplateId": "tpl-welcome-circle",
+  "updatedAt": "2026-11-14T02:42:11.188Z"
+}

@@ -1,0 +1,12 @@
+name = "infinicharm-web"
+compatibility_date = "2024-11-01"
+compatibility_flags = ["nodejs_compat"]
+pages_build_output_dir = ".next"
+
+[vars]
+NEXT_PUBLIC_APP_URL = "https://www.infinicharm.com"
+NEXT_PUBLIC_SUPABASE_URL = "https://ziafauuodnmktzmsjpka.supabase.co"
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_8Up2lFm0QMVuqdc5PLRhTQ_oUB3ccJK"
+NEXT_PUBLIC_TAWKTO_PROPERTY_ID = "6ae76c24e068a73c41821c1f"
+NEXT_PUBLIC_TAWKTO_WIDGET_ID = "1k6bvsse1"
+

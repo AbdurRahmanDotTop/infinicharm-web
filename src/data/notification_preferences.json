@@ -1,0 +1,12 @@
+{
+  "notificationsEnabled": true,
+  "defaultAdminEmails": [
+    "admin@infinicharm.com"
+  ],
+  "supportReplyToEmail": "support@infinicharm.com",
+  "defaultVendorFallbackEmail": "",
+  "defaultSmtpConfigId": null,
+  "maxAutoRetries": 1,
+  "deduplicateOverlappingRecipients": true,
+  "updatedAt": "2026-11-12T12:36:31.835Z"
+}

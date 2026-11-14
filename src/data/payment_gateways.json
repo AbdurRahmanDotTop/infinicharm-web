@@ -1,0 +1,131 @@
+[
+  {
+    "id": "CUSTOM_UPI",
+    "name": "Custom UPI Direct (Dynamic QR & Mobile Intent)",
+    "description": "Instant order-specific dynamic QR code, UPI intent link & manual UTR payment verification.",
+    "isEnabled": true,
+    "isTestMode": false,
+    "isValidated": true,
+    "lastTestedAt": "2026-11-11T10:00:00Z",
+    "testStatusMessage": "Active & Verified • VPA: AbdurRahmanIndusIndCurrent@ybl • IndusInd Bank Current A/C",
+    "credentials": {
+      "upiId": "AbdurRahmanIndusIndCurrent@ybl",
+      "upiNumber": "8825164657",
+      "payeeName": "TechilyFly - InfiniCharm",
+      "bankName": "IndusInd Bank",
+      "accountNumber": "258825164657",
+      "ifscCode": "INDB0001548",
+      "instructions": "1. Scan dynamic QR using Google Pay, PhonePe, Paytm, BHIM, or Cred.\n2. Verify payee name \"TechilyFly - InfiniCharm\" & exact payable order amount.\n3. Complete payment in your UPI app.\n4. Enter the 12-digit UTR / UPI Reference Number below and submit order for verification."
+    },
+    "webhookUrl": "https://infinicharm.com/api/webhooks/custom-upi",
+    "supportedMethods": [
+      "UPI",
+      "CUSTOM_UPI"
+    ],
+    "minOrderInPaise": 0,
+    "maxOrderInPaise": 10000000,
+    "convenienceFeeInPaise": 0
+  },
+  {
+    "id": "PAYGLOCAL",
+    "name": "PayGlocal Global & Multi-Currency Gateway",
+    "description": "Official PayGlocal API: Accept international & domestic cards (USD, GBP, EUR, INR) with JWS authentication.",
+    "isEnabled": true,
+    "isTestMode": true,
+    "isValidated": true,
+    "lastTestedAt": "2026-11-12T14:48:23.325Z",
+    "testStatusMessage": "PayGlocal API handshake verified (UAT Sandbox). Merchant ID: ptplabdurrah9915. • Latency: 91ms",
+    "credentials": {
+      "merchantId": "ptplabdurrah9915",
+      "mcaId": "ptplabdurrah9923",
+      "publicKid": "8cc91c8d-8030-4660-a9c7-33de886fb495_payglocal_mid",
+      "privateKid": "kId-cTwVPjp5l2c3xHo3",
+      "gbpAccountNo": "44576489",
+      "gbpSortCode": "608382"
+    },
+    "webhookUrl": "https://infinicharm.com/api/webhooks/payglocal",
+    "supportedMethods": [
+      "CARDS",
+      "PAYGLOCAL"
+    ],
+    "minOrderInPaise": 10000,
+    "maxOrderInPaise": 50000000
+  },
+  {
+    "id": "RAZORPAY",
+    "name": "Razorpay Payment Suite",
+    "description": "Accept UPI, RuPay, Visa, Mastercard, NetBanking & Wallets across India.",
+    "isEnabled": false,
+    "isTestMode": true,
+    "isValidated": true,
+    "lastTestedAt": "2026-11-10T12:00:00Z",
+    "testStatusMessage": "Credentials verified • Test Sandbox operational • Latency 88ms",
+    "credentials": {
+      "keyId": "rzp_test_infinicharm9823",
+      "keySecret": "••••••••••••••••••••••••",
+      "webhookSecret": "••••••••••••••••"
+    },
+    "webhookUrl": "https://infinicharm.com/api/webhooks/razorpay",
+    "supportedMethods": [
+      "UPI",
+      "CARDS",
+      "NET_BANKING",
+      "WALLET"
+    ],
+    "minOrderInPaise": 10000,
+    "maxOrderInPaise": 50000000
+  },
+  {
+    "id": "COD",
+    "name": "Cash on Delivery (COD)",
+    "description": "Collect cash upon physical courier arrival with pin code verification.",
+    "isEnabled": false,
+    "isTestMode": false,
+    "isValidated": true,
+    "lastTestedAt": "2026-11-10T12:00:00Z",
+    "testStatusMessage": "Standard COD service active • Pin code verification active",
+    "credentials": {},
+    "webhookUrl": "https://infinicharm.com/api/webhooks/cod",
+    "supportedMethods": [
+      "COD"
+    ],
+    "minOrderInPaise": 0,
+    "maxOrderInPaise": 500000,
+    "convenienceFeeInPaise": 0
+  },
+  {
+    "id": "PHONEPE",
+    "name": "PhonePe Direct PG",
+    "description": "Direct Indian UPI & QR payment flow with instant mobile intent dispatch.",
+    "isEnabled": false,
+    "isTestMode": true,
+    "isValidated": false,
+    "credentials": {
+      "merchantId": "MERCHANTUAT",
+      "saltKey": "••••••••••••••••••••••••",
+      "saltIndex": "1"
+    },
+    "webhookUrl": "https://infinicharm.com/api/webhooks/phonepe",
+    "supportedMethods": [
+      "UPI"
+    ],
+    "minOrderInPaise": 10000
+  },
+  {
+    "id": "STRIPE",
+    "name": "Stripe Global Card Gateway",
+    "description": "Accept global credit & debit cards (Visa, Mastercard, Amex) in international currencies.",
+    "isEnabled": false,
+    "isTestMode": true,
+    "isValidated": false,
+    "credentials": {
+      "keyId": "pk_test_infinicharm51",
+      "keySecret": "••••••••••••••••••••••••"
+    },
+    "webhookUrl": "https://infinicharm.com/api/webhooks/stripe",
+    "supportedMethods": [
+      "CARDS"
+    ],
+    "minOrderInPaise": 20000
+  }
+]

@@ -1,0 +1,289 @@
+[
+  {
+    "id": "sec-hero",
+    "type": "hero",
+    "title": "Pure Harvests. Blessed Essentials. Direct from InfiniCharm.",
+    "subtitle": "Discover 100% Kashmiri Honey, convenient 5-litre Zamzam Water, wholesome Sunnah-inspired Takmeeli Talbeena, and Premium Dates. Carefully curated and dispatched directly from Bairgania, Sitamarhi, Bihar.",
+    "badge": "APPROVED PANTRY & BEVERAGE COLLECTION",
+    "ctaText": "Explore Collections",
+    "ctaLink": "/shop",
+    "secondaryCtaText": "Our Sourcing Story",
+    "secondaryCtaLink": "/about",
+    "imageUrl": "https://images.unsplash.com/photo-1685773253905-915ce8dd470b?q=80&w=1073&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D",
+    "displayOrder": 1,
+    "isEnabled": true,
+    "config": {
+      "featuredTagline": "100% Approved Catalogue • Transparent Sourcing from Bihar",
+      "heroItems": [
+        {
+          "id": "hero-item-1",
+          "type": "product",
+          "targetId": "S-01-P-01",
+          "title": "100% Kashmiri Honey",
+          "subtitle": "Pure Taste & Natural Sweetness for Everyday Life",
+          "badge": "IC-HONEY • Food & Grocery",
+          "tagline": "Food & Grocery > Honey",
+          "priceDisplay": "₹2,400",
+          "ctaText": "Shop Kashmiri Honey",
+          "linkUrl": "/product/100-kashmiri-honey",
+          "imageUrl": "https://images.unsplash.com/photo-1685773253905-915ce8dd470b?q=80&w=1073&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D",
+          "position": "featured",
+          "displayOrder": 1,
+          "isEnabled": true
+        },
+        {
+          "id": "hero-item-2",
+          "type": "product",
+          "targetId": "S-01-P-02",
+          "title": "Zamzam Water – 5 Litres",
+          "subtitle": "Blessed Drinking Water in a 5-Litre Home Pack",
+          "badge": "Food & Beverages",
+          "tagline": "Drinking Water > Zamzam Water",
+          "priceDisplay": "₹6,000",
+          "ctaText": "View 5L Pack",
+          "linkUrl": "/product/zamzam-water-5-litres",
+          "imageUrl": "https://zamzamstoreeg.com/cdn/shop/files/bottle.jpg?v=1758206902",
+          "position": "secondary_top",
+          "displayOrder": 2,
+          "isEnabled": true
+        },
+        {
+          "id": "hero-item-3",
+          "type": "product",
+          "targetId": "S-01-P-03",
+          "title": "Takmeeli Talbeena",
+          "subtitle": "Traditional Barley Breakfast Inspired by the Sunnah",
+          "badge": "Healthy Breakfast",
+          "tagline": "Food & Grocery > Talbeena",
+          "priceDisplay": "₹300",
+          "ctaText": "Explore Talbeena",
+          "linkUrl": "/product/takmeeli-talbeena",
+          "imageUrl": "https://rukminim2.flixcart.com/image/1536/1536/xif0q/ready-mix/q/5/l/1-talbeena-with-dry-fruits-combo-premium-pack-pack-4-250g-x-4-4-original-imahgt7br6ydh8rn.jpeg",
+          "position": "secondary_bottom",
+          "displayOrder": 3,
+          "isEnabled": true
+        }
+      ],
+      "selectionMode": "category",
+      "selectedProductIds": [],
+      "selectedCategoryId": "cat-honey",
+      "productLimit": 4
+    },
+    "updatedAt": "2026-11-12T13:15:00.000Z"
+  },
+  {
+    "id": "sec-departments",
+    "type": "categories",
+    "title": "Shop by Approved Categories",
+    "subtitle": "Browse our verified Food & Grocery and Food & Beverages categories — managed dynamically from the InfiniCharm Admin Panel.",
+    "badge": "CURATED CATEGORY TAXONOMY",
+    "ctaText": "View All Categories",
+    "ctaLink": "/shop",
+    "displayOrder": 2,
+    "isEnabled": true,
+    "config": {},
+    "updatedAt": "2026-11-12T13:15:00.000Z"
+  },
+  {
+    "id": "sec-flash-deals",
+    "type": "flash_deals",
+    "title": "Featured Catalogue Selections",
+    "subtitle": "Every authentic essential from the approved InfiniCharm catalogue — ready for careful dispatch across India.",
+    "badge": "DIRECT CATALOGUE PICKS",
+    "ctaText": "View Full Catalogue",
+    "ctaLink": "/shop",
+    "displayOrder": 3,
+    "isEnabled": true,
+    "config": {
+      "selectionMode": "manual",
+      "selectedProductIds": [
+        "S-01-P-01",
+        "S-01-P-02",
+        "S-01-P-03",
+        "S-01-P-04"
+      ],
+      "productLimit": 4,
+      "discountHighlight": "Authentic Household Essentials Direct from Source"
+    },
+    "updatedAt": "2026-11-12T13:15:00.000Z"
+  },
+  {
+    "id": "sec-tabbed-spotlight",
+    "type": "tabbed_spotlight",
+    "title": "Explore by Category & Daily Routine",
+    "subtitle": "Filter live catalogue items across Honey, Zamzam Water, Takmeeli Talbeena, Barliva, and Premium Dates.",
+    "badge": "LIVE CATALOGUE FILTER",
+    "ctaText": "Explore Full Shop",
+    "ctaLink": "/shop",
+    "displayOrder": 4,
+    "isEnabled": true,
+    "config": {
+      "selectionMode": "category",
+      "productLimit": 4
+    },
+    "updatedAt": "2026-11-12T13:15:00.000Z"
+  },
+  {
+    "id": "sec-deg-bhapka",
+    "type": "deg_bhapka",
+    "title": "Nourishing Daily Staples Rooted in Sunnah & Natural Purity",
+    "subtitle": "From 100% Kashmiri Honey and Sunnah-inspired Takmeeli Talbeena to sacred 5-litre Zamzam Water and naturally sweet Premium Dates, every product is selected for wholesome household use.",
+    "badge": "SUNNAH & NATURAL NUTRITION",
+    "ctaText": "Shop Wholesome Essentials",
+    "ctaLink": "/shop",
+    "imageUrl": "https://plus.unsplash.com/premium_photo-1676208753932-6e8bc83a0b0d?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D",
+    "displayOrder": 5,
+    "isEnabled": true,
+    "config": {
+      "spotlightFloatingBadge": "Bairgania, Bihar Dispatch",
+      "spotlightFloatingText": "Carefully checked, sealed, and dispatched from Bairgania, Sitamarhi, Bihar with full ingredient and weight clarity.",
+      "spotlightCards": [
+        {
+          "id": "spot-1",
+          "title": "100% Kashmiri Honey",
+          "description": "Pure taste and rich natural honey flavour suited for everyday family use."
+        },
+        {
+          "id": "spot-2",
+          "title": "Takmeeli Talbeena",
+          "description": "Traditional barley breakfast inspired by the Sunnah and easy to prepare."
+        },
+        {
+          "id": "spot-3",
+          "title": "Dates & Zamzam Water",
+          "description": "Naturally sweet 1 KG dates and blessed 5-litre Zamzam water for home."
+        }
+      ],
+      "location": "Bairgania, Sitamarhi, Bihar",
+      "quote": "Every InfiniCharm product pairs authentic nutritional heritage with honest packaging and straightforward pricing."
+    },
+    "updatedAt": "2026-11-12T13:15:00.000Z"
+  },
+  {
+    "id": "sec-kirana-packs",
+    "type": "kirana_packs",
+    "title": "Daily Breakfast & Household Pantry Essentials",
+    "subtitle": "Stock nutritious morning and family staples together — wholesome Talbeena, 1 KG Premium Dates, 100% Kashmiri Honey, and 5L Zamzam Water.",
+    "badge": "EVERYDAY FAMILY ESSENTIALS",
+    "ctaText": "Shop All Essentials",
+    "ctaLink": "/shop",
+    "displayOrder": 6,
+    "isEnabled": true,
+    "config": {
+      "selectionMode": "manual",
+      "selectedProductIds": [
+        "S-01-P-03",
+        "S-01-P-04",
+        "S-01-P-01",
+        "S-01-P-02"
+      ],
+      "productLimit": 4,
+      "bundleHighlight": "Complete Approved Collection in One Place"
+    },
+    "updatedAt": "2026-11-12T13:15:00.000Z"
+  },
+  {
+    "id": "sec-sourcing-centers",
+    "type": "sourcing_centers",
+    "title": "Core Category Collections & Regional Fulfilment",
+    "subtitle": "Every product category in our catalogue is carefully vetted, documented, and dispatched directly from Bairgania, Sitamarhi, Bihar.",
+    "badge": "VERIFIED CATALOGUE COLLECTIONS",
+    "ctaText": "About InfiniCharm Sourcing",
+    "ctaLink": "/about",
+    "displayOrder": 7,
+    "isEnabled": true,
+    "config": {
+      "hubCount": "4 Signature Collections",
+      "centerCards": [
+        {
+          "id": "center-honey",
+          "title": "100% Kashmiri Honey Collection",
+          "location": "Food & Grocery • Honey",
+          "description": "Pure Kashmiri honey with natural sweetness and rich flavour tailored for everyday household use.",
+          "specLeft": "IC-HONEY",
+          "specRight": "S-01-P-01",
+          "ctaText": "Explore Honey",
+          "linkUrl": "/shop?category=honey",
+          "imageUrl": "https://images.unsplash.com/photo-1685773253905-915ce8dd470b?q=80&w=1073&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D",
+          "categoryId": "cat-honey"
+        },
+        {
+          "id": "center-zamzam",
+          "title": "Zamzam Drinking Water",
+          "location": "Food & Beverages • Zamzam Water",
+          "description": "Blessed Zamzam water presented in a sealed 5-litre family pack for respectful home use.",
+          "specLeft": "IC-ZAM-ZAM",
+          "specRight": "5 Litres Pack",
+          "ctaText": "Explore Zamzam Water",
+          "linkUrl": "/shop?category=zamzam-water",
+          "imageUrl": "https://encrypted-tbn0.gstatic.com/shopping?q=tbn:ANd9GcS4kcvST5oA3ST7-Yjpa_6401ewJHDwr4hxxecDvwC7nHXuoCYfoanWeum55VH4Rso8bo5VJkmFWjt90nPnIa-hlNKaXICg",
+          "categoryId": "cat-zamzam-water"
+        },
+        {
+          "id": "center-talbeena",
+          "title": "Takmeeli Talbeena & Barliva",
+          "location": "Food & Grocery • Talbeena",
+          "description": "Traditional barley-based breakfast mixes inspired by the Sunnah — wholesome, comforting, and easy to prepare.",
+          "specLeft": "IC-TALBEENA",
+          "specRight": "Healthy Breakfast",
+          "ctaText": "Explore Talbeena",
+          "linkUrl": "/shop?category=takmeeli-talbeena",
+          "imageUrl": "https://rukminim2.flixcart.com/image/1536/1536/xif0q/ready-mix/q/5/l/1-talbeena-with-dry-fruits-combo-premium-pack-pack-4-250g-x-4-4-original-imahgt7br6ydh8rn.jpeg?q=90",
+          "categoryId": "cat-takmeeli-talbeena"
+        },
+        {
+          "id": "center-dates",
+          "title": "Premium Dates & Dry Fruits",
+          "location": "Food & Grocery • Dates",
+          "description": "Naturally sweet 1 KG dates selected for everyday family snacking, nutrition, desserts, and recipes.",
+          "specLeft": "IC-DATES",
+          "specRight": "1 KG Pack",
+          "ctaText": "Explore Dates",
+          "linkUrl": "/shop?category=premium-dates",
+          "imageUrl": "https://plus.unsplash.com/premium_photo-1676208753932-6e8bc83a0b0d?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D",
+          "categoryId": "cat-premium-dates"
+        }
+      ]
+    },
+    "updatedAt": "2026-11-12T13:15:00.000Z"
+  },
+  {
+    "id": "sec-values-strip",
+    "type": "values_strip",
+    "title": "The InfiniCharm Invariant Guarantees",
+    "subtitle": "Strict Single-Owner Sourcing • Integer Paise Authority • Bairgania, Bihar Dispatch",
+    "badge": "FOUNDATIONAL STANDARDS",
+    "displayOrder": 8,
+    "isEnabled": true,
+    "config": {},
+    "updatedAt": "2026-11-12T13:15:00.000Z"
+  },
+  {
+    "id": "sec-journal-preview",
+    "type": "journal_preview",
+    "title": "From the Source: Journal & Buying Guides",
+    "subtitle": "Practical guides on 100% Kashmiri Honey, Takmeeli Talbeena & Barliva breakfast traditions, Premium Dates, and safe storage.",
+    "badge": "EDITORIAL INTELLIGENCE",
+    "ctaText": "Read All Journal Guides",
+    "ctaLink": "/blog",
+    "displayOrder": 9,
+    "isEnabled": true,
+    "config": {},
+    "updatedAt": "2026-11-12T13:15:00.000Z"
+  },
+  {
+    "id": "sec-newsletter",
+    "type": "newsletter",
+    "title": "Join InfiniCharm Dispatch E2E",
+    "subtitle": "Receive monthly harvest reports, new batch releases, and exclusive community discounts directly to your inbox.",
+    "badge": "COMMUNITY DISPATCH",
+    "ctaText": "Subscribe",
+    "ctaLink": "#newsletter",
+    "displayOrder": 10,
+    "isEnabled": true,
+    "config": {
+      "incentive": "Receive early access to fresh restocks and community updates."
+    },
+    "updatedAt": "2026-11-14T02:42:11.188Z"
+  }
+]

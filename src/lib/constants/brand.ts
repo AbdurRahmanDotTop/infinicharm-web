@@ -1,0 +1,44 @@
+export const BRAND = {
+  name: 'InfiniCharm',
+  operatingEntity: 'TechilyFly',
+  tagline: 'Everyday essentials. Selected with care.',
+  founder: 'AbdurRahman Ibn Ghufran',
+  founderWebsite: 'https://www.abdurrahman.top',
+  contact: {
+    supportEmail: 'support@infinicharm.com',
+    adminEmail: 'admin@infinicharm.com',
+    personalEmail: 'abdurrahman@infinicharm.com',
+    address: {
+      line1: 'Ward No. 07, Lahsaniya, Khoripakar',
+      line2: 'Dewapur, Pachpakari, Patahi, Dhaka',
+      city: 'Motihari',
+      district: 'East Champaran',
+      state: 'Bihar',
+      country: 'India',
+      postalCode: '845427',
+      fullAddress: 'Ward No. 07, Lahsaniya, Khoripakar, Dewapur, Pachpakari, Patahi, Dhaka, Motihari, East Champaran, Bihar, India - 845427',
+    },
+  },
+  social: {
+    website: 'https://www.infinicharm.com',
+  },
+  navigation: [
+    { label: 'Shop All', href: '/shop' },
+    { label: 'Honey', href: '/shop?category=honey' },
+    { label: 'Zamzam Water', href: '/shop?category=zamzam-water' },
+    { label: 'Takmeeli Talbeena', href: '/shop?category=takmeeli-talbeena' },
+    { label: 'Barliva', href: '/shop?category=barliva' },
+    { label: 'Premium Dates', href: '/shop?category=premium-dates' },
+    { label: 'Our Story', href: '/about' },
+    { label: 'Journal', href: '/blog' },
+  ],
+  policies: [
+    { label: 'Shipping & Delivery', href: '/policies/shipping' },
+    { label: 'Returns & Exchange', href: '/policies/returns' },
+    { label: 'Refund & Cancellation', href: '/policies/refunds' },
+    { label: 'Privacy Policy', href: '/policies/privacy' },
+    { label: 'Terms & Conditions', href: '/policies/terms' },
+    { label: 'Compliance & Disclosures', href: '/policies/compliance' },
+  ],
+} as const;
+

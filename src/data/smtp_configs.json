@@ -1,0 +1,40 @@
+[
+  {
+    "id": "smtp-brevo-primary",
+    "name": "Brevo Primary Transactional Relay",
+    "providerType": "BREVO",
+    "host": "smtp-relay.brevo.com",
+    "port": 587,
+    "encryption": "STARTTLS",
+    "username": "c2b822001@smtp-brevo.com",
+    "useEnvCredentials": true,
+    "senderName": "InfiniCharm",
+    "senderEmail": "support@infinicharm.com",
+    "replyToEmail": "support@infinicharm.com",
+    "isDefault": true,
+    "isEnabled": true,
+    "lastTestedAt": "2026-11-14T02:41:43.891Z",
+    "lastTestStatus": "SUCCESS",
+    "lastTestMessage": "Verified live via Brevo API v3: InfiniCharm <infinicharm@gmail.com> — free (300 credits)",
+    "createdAt": "2026-11-14T02:38:46.364Z",
+    "updatedAt": "2026-11-14T02:41:43.891Z"
+  },
+  {
+    "id": "smtp-e2e-capture",
+    "name": "Playwright E2E Local Capture Relay",
+    "providerType": "CUSTOM_SMTP",
+    "host": "127.0.0.1",
+    "port": 55689,
+    "encryption": "NONE",
+    "username": "capture-user",
+    "encryptedSecret": "4b8c6bb3eec0491f24618f06:d4a3a3370c4c05c3a648bb984de27e40:666291972074d4df46247507fbc0890af9e309568d",
+    "useEnvCredentials": false,
+    "senderName": "InfiniCharm",
+    "senderEmail": "support@infinicharm.com",
+    "replyToEmail": "support@infinicharm.com",
+    "isDefault": false,
+    "isEnabled": true,
+    "createdAt": "2026-11-13T16:26:26.347Z",
+    "updatedAt": "2026-11-13T16:26:26.348Z"
+  }
+]

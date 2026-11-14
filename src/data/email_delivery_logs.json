@@ -1,0 +1,30 @@
+[
+  {
+    "type": "WELCOME",
+    "campaignId": null,
+    "campaignName": null,
+    "subscriberId": "sub-1794623763176-70",
+    "recipientEmail": "test.subscribe.1794623762532@example.com",
+    "subject": "Welcome to the InfiniCharm Circle — Pure Living Starts Here",
+    "smtpConfigId": "smtp-e2e-capture",
+    "providerName": "Playwright E2E Local Capture Relay",
+    "status": "FAILED",
+    "errorMessage": "connect ECONNREFUSED 127.0.0.1:55689",
+    "id": "log-1794623763230-6875",
+    "sentAt": "2026-11-14T02:36:03.230Z"
+  },
+  {
+    "type": "WELCOME",
+    "campaignId": null,
+    "campaignName": null,
+    "subscriberId": "sub-1794484421779-236",
+    "recipientEmail": "abdurrahmanibnghufran@gmail.com",
+    "subject": "Welcome to the InfiniCharm Circle — Pure Living Starts Here",
+    "smtpConfigId": "smtp-brevo-primary",
+    "providerName": "Brevo Primary Transactional Relay",
+    "status": "SENT",
+    "messageId": "<202611121153.12168691039@smtp-relay.mailin.fr>",
+    "id": "log-1794484423092-8807",
+    "sentAt": "2026-11-12T11:53:43.092Z"
+  }
+]

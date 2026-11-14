@@ -1,0 +1,23 @@
+{
+  "registrationEnabled": true,
+  "loginEnabled": true,
+  "checkoutRegistrationEnabled": true,
+  "checkoutInlineLoginEnabled": true,
+  "guestCheckoutEnabled": true,
+  "requireEmailVerification": true,
+  "verificationTokenTtlMinutes": 60,
+  "verificationResendCooldownSeconds": 30,
+  "verificationResendMaxPerHour": 5,
+  "resetTokenTtlMinutes": 30,
+  "resetRequestMaxPerHour": 5,
+  "minPasswordLength": 8,
+  "requireUppercase": true,
+  "requireLowercase": true,
+  "requireNumber": true,
+  "requireSpecialChar": false,
+  "verificationRedirectPath": "/account",
+  "autoRedirectAfterVerificationSeconds": 3,
+  "passwordResetMode": "LINK_AND_OTP",
+  "updatedAt": "2026-11-12T15:27:02.151Z",
+  "updatedBy": "system"
+}

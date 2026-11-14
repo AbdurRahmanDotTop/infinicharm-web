@@ -2,22 +2,45 @@
   "name": "infinicharm-web",
   "version": "0.1.0",
   "private": true,
-  "type": "module",
-  "engines": {
-    "node": ">=22.23.4"
-  },
   "scripts": {
-    "dev": "astro dev",
-    "check": "astro check",
-    "build": "astro check && astro build",
-    "preview": "astro preview",
-    "astro": "astro"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test --test-concurrency=1 tests/unit/*.test.ts",
+    "test:watch": "node --test --watch tests/unit/*.test.ts",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
-    "astro": "^7.4.2"
+    "@supabase/ssr": "^0.5.2",
+    "@supabase/supabase-js": "^2.46.1",
+    "@types/nodemailer": "^8.0.2",
+    "@types/qrcode": "^1.5.6",
+    "@types/sanitize-html": "^2.16.2",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.460.0",
+    "marked": "^18.2.0",
+    "next": "^15.1.0",
+    "nodemailer": "^10.5.0",
+    "qrcode": "^1.5.4",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "sanitize-html": "^2.18.1",
+    "tailwind-merge": "^2.5.4",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
-    "@astrojs/check": "^0.9.12",
-    "typescript": "^5.9.3"
+    "@playwright/test": "^1.49.0",
+    "@types/node": "^22.9.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "autoprefixer": "^10.4.20",
+    "eslint": "^9.14.0",
+    "eslint-config-next": "^15.1.0",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.15",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.5"
   }
 }

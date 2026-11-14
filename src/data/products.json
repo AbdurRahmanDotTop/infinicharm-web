@@ -1,0 +1,358 @@
+[
+  {
+    "id": "S-01-P-01",
+    "categoryId": "cat-honey",
+    "title": "100% Kashmiri Honey – Pure Taste & Natural Sweetness",
+    "slug": "100-kashmiri-honey",
+    "productType": "simple",
+    "brand": "IC-HONEY",
+    "baseSku": "S-01-P-01",
+    "tags": [
+      "Kashmiri Honey",
+      "Pure Honey",
+      "Natural Honey",
+      "100% Honey",
+      "Premium Honey",
+      "Natural Sweetener",
+      "Food & Grocery"
+    ],
+    "tagline": "Food & Grocery > Honey",
+    "shortDescription": "Pure Kashmiri honey with a rich taste and natural sweetness. A beautiful gift of nature for your everyday life.",
+    "fullDescription": "Experience the pure taste and natural sweetness of 100% Kashmiri Honey. Carefully presented for those who appreciate natural sweetness and quality. Enjoy its rich taste as part of your everyday food and lifestyle.",
+    "status": "PUBLISHED",
+    "originCountry": "India",
+    "originRegion": "Bairgania, Sitamarhi, Bihar",
+    "ingredients": "100% Pure 100% Kashmiri Honey (IC-HONEY)",
+    "storageInstructions": "Store in a cool, dry place. Do not refrigerate natural honey.",
+    "fssaiLicenseNumber": "FSSAI Lic. No. 10423000001234",
+    "isFeatured": true,
+    "isNewArrival": true,
+    "highlights": [
+      "100% Kashmiri Honey",
+      "Pure taste",
+      "Natural sweetness",
+      "Rich honey flavour",
+      "Suitable for everyday use"
+    ],
+    "specifications": [
+      {
+        "label": "Product UID",
+        "value": "S-01-P-01"
+      },
+      {
+        "label": "Brand Code",
+        "value": "IC-HONEY"
+      },
+      {
+        "label": "Category Path",
+        "value": "Food & Grocery > Honey"
+      },
+      {
+        "label": "Dispatch Origin",
+        "value": "Bairgania, Sitamarhi, Bihar"
+      }
+    ],
+    "seoTitle": "100% Kashmiri Honey – Pure Taste & Natural Sweetness | InfiniCharm",
+    "seoDescription": "Pure Kashmiri honey with a rich taste and natural sweetness. A beautiful gift of nature for your everyday life.",
+    "createdAt": "2026-11-12T13:10:42.620Z",
+    "updatedAt": "2026-11-14T05:13:52.273Z",
+    "media": [
+      {
+        "id": "med-S-01-P-01-01",
+        "provider": "EXTERNAL_HTTPS",
+        "externalUrl": "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEhKzWiqf3kpho9hfTAXjJ8u6JtCBlctJlxXIPtl-kSHDfOALbdssU967EDIZzWzhENp78opLX51_U7NOqr3Lxp6j46PYYiw71F6K1OOXmuwsLI1Ftbv7yHFvByDwRV-qcsFqoTRg_2VVd-_d-abGXmGw0xPZUDIFGFv2sPckUNlfxaokM4lupyvCUj96Bo/w275-h275-p-k-no-nu/HoneyS01P01.jpg=w72-h72-p-k-no-nu",
+        "mimeType": "image/jpeg",
+        "altText": "100% Kashmiri Honey – Pure Taste & Natural Sweetness",
+        "role": "PRIMARY",
+        "displayOrder": 1,
+        "productId": "S-01-P-01",
+        "isActive": true
+      }
+    ],
+    "variants": [
+      {
+        "id": "var-S-01-P-01-01",
+        "productId": "S-01-P-01",
+        "sku": "S-01-P-01",
+        "title": "Standard Pack",
+        "priceInPaise": 240000,
+        "compareAtPriceInPaise": 240000,
+        "costPriceInPaise": 168000,
+        "stockQuantity": 97,
+        "lowStockThreshold": 10,
+        "weightInGrams": 500,
+        "attributes": {
+          "Pack": "Standard Pack",
+          "Category": "Honey",
+          "Packaging": "Food-Grade Airtight Glass Container",
+          "Brand": "IC-HONEY"
+        },
+        "isActive": true
+      }
+    ]
+  },
+  {
+    "id": "S-01-P-02",
+    "categoryId": "cat-zamzam-water",
+    "title": "Zamzam Water 5 Litres – Buy Online | InfiniCharm",
+    "slug": "zamzam-water-5-litres",
+    "productType": "simple",
+    "brand": "IC-ZAM-ZAM",
+    "baseSku": "S-01-P-02",
+    "tags": [
+      "Zamzam Water",
+      "Zamzam 5 Litre",
+      "Islamic Products",
+      "Sacred Water",
+      "Makkah",
+      "Holy Water",
+      "Drinking Water"
+    ],
+    "tagline": "Food & Beverages > Drinking Water > Zamzam Water",
+    "shortDescription": "Authenticity to be verified: Zamzam water in a convenient 5-litre pack, valued for its spiritual significance and special place in Islamic tradition.",
+    "fullDescription": "Zamzam water holds a special place in Islamic tradition. Muslims regard it as blessed and associate it with nourishment and healing. This 5-litre pack is intended for those who wish to bring Zamzam water into their homes.",
+    "status": "PUBLISHED",
+    "originCountry": "India",
+    "originRegion": "Bairgania, Sitamarhi, Bihar",
+    "ingredients": "100% Pure Zamzam Drinking Water",
+    "storageInstructions": "Store sealed in a cool, clean place away from direct sunlight.",
+    "fssaiLicenseNumber": "FSSAI Lic. No. 10423000001234",
+    "isFeatured": true,
+    "isNewArrival": true,
+    "highlights": [
+      "5-litre pack Zamzam water Special religious significance in Islam Traditionally regarded as blessed water Suitable for home use"
+    ],
+    "specifications": [
+      {
+        "label": "Product UID",
+        "value": "S-01-P-02"
+      },
+      {
+        "label": "Brand Code",
+        "value": "IC-ZAM-ZAM"
+      },
+      {
+        "label": "Category Path",
+        "value": "Food & Beverages > Drinking Water > Zamzam Water"
+      },
+      {
+        "label": "Dispatch Origin",
+        "value": "Bairgania, Sitamarhi, Bihar"
+      }
+    ],
+    "seoTitle": "Zamzam Water 5 Litres – Buy Online | InfiniCharm",
+    "seoDescription": "Authenticity to be verified: Zamzam water in a convenient 5-litre pack, valued for its spiritual significance and special place in Islamic tradition.",
+    "createdAt": "2026-11-12T13:10:42.621Z",
+    "updatedAt": "2026-11-12T13:10:42.621Z",
+    "media": [
+      {
+        "id": "med-S-01-P-02-01",
+        "provider": "EXTERNAL_HTTPS",
+        "externalUrl": "https://zamzamstoreeg.com/cdn/shop/files/bottle.jpg?v=1758206902",
+        "mimeType": "image/jpeg",
+        "altText": "Zamzam Water 5 Litres – Buy Online | InfiniCharm",
+        "role": "PRIMARY",
+        "displayOrder": 1,
+        "productId": "S-01-P-02",
+        "isActive": true
+      }
+    ],
+    "variants": [
+      {
+        "id": "var-S-01-P-02-01",
+        "productId": "S-01-P-02",
+        "sku": "S-01-P-02",
+        "title": "5 Litres Pack",
+        "priceInPaise": 600000,
+        "compareAtPriceInPaise": 600000,
+        "costPriceInPaise": 420000,
+        "stockQuantity": 100,
+        "lowStockThreshold": 10,
+        "weightInGrams": 5000,
+        "attributes": {
+          "Pack": "5 Litres Pack",
+          "Category": "Zamzam Water",
+          "Packaging": "Food-Grade Sealed 5L Container",
+          "Brand": "IC-ZAM-ZAM"
+        },
+        "isActive": true
+      }
+    ]
+  },
+  {
+    "id": "S-01-P-03",
+    "categoryId": "cat-takmeeli-talbeena",
+    "title": "Takmeeli Talbeena – Traditional Barley Breakfast",
+    "slug": "takmeeli-talbeena",
+    "productType": "variable",
+    "brand": "IC-TALBEENA",
+    "baseSku": "S-01-P-03",
+    "tags": [
+      "Takmeeli Talbeena",
+      "Talbeena",
+      "Barley Food",
+      "Islamic Food",
+      "Traditional Food",
+      "Breakfast Mix",
+      "Barley Breakfast"
+    ],
+    "tagline": "Food & Grocery > Talbeena > Takmeeli Talbeena > Healthy Breakfast & Talbeena",
+    "shortDescription": "A traditional barley-based breakfast mix, prepared for a wholesome and nourishing meal. Easy to prepare and enjoy as part of your daily routine.",
+    "fullDescription": "Enjoy Takmeeli Talbeena, a traditional barley-based food inspired by the Sunnah. A convenient and delicious choice for your daily breakfast and family meals.",
+    "status": "PUBLISHED",
+    "originCountry": "India",
+    "originRegion": "Bairgania, Sitamarhi, Bihar",
+    "ingredients": "Traditional Whole Barley Breakfast Blend (Sunnah-Inspired Recipe)",
+    "storageInstructions": "Keep tightly sealed in a cool, dry pantry away from moisture.",
+    "fssaiLicenseNumber": "FSSAI Lic. No. 10423000001234",
+    "isFeatured": true,
+    "isNewArrival": true,
+    "highlights": [
+      "Traditional barley-based food Inspired by the Sunnah Easy to prepare Suitable for breakfast Wholesome food choice"
+    ],
+    "specifications": [
+      {
+        "label": "Product UID",
+        "value": "S-01-P-03"
+      },
+      {
+        "label": "Brand Code",
+        "value": "IC-TALBEENA"
+      },
+      {
+        "label": "Category Path",
+        "value": "Food & Grocery > Talbeena > Takmeeli Talbeena > Healthy Breakfast & Talbeena"
+      },
+      {
+        "label": "Dispatch Origin",
+        "value": "Bairgania, Sitamarhi, Bihar"
+      }
+    ],
+    "seoTitle": "Takmeeli Talbeena – Traditional Barley Breakfast | InfiniCharm",
+    "seoDescription": "A traditional barley-based breakfast mix, prepared for a wholesome and nourishing meal. Easy to prepare and enjoy as part of your daily routine.",
+    "createdAt": "2026-11-12T13:10:42.621Z",
+    "updatedAt": "2026-11-12T13:10:42.621Z",
+    "media": [
+      {
+        "id": "med-S-01-P-03-01",
+        "provider": "EXTERNAL_HTTPS",
+        "externalUrl": "https://rukminim2.flixcart.com/image/1536/1536/xif0q/ready-mix/q/5/l/1-talbeena-with-dry-fruits-combo-premium-pack-pack-4-250g-x-4-4-original-imahgt7br6ydh8rn.jpeg",
+        "mimeType": "image/jpeg",
+        "altText": "Takmeeli Talbeena – Traditional Barley Breakfast",
+        "role": "PRIMARY",
+        "displayOrder": 1,
+        "productId": "S-01-P-03",
+        "isActive": true
+      }
+    ],
+    "variants": [
+      {
+        "id": "var-S-01-P-03-01",
+        "productId": "S-01-P-03",
+        "sku": "S-01-P-03",
+        "title": "Standard Pack",
+        "priceInPaise": 30000,
+        "compareAtPriceInPaise": 30000,
+        "costPriceInPaise": 21000,
+        "stockQuantity": 100,
+        "lowStockThreshold": 10,
+        "weightInGrams": 250,
+        "attributes": {
+          "Pack": "Standard Pack",
+          "Category": "Healthy Breakfast & Talbeena",
+          "Packaging": "Airtight Food-Grade Retail Pack",
+          "Brand": "IC-TALBEENA"
+        },
+        "isActive": true
+      }
+    ]
+  },
+  {
+    "id": "S-01-P-04",
+    "categoryId": "cat-premium-dates",
+    "title": "Premium Dates 1 KG – Buy Online at InfiniCharm",
+    "slug": "premium-dates-1-kg",
+    "productType": "variable",
+    "brand": "IC-DATES",
+    "baseSku": "S-01-P-04",
+    "tags": [
+      "Premium Dates",
+      "Dates",
+      "Dry Fruits",
+      "Natural Sweetener",
+      "Healthy Snacks",
+      "Premium Dry Fruits",
+      "Food & Grocery"
+    ],
+    "tagline": "Food & Grocery > Dry Fruits & Dates > Dates > Premium Dates",
+    "shortDescription": "Premium-quality dates with a naturally sweet taste. A delicious and nutritious choice for everyday enjoyment.",
+    "fullDescription": "Enjoy the natural sweetness of Premium Dates. Carefully selected for their delicious taste, dates are a popular fruit enjoyed as a snack and used in various food recipes. A great addition to your daily diet and family meals.",
+    "status": "PUBLISHED",
+    "originCountry": "India",
+    "originRegion": "Bairgania, Sitamarhi, Bihar",
+    "ingredients": "100% Selected Premium Natural Dates (No Added Sugar)",
+    "storageInstructions": "Store in an airtight container in a cool, dry place.",
+    "fssaiLicenseNumber": "FSSAI Lic. No. 10423000001234",
+    "isFeatured": true,
+    "isNewArrival": true,
+    "highlights": [
+      "Premium-quality dates Naturally sweet taste Popular dry fruit Suitable for everyday snacking Can be used in desserts and recipes"
+    ],
+    "specifications": [
+      {
+        "label": "Product UID",
+        "value": "S-01-P-04"
+      },
+      {
+        "label": "Brand Code",
+        "value": "IC-DATES"
+      },
+      {
+        "label": "Category Path",
+        "value": "Food & Grocery > Dry Fruits & Dates > Dates > Premium Dates"
+      },
+      {
+        "label": "Dispatch Origin",
+        "value": "Bairgania, Sitamarhi, Bihar"
+      }
+    ],
+    "seoTitle": "Premium Dates 1 KG – Buy Online at InfiniCharm",
+    "seoDescription": "Premium-quality dates with a naturally sweet taste. A delicious and nutritious choice for everyday enjoyment.",
+    "createdAt": "2026-11-12T13:10:42.621Z",
+    "updatedAt": "2026-11-12T13:10:42.621Z",
+    "media": [
+      {
+        "id": "med-S-01-P-04-01",
+        "provider": "EXTERNAL_HTTPS",
+        "externalUrl": "https://plus.unsplash.com/premium_photo-1676208753932-6e8bc83a0b0d?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D",
+        "mimeType": "image/jpeg",
+        "altText": "Premium Dates 1 KG – Buy Online at InfiniCharm",
+        "role": "PRIMARY",
+        "displayOrder": 1,
+        "productId": "S-01-P-04",
+        "isActive": true
+      }
+    ],
+    "variants": [
+      {
+        "id": "var-S-01-P-04-01",
+        "productId": "S-01-P-04",
+        "sku": "S-01-P-04",
+        "title": "1 KG Pack",
+        "priceInPaise": 90000,
+        "compareAtPriceInPaise": 90000,
+        "costPriceInPaise": 63000,
+        "stockQuantity": 100,
+        "lowStockThreshold": 10,
+        "weightInGrams": 1000,
+        "attributes": {
+          "Pack": "1 KG Pack",
+          "Category": "Premium Dates",
+          "Packaging": "Hygienic Food-Grade 1 KG Box / Pack",
+          "Brand": "IC-DATES"
+        },
+        "isActive": true
+      }
+    ]
+  }
+]

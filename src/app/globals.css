@@ -1,0 +1,56 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-canvas: #FAFAFA;
+  --color-surface: #FFFFFF;
+  --color-surface-dim: #F5F5F5;
+  --color-surface-container: #EFEDED;
+  --color-primary: #212121;
+  --color-primary-hover: #383838;
+  --color-accent: #FF7759;
+  --color-accent-hover: #E66346;
+  --color-muted: #757575;
+  --color-border: #EEEEEE;
+  --color-border-hover: #E0E0E0;
+  --color-error: #BA1A1A;
+  --color-success: #1B7A43;
+}
+
+@layer base {
+  html {
+    background-color: #FAFAFA;
+    color: #212121;
+    font-family: var(--font-body), -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    width: 100%;
+  }
+
+  body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display), -apple-system, BlinkMacSystemFont, sans-serif;
+    color: #212121;
+    font-weight: 600;
+  }
+
+  /* Accessible focus indicators (WCAG 2.2 AA) */
+  :focus-visible {
+    outline: 2px solid #212121;
+    outline-offset: 2px;
+  }
+
+  /* Form control defaults */
+  input, select, textarea {
+    font-family: inherit;
+  }
+}
+

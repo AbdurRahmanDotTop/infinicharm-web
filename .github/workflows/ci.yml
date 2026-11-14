@@ -1,0 +1,101 @@
+name: InfiniCharm Production CI/CD Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-and-typecheck:
+    name: 1. Code Style & TypeScript Strict Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: TypeScript Strict Check
+        run: npm run typecheck
+
+  unit-tests:
+    name: 2. Core Business Logic & Pricing Engine Tests
+    needs: lint-and-typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Run Unit Tests
+        run: npm test
+
+  security-gitleaks:
+    name: 3. Pre-Production Security Gate 1 (Secret Leak Prevention)
+    needs: lint-and-typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Gitleaks Scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  playwright-e2e:
+    name: 4. Multi-Viewport Playwright E2E Suite
+    needs: [unit-tests, security-gitleaks]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Build Next.js Production App
+        run: npm run build
+        env:
+          NEXT_PUBLIC_APP_URL: http://localhost:3000
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://ziafauuodnmktzmsjpka.supabase.co' }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_8Up2lFm0QMVuqdc5PLRhTQ_oUB3ccJK' }}
+          NEXT_PUBLIC_TAWKTO_PROPERTY_ID: ${{ secrets.NEXT_PUBLIC_TAWKTO_PROPERTY_ID || '6ae76c24e068a73c41821c1f' }}
+          NEXT_PUBLIC_TAWKTO_WIDGET_ID: ${{ secrets.NEXT_PUBLIC_TAWKTO_WIDGET_ID || '1k6bvsse1' }}
+
+      - name: Run Unit & Integration Suite
+        run: npm test

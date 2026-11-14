@@ -1,0 +1,25 @@
+[
+  {
+    "id": "coup-1794472963979-946",
+    "code": "WELCOME10",
+    "description": "For Welcoming",
+    "discountType": "PERCENTAGE",
+    "discountValue": 10,
+    "minOrderInPaise": 499900,
+    "maxDiscountInPaise": 29900,
+    "usageLimitPerCustomer": 1,
+    "usageCount": 0,
+    "redeemedBy": [],
+    "validFrom": "2026-11-12T08:41:00.000Z",
+    "validUntil": "2027-02-12T08:41:00.000Z",
+    "applicabilityType": "ALL",
+    "applicableCategoryIds": [],
+    "applicableProductIds": [],
+    "userEligibility": "NEW_CUSTOMERS",
+    "eligibleCustomerIds": [],
+    "isActive": true,
+    "status": "ACTIVE",
+    "createdAt": "2026-11-12T08:42:43.979Z",
+    "updatedAt": "2026-11-12T08:42:43.979Z"
+  }
+]

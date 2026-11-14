@@ -1,0 +1,27 @@
+[
+  {
+    "id": "badge-free-shipping",
+    "key": "free_shipping",
+    "title": "Free Shipping on orders above ₹4999",
+    "subtitle": "Pan-India direct harvest dispatch",
+    "icon": "Truck",
+    "isEnabled": true,
+    "displayOrder": 1,
+    "thresholdRupees": 4999,
+    "conditionsText": "Applicable on orders above ₹499 across all pincodes in India.",
+    "linkUrl": "/policies/shipping",
+    "updatedAt": "2026-11-12T07:40:47.116Z"
+  },
+  {
+    "id": "badge-replacement-guarantee",
+    "key": "replacement_guarantee",
+    "title": "Transit Damage Replacement Guarantee",
+    "subtitle": "100% replacement for broken seals or damage",
+    "icon": "RotateCcw",
+    "isEnabled": true,
+    "displayOrder": 2,
+    "conditionsText": "Report transit damage within 48 hours for immediate replacement.",
+    "linkUrl": "/policies/refunds",
+    "updatedAt": "2026-11-12T12:00:00.000Z"
+  }
+]
