@@ -1,5 +1,48 @@
 [
   {
+    "id": "cust-founder-01",
+    "email": "abdurrahmanibnghufran@gmail.com",
+    "passwordHash": "scrypt:504562505b093546eb9812b7c56730a0:e01e432a337bfa084890be6508ff7c7d426e0a5acd80d5e0786512e6e0248043fa8895a8d1527f3ab2fdc63c7b28f6bbefe906a94813e08a697a10f8d18a32d4",
+    "fullName": "AbdurRahman Ibn Ghufran",
+    "phone": "8825164657",
+    "status": "ACTIVE",
+    "role": "SUPER_ADMIN",
+    "emailVerified": false,
+    "emailVerifiedAt": "2026-11-14T08:00:00.000Z",
+    "registrationSource": "ORGANIC",
+    "sessionVersion": 1,
+    "notes": "Verified founder VIP account.",
+    "preferences": {
+      "newsletterSubscribed": true,
+      "smsAlerts": true,
+      "orderUpdatesWhatsapp": true,
+      "preferredCurrency": "INR",
+      "language": "en"
+    },
+    "addresses": [
+      {
+        "id": "addr-founder-01",
+        "customerId": "cust-founder-01",
+        "fullName": "AbdurRahman Ibn Ghufran",
+        "phone": "8825164657",
+        "addressLine1": "Ward No. 07, Lahsaniya, Khoripakar",
+        "addressLine2": "Dewapur, Pachpakari, Patahi, Dhaka",
+        "city": "Motihari",
+        "state": "Bihar",
+        "postalCode": "845427",
+        "country": "India",
+        "isDefaultShipping": true,
+        "isDefaultBilling": true
+      }
+    ],
+    "wishlistProductIds": [
+      "prod-dates-ajwa-01",
+      "S-01-P-03"
+    ],
+    "createdAt": "2026-11-14T08:00:00.000Z",
+    "updatedAt": "2026-11-14T08:00:00.000Z"
+  },
+  {
     "id": "cust-01",
     "email": "customer@infinicharm.com",
     "passwordHash": "scrypt:504562505b093546eb9812b7c56730a0:e01e432a337bfa084890be6508ff7c7d426e0a5acd80d5e0786512e6e0248043fa8895a8d1527f3ab2fdc63c7b28f6bbefe906a94813e08a697a10f8d18a32d4",
@@ -53,8 +96,8 @@
       "prod-dates-ajwa-01"
     ],
     "createdAt": "2026-11-01T08:00:00.000Z",
-    "updatedAt": "2026-11-14T06:10:06.258Z",
-    "lastLoginAt": "2026-11-14T06:10:06.105Z"
+    "updatedAt": "2026-11-14T09:40:40.192Z",
+    "lastLoginAt": "2026-11-14T09:40:40.031Z"
   },
   {
     "id": "cust-1794542649402-961",

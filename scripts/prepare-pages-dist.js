@@ -545,14 +545,59 @@ function maskGatewaySecrets(gw) {
   return { ...gw, credentials: creds };
 }
 
+const AUTH_SECRET = 'infinicharm-secure-token-secret-2026-auth';
+
+async function hmacSha256Hex(secret, text) {
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw',
+    enc.encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign', 'verify']
+  );
+  const sig = await crypto.subtle.sign('HMAC', key, enc.encode(text));
+  return Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function signVerificationToken(payload) {
+  const jsonStr = JSON.stringify(payload);
+  const b64 = btoa(unescape(encodeURIComponent(jsonStr))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  const sig = await hmacSha256Hex(AUTH_SECRET, b64);
+  return b64 + '.' + sig;
+}
+
+async function verifyVerificationToken(signedToken) {
+  if (!signedToken || typeof signedToken !== 'string' || !signedToken.includes('.')) return null;
+  const parts = signedToken.split('.');
+  if (parts.length !== 2) return null;
+  const [b64, sig] = parts;
+  const expectedSig = await hmacSha256Hex(AUTH_SECRET, b64);
+  if (sig !== expectedSig) return null;
+  try {
+    let pad = b64.replace(/-/g, '+').replace(/_/g, '/');
+    while (pad.length % 4) pad += '=';
+    const jsonStr = decodeURIComponent(escape(atob(pad)));
+    const payload = JSON.parse(jsonStr);
+    if (!payload || !payload.email || Date.now() > payload.expiresAt) return null;
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
 async function sendBrevoEmail(apiKey, toEmail, toName, subject, htmlContent) {
-  if (!apiKey) return false;
+  const key = (apiKey || '').trim();
+  if (!key) {
+    console.error('Brevo email relay skipped: BREVO_API_KEY is not set in environment.');
+    return false;
+  }
   try {
     const res = await fetch('https://api.brevo.com/v3/smtp/email', {
       method: 'POST',
       headers: {
         'accept': 'application/json',
-        'api-key': apiKey,
+        'api-key': key,
         'content-type': 'application/json'
       },
       body: JSON.stringify({
@@ -562,6 +607,10 @@ async function sendBrevoEmail(apiKey, toEmail, toName, subject, htmlContent) {
         htmlContent
       })
     });
+    if (!res.ok) {
+      const errText = await res.text().catch(() => '');
+      console.error('Brevo API returned error status:', res.status, errText);
+    }
     return res.ok;
   } catch (err) {
     console.error('Brevo email send error:', err);
@@ -646,7 +695,7 @@ async function handleApi(request, url, env) {
       return json({ success: false, error: 'Full name, email, and password are required.' }, 400);
     }
     const email = String(body.email).toLowerCase().trim();
-    if (registeredCustomers.has(email)) {
+    if (registeredCustomers.has(email) && registeredCustomers.get(email).emailVerified) {
       return json({
         success: false,
         code: 'EMAIL_EXISTS',
@@ -679,6 +728,9 @@ async function handleApi(request, url, env) {
       token,
       otp,
       email,
+      fullName: newCustomer.fullName,
+      phone: newCustomer.phone,
+      password: newCustomer.password,
       expiresAt,
       customerId,
       redirectPath: body.redirectPath || '/account'
@@ -686,8 +738,11 @@ async function handleApi(request, url, env) {
     verificationTokens.set(token, tokenRecord);
     emailToVerification.set(email, tokenRecord);
 
+    const signedToken = await signVerificationToken(tokenRecord);
+    verificationTokens.set(signedToken, tokenRecord);
+
     const origin = url.origin;
-    const directLink = origin + '/verify-email?token=' + token + '&redirect=%2Faccount';
+    const directLink = origin + '/verify-email?token=' + encodeURIComponent(signedToken) + '&redirect=%2Faccount';
     const tpl = EMAIL_TEMPLATES.find(t => t.id === 'tpl-email-verification');
     let subject = 'Verify Your Email — ' + otp + ' is your InfiniCharm verification code';
     let html = '<p>Namaste ' + newCustomer.fullName + ',</p><p>Your 6-digit verification code is: <strong>' + otp + '</strong></p><p><a href="' + directLink + '">Verify Email Address</a></p>';
@@ -704,11 +759,9 @@ async function handleApi(request, url, env) {
         .split('{{support_email}}').join('support@infinicharm.com');
     }
 
-    if (apiKey) {
-      await sendBrevoEmail(apiKey, email, newCustomer.fullName, subject, html);
-    }
+    await sendBrevoEmail(apiKey, email, newCustomer.fullName, subject, html);
 
-    return json({
+    return jsonWithCookies({
       success: true,
       requiresVerification: true,
       customer: {
@@ -719,8 +772,11 @@ async function handleApi(request, url, env) {
         emailVerified: false,
         createdAt: newCustomer.createdAt,
       },
-      message: 'Account created. Please check your inbox and click the single-use verification link before signing in.',
-    }, 201);
+      message: 'Account created. We have sent a 6-digit verification code and instant link to your email.',
+    }, 201, [
+      'infinicharm_pending_auth=' + signedToken + '; Path=/; Max-Age=3600; SameSite=Lax; HttpOnly',
+      'infinicharm_pending_email=' + encodeURIComponent(email) + '; Path=/; Max-Age=3600; SameSite=Lax'
+    ]);
   }
 
   // Verify Email (OTP or Token)
@@ -732,25 +788,52 @@ async function handleApi(request, url, env) {
 
     let record = null;
     if (token) {
-      record = verificationTokens.get(token);
+      record = verificationTokens.get(token) || await verifyVerificationToken(token);
     } else if (email && otp) {
       const r = emailToVerification.get(email);
-      if (r && r.otp === otp) record = r;
+      if (r && r.otp === otp) {
+        record = r;
+      } else {
+        const cookieHeader = request.headers.get('cookie') || '';
+        const match = cookieHeader.match(/(?:^|;\s*)infinicharm_pending_auth=([^;]*)/);
+        if (match) {
+          const cookieVal = decodeURIComponent(match[1]);
+          const verifiedPayload = await verifyVerificationToken(cookieVal);
+          if (verifiedPayload && verifiedPayload.email === email && verifiedPayload.otp === otp) {
+            record = verifiedPayload;
+          }
+        }
+      }
     }
 
     if (!record || Date.now() > record.expiresAt) {
       return json({
         success: false,
         status: 'INVALID',
-        error: 'Verification code or link is invalid or expired.'
+        error: 'Verification code or link is invalid or expired. Please request a fresh code.'
       }, 400);
     }
 
-    const customer = registeredCustomers.get(record.email);
-    if (customer) {
+    let customer = registeredCustomers.get(record.email);
+    if (!customer) {
+      customer = {
+        id: record.customerId || ('cust-' + Date.now()),
+        email: record.email,
+        fullName: record.fullName || record.email.split('@')[0],
+        phone: record.phone || '',
+        password: record.password || '',
+        status: 'ACTIVE',
+        emailVerified: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      registeredCustomers.set(record.email, customer);
+    } else {
       customer.emailVerified = true;
+      customer.status = 'ACTIVE';
     }
-    verificationTokens.delete(record.token);
+
+    if (record.token) verificationTokens.delete(record.token);
     emailToVerification.delete(record.email);
 
     const safeRedirect = record.redirectPath || '/account';
@@ -759,18 +842,27 @@ async function handleApi(request, url, env) {
       status: 'VERIFIED',
       email: record.email,
       redirectPath: safeRedirect,
-      customer: customer ? {
+      customer: {
         id: customer.id,
         email: customer.email,
         fullName: customer.fullName,
         phone: customer.phone,
         emailVerified: true
-      } : undefined,
+      },
       message: 'Your email address has been verified successfully. You can now sign in securely.'
     }, 200, [
-      'infinicharm_customer_session=active; Path=/; Max-Age=604800; SameSite=Lax',
-      'infinicharm_customer_id=' + (customer ? customer.id : '') + '; Path=/; Max-Age=604800; SameSite=Lax',
-      'infinicharm_customer_sv=1; Path=/; Max-Age=604800; SameSite=Lax; HttpOnly'
+      'infinicharm_customer_session=active; Path=/; Max-Age=2592000; SameSite=Lax',
+      'infinicharm_customer_id=' + customer.id + '; Path=/; Max-Age=2592000; SameSite=Lax',
+      'infinicharm_customer_sv=1; Path=/; Max-Age=2592000; SameSite=Lax; HttpOnly',
+      'infinicharm_customer_data=' + encodeURIComponent(JSON.stringify({
+        id: customer.id,
+        email: customer.email,
+        fullName: customer.fullName,
+        phone: customer.phone,
+        emailVerified: true
+      })) + '; Path=/; Max-Age=2592000; SameSite=Lax; HttpOnly',
+      'infinicharm_pending_auth=; Path=/; Max-Age=0; SameSite=Lax; HttpOnly',
+      'infinicharm_pending_email=; Path=/; Max-Age=0; SameSite=Lax'
     ]);
   }
 
@@ -781,9 +873,42 @@ async function handleApi(request, url, env) {
     if (!email) {
       return json({ success: false, error: 'Email address is required.' }, 400);
     }
-    const customer = registeredCustomers.get(email);
+
+    let customer = registeredCustomers.get(email);
     if (!customer) {
-      return json({ success: false, error: 'No account found with this email address.' }, 404);
+      const cookieHeader = request.headers.get('cookie') || '';
+      const match = cookieHeader.match(/(?:^|;\s*)infinicharm_pending_auth=([^;]*)/);
+      if (match) {
+        const cookieVal = decodeURIComponent(match[1]);
+        const verifiedPayload = await verifyVerificationToken(cookieVal);
+        if (verifiedPayload && verifiedPayload.email === email) {
+          customer = {
+            id: verifiedPayload.customerId || ('cust-' + Date.now()),
+            email,
+            fullName: verifiedPayload.fullName || email.split('@')[0],
+            phone: verifiedPayload.phone || '',
+            password: verifiedPayload.password || '',
+            status: 'ACTIVE',
+            emailVerified: false,
+          };
+          registeredCustomers.set(email, customer);
+        }
+      }
+    }
+
+    if (!customer) {
+      if (!email.includes('@') || !email.includes('.')) {
+        return json({ success: false, error: 'Please enter a valid email address.' }, 400);
+      }
+      customer = {
+        id: 'cust-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+        email,
+        fullName: email.split('@')[0],
+        phone: '',
+        status: 'ACTIVE',
+        emailVerified: false,
+      };
+      registeredCustomers.set(email, customer);
     }
 
     const otp = String(Math.floor(100000 + Math.random() * 900000));
@@ -794,15 +919,21 @@ async function handleApi(request, url, env) {
       token,
       otp,
       email,
+      fullName: customer.fullName,
+      phone: customer.phone || '',
+      password: customer.password || '',
       expiresAt,
       customerId: customer.id,
-      redirectPath: body.redirectPath || '/account'
+      redirectPath: body?.redirectPath || '/account'
     };
     verificationTokens.set(token, tokenRecord);
     emailToVerification.set(email, tokenRecord);
 
+    const signedToken = await signVerificationToken(tokenRecord);
+    verificationTokens.set(signedToken, tokenRecord);
+
     const origin = url.origin;
-    const directLink = origin + '/verify-email?token=' + token + '&redirect=%2Faccount';
+    const directLink = origin + '/verify-email?token=' + encodeURIComponent(signedToken) + '&redirect=%2Faccount';
     const tpl = EMAIL_TEMPLATES.find(t => t.id === 'tpl-email-verification');
     let subject = 'Verify Your Email — ' + otp + ' is your InfiniCharm verification code';
     let html = '<p>Namaste ' + customer.fullName + ',</p><p>Your 6-digit verification code is: <strong>' + otp + '</strong></p><p><a href="' + directLink + '">Verify Email Address</a></p>';
@@ -819,14 +950,15 @@ async function handleApi(request, url, env) {
         .split('{{support_email}}').join('support@infinicharm.com');
     }
 
-    if (apiKey) {
-      await sendBrevoEmail(apiKey, email, customer.fullName, subject, html);
-    }
+    await sendBrevoEmail(apiKey, email, customer.fullName, subject, html);
 
-    return json({
+    return jsonWithCookies({
       success: true,
       message: 'A fresh verification link and OTP have been sent to your email.'
-    });
+    }, 200, [
+      'infinicharm_pending_auth=' + signedToken + '; Path=/; Max-Age=3600; SameSite=Lax; HttpOnly',
+      'infinicharm_pending_email=' + encodeURIComponent(email) + '; Path=/; Max-Age=3600; SameSite=Lax'
+    ]);
   }
 
   // Customer Login
@@ -838,7 +970,21 @@ async function handleApi(request, url, env) {
       return json({ success: false, error: 'Email and password are required.' }, 400);
     }
 
-    const customer = registeredCustomers.get(email);
+    let customer = registeredCustomers.get(email);
+    if (!customer) {
+      const cookieHeader = request.headers.get('cookie') || '';
+      const match = cookieHeader.match(/(?:^|;\s*)infinicharm_customer_data=([^;]*)/);
+      if (match) {
+        try {
+          const parsed = JSON.parse(decodeURIComponent(match[1]));
+          if (parsed && parsed.email === email) {
+            customer = parsed;
+            registeredCustomers.set(email, customer);
+          }
+        } catch {}
+      }
+    }
+
     if (!customer) {
       return json({ success: false, error: 'Invalid email or password.' }, 401);
     }
@@ -871,9 +1017,16 @@ async function handleApi(request, url, env) {
       },
       message: 'Successfully authenticated.'
     }, 200, [
-      'infinicharm_customer_session=active; Path=/; Max-Age=604800; SameSite=Lax',
-      'infinicharm_customer_id=' + customer.id + '; Path=/; Max-Age=604800; SameSite=Lax',
-      'infinicharm_customer_sv=1; Path=/; Max-Age=604800; SameSite=Lax; HttpOnly'
+      'infinicharm_customer_session=active; Path=/; Max-Age=2592000; SameSite=Lax',
+      'infinicharm_customer_id=' + customer.id + '; Path=/; Max-Age=2592000; SameSite=Lax',
+      'infinicharm_customer_sv=1; Path=/; Max-Age=2592000; SameSite=Lax; HttpOnly',
+      'infinicharm_customer_data=' + encodeURIComponent(JSON.stringify({
+        id: customer.id,
+        email: customer.email,
+        fullName: customer.fullName,
+        phone: customer.phone,
+        emailVerified: true
+      })) + '; Path=/; Max-Age=2592000; SameSite=Lax; HttpOnly'
     ]);
   }
 
