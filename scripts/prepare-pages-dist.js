@@ -562,7 +562,7 @@ async function hmacSha256Hex(secret, text) {
 
 async function signVerificationToken(payload) {
   const jsonStr = JSON.stringify(payload);
-  const b64 = btoa(unescape(encodeURIComponent(jsonStr))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  const b64 = btoa(unescape(encodeURIComponent(jsonStr))).split('+').join('-').split('/').join('_').replace(/=+$/, '');
   const sig = await hmacSha256Hex(AUTH_SECRET, b64);
   return b64 + '.' + sig;
 }
@@ -575,7 +575,7 @@ async function verifyVerificationToken(signedToken) {
   const expectedSig = await hmacSha256Hex(AUTH_SECRET, b64);
   if (sig !== expectedSig) return null;
   try {
-    let pad = b64.replace(/-/g, '+').replace(/_/g, '/');
+    let pad = b64.split('-').join('+').split('_').join('/');
     while (pad.length % 4) pad += '=';
     const jsonStr = decodeURIComponent(escape(atob(pad)));
     const payload = JSON.parse(jsonStr);
@@ -795,7 +795,7 @@ async function handleApi(request, url, env) {
         record = r;
       } else {
         const cookieHeader = request.headers.get('cookie') || '';
-        const match = cookieHeader.match(/(?:^|;\s*)infinicharm_pending_auth=([^;]*)/);
+        const match = cookieHeader.match(/(?:^|;\\s*)infinicharm_pending_auth=([^;]*)/);
         if (match) {
           const cookieVal = decodeURIComponent(match[1]);
           const verifiedPayload = await verifyVerificationToken(cookieVal);
@@ -877,7 +877,7 @@ async function handleApi(request, url, env) {
     let customer = registeredCustomers.get(email);
     if (!customer) {
       const cookieHeader = request.headers.get('cookie') || '';
-      const match = cookieHeader.match(/(?:^|;\s*)infinicharm_pending_auth=([^;]*)/);
+      const match = cookieHeader.match(/(?:^|;\\s*)infinicharm_pending_auth=([^;]*)/);
       if (match) {
         const cookieVal = decodeURIComponent(match[1]);
         const verifiedPayload = await verifyVerificationToken(cookieVal);
@@ -973,7 +973,7 @@ async function handleApi(request, url, env) {
     let customer = registeredCustomers.get(email);
     if (!customer) {
       const cookieHeader = request.headers.get('cookie') || '';
-      const match = cookieHeader.match(/(?:^|;\s*)infinicharm_customer_data=([^;]*)/);
+      const match = cookieHeader.match(/(?:^|;\\s*)infinicharm_customer_data=([^;]*)/);
       if (match) {
         try {
           const parsed = JSON.parse(decodeURIComponent(match[1]));
