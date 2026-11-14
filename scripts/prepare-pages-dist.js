@@ -1075,6 +1075,27 @@ async function handleApi(request, url, env) {
           }
         } catch {}
       }
+      if (!customer) {
+        const pendingMatch = cookieHeader.match(/(?:^|;\\s*)infinicharm_pending_auth=([^;]*)/);
+        if (pendingMatch) {
+          try {
+            const cookieVal = decodeURIComponent(pendingMatch[1]);
+            const verifiedPayload = await verifyVerificationToken(cookieVal);
+            if (verifiedPayload && verifiedPayload.email === email) {
+              customer = {
+                id: verifiedPayload.customerId || ('cust-' + Date.now()),
+                email,
+                fullName: verifiedPayload.fullName || email.split('@')[0],
+                phone: verifiedPayload.phone || '',
+                password: verifiedPayload.password || '',
+                status: 'ACTIVE',
+                emailVerified: false,
+              };
+              registeredCustomers.set(email, customer);
+            }
+          } catch {}
+        }
+      }
     }
 
     if (!customer) {
