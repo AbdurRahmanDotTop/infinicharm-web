@@ -22,9 +22,9 @@ export interface DynamicPlatformSettings {
 }
 
 export const DEFAULT_PLATFORM_SETTINGS: DynamicPlatformSettings = {
-  freeShippingThresholdPaise: 49900, // ₹499.00
-  standardShippingFeePaise: 5000,    // ₹50.00
-  expressShippingFeePaise: 12000,   // ₹120.00
+  freeShippingThresholdPaise: 499900, // ₹4,999.00 (Governing Authority: PRD 08 & Shipping Policy)
+  standardShippingFeePaise: 6000,     // ₹60.00
+  expressShippingFeePaise: 15000,    // ₹150.00
   codConvenienceFeePaise: 0,        // Free COD
   fssaiLicenseNumber: '10423000001234',
   gstin: '10AAAAA0000A1Z5',
@@ -68,6 +68,9 @@ export function updatePlatformSettings(partial: Partial<DynamicPlatformSettings>
       updatedAt: new Date().toISOString(),
     };
     localStorage.setItem(STORAGE_KEY_SETTINGS, JSON.stringify(updated));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('infinicharm_shipping_settings_updated', { detail: updated }));
+    }
     return updated;
   } catch {
     return DEFAULT_PLATFORM_SETTINGS;

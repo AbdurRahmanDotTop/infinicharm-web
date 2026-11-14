@@ -11,7 +11,7 @@ import {
 import { calculateGST } from './tax.ts';
 import type { GSTBreakdown } from './tax.ts';
 
-export const FREE_SHIPPING_THRESHOLD_PAISE = 99900; // ₹999.00
+export const FREE_SHIPPING_THRESHOLD_PAISE = 499900; // ₹4,999.00 (Governing Authority: PRD 08 & Shipping Policy)
 export const STANDARD_SHIPPING_FEE_PAISE = 6000; // ₹60.00
 export const EXPRESS_SHIPPING_FEE_PAISE = 15000; // ₹150.00
 
@@ -55,6 +55,8 @@ export interface CartTotalsOptions {
   isAuthenticated?: boolean;
   customerOrderCount?: number;
   now?: Date;
+  freeShippingThresholdPaise?: number;
+  standardShippingFeePaise?: number;
 }
 
 /**
@@ -126,21 +128,30 @@ export function calculateCartTotals(
     }
   }
 
+  const effectiveFreeThreshold =
+    typeof options?.freeShippingThresholdPaise === 'number'
+      ? options.freeShippingThresholdPaise
+      : FREE_SHIPPING_THRESHOLD_PAISE;
+  const effectiveStandardFee =
+    typeof options?.standardShippingFeePaise === 'number'
+      ? options.standardShippingFeePaise
+      : STANDARD_SHIPPING_FEE_PAISE;
+
   // Qualifying subtotal for shipping after discounts
   const qualifyingSubtotal = Math.max(0, subtotalInPaise - discountInPaise);
   const isFreeShipping =
-    subtotalInPaise > 0 && qualifyingSubtotal >= FREE_SHIPPING_THRESHOLD_PAISE;
+    subtotalInPaise > 0 && qualifyingSubtotal >= effectiveFreeThreshold;
 
   const amountNeededForFreeShippingPaise = isFreeShipping
     ? 0
-    : Math.max(0, FREE_SHIPPING_THRESHOLD_PAISE - qualifyingSubtotal);
+    : Math.max(0, effectiveFreeThreshold - qualifyingSubtotal);
 
   const shippingInPaise =
     subtotalInPaise === 0
       ? 0
       : isFreeShipping
         ? 0
-        : STANDARD_SHIPPING_FEE_PAISE;
+        : effectiveStandardFee;
 
   // Final Total: Net subtotal + shipping (tax is already included in subtotal)
   const totalInPaise = qualifyingSubtotal + shippingInPaise;

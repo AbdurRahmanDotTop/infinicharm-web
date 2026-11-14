@@ -46,7 +46,7 @@ export default function ShippingPolicyPage() {
             <Card level={1} className="p-6 space-y-3">
               <h2 className="font-display text-base font-bold text-primary">3. Shipping Fees & Free Shipping</h2>
               <p>
-                Standard courier shipping is charged at a flat ₹60 fee for smaller orders. Orders with a qualifying subtotal of ₹999 or higher automatically receive <strong>Free Standard Shipping</strong> across India.
+                Standard courier shipping is charged at a flat ₹60 fee for smaller orders. Orders with a qualifying subtotal of ₹4,999 or higher automatically receive <strong>Free Standard Shipping</strong> across India.
               </p>
             </Card>
           </div>

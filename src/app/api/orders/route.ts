@@ -16,6 +16,7 @@ import { getAuthSettings } from '@/lib/server/auth-settings-store';
 import { validateOrderPaymentMethod } from '@/lib/server/gateways-store';
 import { generateInitialOrderTimeline, isOrderOwnedByCustomer } from '@/lib/services/orders';
 import { getPlatformSettings } from '@/lib/services/settings';
+import { getShippingSettings } from '@/lib/server/shipping-store';
 import { calculateGST } from '@/lib/services/tax';
 import { dispatchOrderLifecycleNotification } from '@/lib/server/order-notifications';
 import { Order, OrderItem } from '@/types';
@@ -217,11 +218,14 @@ export async function POST(request: NextRequest) {
     }
 
     const subtotalInPaise = authoritativeSubtotalInPaise;
-    const platformSettings = getPlatformSettings();
+    const shippingSettings = getShippingSettings();
+    const freeThreshold = shippingSettings.freeShippingEnabled
+      ? shippingSettings.freeShippingThresholdPaise
+      : Infinity;
     const shippingInPaise =
-      subtotalInPaise >= platformSettings.freeShippingThresholdPaise
+      subtotalInPaise >= freeThreshold
         ? 0
-        : platformSettings.standardShippingFeePaise;
+        : shippingSettings.standardShippingFeePaise;
     const normalizedCouponCode = body.couponCode ? String(body.couponCode).trim().toUpperCase() : undefined;
 
     let discountInPaise = 0;

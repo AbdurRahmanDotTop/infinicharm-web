@@ -33,8 +33,10 @@ import {
 } from 'lucide-react';
 
 export default function AdminSettingsPage() {
-  const [freeShippingThreshold, setFreeShippingThreshold] = useState('499');
-  const [standardDeliveryFee, setStandardDeliveryFee] = useState('50');
+  const [freeShippingThreshold, setFreeShippingThreshold] = useState('4999');
+  const [standardDeliveryFee, setStandardDeliveryFee] = useState('60');
+  const [expressDeliveryFee, setExpressDeliveryFee] = useState('150');
+  const [freeShippingEnabled, setFreeShippingEnabled] = useState(true);
   const [fssaiLicense, setFssaiLicense] = useState('10423000001234');
   const [tawkPropertyId, setTawkPropertyId] = useState('6ae76c24e068a73c41821c1f');
   const [tawkWidgetId, setTawkWidgetId] = useState('1k6bvsse1');
@@ -53,7 +55,7 @@ export default function AdminSettingsPage() {
   const [badgeTitle, setBadgeTitle] = useState('');
   const [badgeSubtitle, setBadgeSubtitle] = useState('');
   const [badgeIcon, setBadgeIcon] = useState('Truck');
-  const [badgeThreshold, setBadgeThreshold] = useState('499');
+  const [badgeThreshold, setBadgeThreshold] = useState('4999');
   const [badgeLinkUrl, setBadgeLinkUrl] = useState('/policies/shipping');
   const [badgeIsEnabled, setBadgeIsEnabled] = useState(true);
 
@@ -62,11 +64,32 @@ export default function AdminSettingsPage() {
     const s = getPlatformSettings();
     setFreeShippingThreshold((s.freeShippingThresholdPaise / 100).toString());
     setStandardDeliveryFee((s.standardShippingFeePaise / 100).toString());
+    setExpressDeliveryFee((s.expressShippingFeePaise / 100).toString());
     setFssaiLicense(s.fssaiLicenseNumber);
     setTawkPropertyId(s.tawkPropertyId);
     setTawkWidgetId(s.tawkWidgetId);
     setSupportEmail(s.supportEmail);
     setAddressLine(s.registeredOfficeAddress);
+
+    fetch('/api/admin/settings/shipping')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.settings) {
+          if (data.settings.freeShippingThresholdRupees) {
+            setFreeShippingThreshold(data.settings.freeShippingThresholdRupees.toString());
+          }
+          if (data.settings.standardShippingFeeRupees) {
+            setStandardDeliveryFee(data.settings.standardShippingFeeRupees.toString());
+          }
+          if (data.settings.expressShippingFeeRupees) {
+            setExpressDeliveryFee(data.settings.expressShippingFeeRupees.toString());
+          }
+          if (typeof data.settings.freeShippingEnabled === 'boolean') {
+            setFreeShippingEnabled(data.settings.freeShippingEnabled);
+          }
+        }
+      })
+      .catch(() => {});
   }, []);
 
   // Fetch Storefront Badges from Server
@@ -268,12 +291,17 @@ export default function AdminSettingsPage() {
     }
   };
 
-  // Save General Platform Settings
-  const handleSaveSettings = (e: React.FormEvent) => {
+  // Save General Platform & Shipping Settings
+  const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
+    const thresholdRupees = parseFloat(freeShippingThreshold || '4999');
+    const standardFeeRupees = parseFloat(standardDeliveryFee || '60');
+    const expressFeeRupees = parseFloat(expressDeliveryFee || '150');
+
     updatePlatformSettings({
-      freeShippingThresholdPaise: Math.round(parseFloat(freeShippingThreshold || '0') * 100),
-      standardShippingFeePaise: Math.round(parseFloat(standardDeliveryFee || '0') * 100),
+      freeShippingThresholdPaise: Math.round(thresholdRupees * 100),
+      standardShippingFeePaise: Math.round(standardFeeRupees * 100),
+      expressShippingFeePaise: Math.round(expressFeeRupees * 100),
       fssaiLicenseNumber: fssaiLicense,
       tawkPropertyId,
       tawkWidgetId,
@@ -281,9 +309,30 @@ export default function AdminSettingsPage() {
       registeredOfficeAddress: addressLine,
     });
 
+    try {
+      await fetch('/api/admin/settings/shipping', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          freeShippingEnabled,
+          freeShippingThresholdRupees: thresholdRupees,
+          freeShippingThresholdPaise: Math.round(thresholdRupees * 100),
+          standardShippingFeeRupees: standardFeeRupees,
+          standardShippingFeePaise: Math.round(standardFeeRupees * 100),
+          expressShippingFeeRupees: expressFeeRupees,
+          expressShippingFeePaise: Math.round(expressFeeRupees * 100),
+        }),
+      });
+      loadBadges();
+    } catch (err) {
+      console.warn('Failed syncing shipping settings with server:', err);
+    }
+
     logAdminAction('UPDATE_SETTINGS', 'settings', 'platform-config', {
       freeShippingThreshold,
       standardDeliveryFee,
+      expressDeliveryFee,
+      freeShippingEnabled,
       fssaiLicense,
       supportEmail,
     });
@@ -379,7 +428,7 @@ export default function AdminSettingsPage() {
                   Storefront Badges & Replacement Guarantees
                 </h2>
                 <p className="text-xs text-muted mt-0.5">
-                  Manage &ldquo;Free Shipping on Orders Above ₹499&rdquo;, &ldquo;Transit Damage Guarantee&rdquo;, and custom badges shown on the Product Details Page (PDP).
+                  Manage &ldquo;Free Shipping on Orders Above ₹4,999&rdquo;, &ldquo;Transit Damage Guarantee&rdquo;, and custom badges shown on the Product Details Page (PDP).
                 </p>
               </div>
             </div>
@@ -536,14 +585,25 @@ export default function AdminSettingsPage() {
         <form onSubmit={handleSaveSettings} className="space-y-6">
           {/* Shipping & Delivery Engine */}
           <div className="bg-surface rounded-3xl border border-border p-6 sm:p-8 shadow-sm space-y-4">
-            <div className="flex items-center gap-2.5 pb-3 border-b border-border">
-              <Truck className="w-5 h-5 text-accent" />
-              <h2 className="font-display text-base font-bold text-primary">
-                Shipping &amp; Delivery Fee Rules
-              </h2>
+            <div className="flex items-center justify-between pb-3 border-b border-border">
+              <div className="flex items-center gap-2.5">
+                <Truck className="w-5 h-5 text-accent" />
+                <h2 className="font-display text-base font-bold text-primary">
+                  Shipping &amp; Delivery Fee Rules
+                </h2>
+              </div>
+              <label className="flex items-center gap-2 text-xs font-semibold text-primary cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={freeShippingEnabled}
+                  onChange={(e) => setFreeShippingEnabled(e.target.checked)}
+                  className="rounded text-accent focus:ring-accent"
+                />
+                <span>Enable Free Shipping Program</span>
+              </label>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
               <div>
                 <label className="block font-semibold text-primary mb-1">
                   Free Shipping Minimum Cart Value (INR ₹)
@@ -552,7 +612,7 @@ export default function AdminSettingsPage() {
                   type="number"
                   value={freeShippingThreshold}
                   onChange={(e) => setFreeShippingThreshold(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-surface-dim border border-border rounded-xl text-primary focus:outline-none focus:border-accent"
+                  className="w-full px-3.5 py-2.5 bg-surface-dim border border-border rounded-xl text-primary focus:outline-none focus:border-accent font-semibold"
                 />
                 <span className="text-[11px] text-muted mt-1 block">
                   Orders equal or above ₹{freeShippingThreshold} receive free delivery.
@@ -567,10 +627,25 @@ export default function AdminSettingsPage() {
                   type="number"
                   value={standardDeliveryFee}
                   onChange={(e) => setStandardDeliveryFee(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-surface-dim border border-border rounded-xl text-primary focus:outline-none focus:border-accent"
+                  className="w-full px-3.5 py-2.5 bg-surface-dim border border-border rounded-xl text-primary focus:outline-none focus:border-accent font-semibold"
                 />
                 <span className="text-[11px] text-muted mt-1 block">
                   Applied when order subtotal is below ₹{freeShippingThreshold}.
+                </span>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-primary mb-1">
+                  Express Courier Shipping Fee (INR ₹)
+                </label>
+                <input
+                  type="number"
+                  value={expressDeliveryFee}
+                  onChange={(e) => setExpressDeliveryFee(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-surface-dim border border-border rounded-xl text-primary focus:outline-none focus:border-accent font-semibold"
+                />
+                <span className="text-[11px] text-muted mt-1 block">
+                  Priority expedited delivery option.
                 </span>
               </div>
             </div>
@@ -709,7 +784,7 @@ export default function AdminSettingsPage() {
                     required
                     value={badgeTitle}
                     onChange={(e) => setBadgeTitle(e.target.value)}
-                    placeholder="e.g. Free Shipping on orders above ₹499"
+                    placeholder="e.g. Free Shipping on orders above ₹4,999"
                     className="w-full px-3.5 py-2 bg-surface-dim border border-border rounded-xl text-primary focus:outline-none focus:border-accent"
                   />
                 </div>
@@ -753,7 +828,7 @@ export default function AdminSettingsPage() {
                       type="number"
                       value={badgeThreshold}
                       onChange={(e) => setBadgeThreshold(e.target.value)}
-                      placeholder="e.g. 499"
+                      placeholder="e.g. 4999"
                       className="w-full px-3 py-2 bg-surface-dim border border-border rounded-xl text-primary focus:outline-none focus:border-accent"
                     />
                   </div>

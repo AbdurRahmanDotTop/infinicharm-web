@@ -50,7 +50,7 @@ describe('Indian GST Tax Engine (PRD 08)', () => {
 });
 
 describe('Server-Side Pricing & Cart Calculation Engine (PRD 07)', () => {
-  it('charges standard shipping for orders below ₹999 threshold', () => {
+  it('charges standard shipping for orders below ₹4,999 threshold', () => {
     const items = [
       { variantId: 'v-oil', priceInPaise: 49900, quantity: 1, categorySlug: 'edible-oils' },
     ];
@@ -62,17 +62,17 @@ describe('Server-Side Pricing & Cart Calculation Engine (PRD 07)', () => {
     assert.strictEqual(totals.totalInPaise, 49900 + STANDARD_SHIPPING_FEE_PAISE);
   });
 
-  it('unlocks free shipping when subtotal reaches ₹999 threshold', () => {
+  it('unlocks free shipping when subtotal reaches ₹4,999 threshold', () => {
     const items = [
-      { variantId: 'v-oil-bulk', priceInPaise: 120000, quantity: 1, categorySlug: 'edible-oils' },
+      { variantId: 'v-oil-bulk', priceInPaise: 500000, quantity: 1, categorySlug: 'edible-oils' },
     ];
     const totals = calculateCartTotals(items, null, 'Delhi');
 
-    assert.strictEqual(totals.subtotalInPaise, 120000);
+    assert.strictEqual(totals.subtotalInPaise, 500000);
     assert.strictEqual(totals.isFreeShipping, true);
     assert.strictEqual(totals.shippingInPaise, 0);
     assert.strictEqual(totals.amountNeededForFreeShippingPaise, 0);
-    assert.strictEqual(totals.totalInPaise, 120000);
+    assert.strictEqual(totals.totalInPaise, 500000);
   });
 
   it('correctly applies database coupon discount and recalculates net payable total', () => {
@@ -92,19 +92,19 @@ describe('Server-Side Pricing & Cart Calculation Engine (PRD 07)', () => {
         tmpFile
       );
 
-      // 2 x ₹600 = ₹1,200. Apply PURE10 (10% discount capped at ₹200) -> ₹120 discount
+      // 10 x ₹600 = ₹6,000. Apply PURE10 (10% discount capped at ₹200) -> ₹200 discount
       const items = [
-        { variantId: 'v-honey', priceInPaise: 60000, quantity: 2, categorySlug: 'honey' },
+        { variantId: 'v-honey', priceInPaise: 60000, quantity: 10, categorySlug: 'honey' },
       ];
       const totals = calculateCartTotals(items, 'PURE10', 'Karnataka', {
         couponsFilePath: tmpFile,
         now: new Date('2026-11-12T10:00:00Z'),
       });
 
-      assert.strictEqual(totals.subtotalInPaise, 120000);
-      assert.strictEqual(totals.discountInPaise, 12000); // 10% of ₹1200 = ₹120
-      assert.strictEqual(totals.isFreeShipping, true); // Net ₹1,080 >= ₹999
-      assert.strictEqual(totals.totalInPaise, 108000); // ₹1,080.00
+      assert.strictEqual(totals.subtotalInPaise, 600000);
+      assert.strictEqual(totals.discountInPaise, 20000); // capped at ₹200
+      assert.strictEqual(totals.isFreeShipping, true); // Net ₹5,800 >= ₹4,999
+      assert.strictEqual(totals.totalInPaise, 580000); // ₹5,800.00
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }

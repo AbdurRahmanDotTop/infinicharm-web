@@ -45,7 +45,7 @@ test.describe('Storefront Badges & PDP Dynamic Management Verification', () => {
     await expect(heading).toContainText('100% Kashmiri Honey');
 
     // Verify dynamic shipping badge
-    const shippingBadge = page.locator('text=Free Shipping on orders above ₹499');
+    const shippingBadge = page.locator('text=/Free Shipping on orders above ₹4,?999/').first();
     await expect(shippingBadge).toBeVisible();
 
     // Verify dynamic guarantee badge
@@ -71,7 +71,7 @@ test.describe('Storefront Badges & PDP Dynamic Management Verification', () => {
     await expect(badgesHeader).toBeVisible();
 
     // Verify badge controls exist
-    const shippingItem = page.locator('text=Free Shipping on orders above ₹499').first();
+    const shippingItem = page.locator('text=/Free Shipping on orders above ₹4,?999/').first();
     await expect(shippingItem).toBeVisible();
 
     const guaranteeItem = page.locator('text=Transit Damage Replacement Guarantee').first();

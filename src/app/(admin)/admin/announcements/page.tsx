@@ -628,7 +628,7 @@ export default function AdminAnnouncementsPage() {
                     required
                     value={formText}
                     onChange={(e) => setFormText(e.target.value)}
-                    placeholder="e.g. Free Express Delivery over ₹499"
+                    placeholder="e.g. Free Express Delivery over ₹4,999"
                     className="w-full px-3 py-2 bg-surface-dim border border-border rounded-xl text-primary focus:border-accent"
                   />
                 </div>
@@ -646,7 +646,7 @@ export default function AdminAnnouncementsPage() {
                         setFormDeliveryThreshold(e.target.value);
                         setFormText(`Free Express Delivery over ₹${e.target.value}`);
                       }}
-                      placeholder="499"
+                      placeholder="4999"
                       className="w-full px-3 py-2 bg-surface-dim border border-border rounded-xl text-primary focus:border-accent"
                     />
                   </div>

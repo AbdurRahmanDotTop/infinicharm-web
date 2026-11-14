@@ -184,6 +184,19 @@ const homepageSectionsData = readJsonSafe('homepage_sections.json', []);
 const announcementsData = readJsonSafe('announcements.json', { isMasterEnabled: true, items: [] });
 const socialSettingsData = readJsonSafe('social_and_share_settings.json', { socialLinks: [], sharing: {} });
 const badgesData = readJsonSafe('storefront_badges.json', []);
+const shippingSettingsData = readJsonSafe('shipping_settings.json', {
+  freeShippingEnabled: true,
+  freeShippingThresholdPaise: 499900,
+  freeShippingThresholdRupees: 4999,
+  standardShippingFeePaise: 6000,
+  standardShippingFeeRupees: 60,
+  expressShippingFeePaise: 15000,
+  expressShippingFeeRupees: 150,
+  codConvenienceFeePaise: 0,
+  bannerMessage: 'Free Express Delivery over ₹4,999',
+  policyText: 'Orders with a qualifying subtotal of ₹4,999 or higher automatically receive Free Standard Shipping across India.',
+  updatedAt: '2026-11-14T08:00:00.000Z',
+});
 const reviewsData = readJsonSafe('reviews.json', []);
 const reviewSettingsData = readJsonSafe('review_settings.json', {});
 const newsletterSettingsData = readJsonSafe('newsletter_settings.json', {});
@@ -240,7 +253,7 @@ const BACKUP_SECTIONS_LIST = [
     key: 'settings',
     label: 'System & Payment Settings',
     description: 'Payment Gateways, Social Share, Auth Settings & SMTP (secrets redacted)',
-    collections: ['payment_gateways', 'social_and_share_settings', 'auth_settings', 'smtp_configs', 'notification_rules', 'notification_preferences'],
+    collections: ['payment_gateways', 'social_and_share_settings', 'auth_settings', 'shipping_settings', 'smtp_configs', 'notification_rules', 'notification_preferences'],
   },
 ];
 
@@ -305,6 +318,7 @@ for (const p of productsData) {
 writeApiEndpoint('homepage/sections', { success: true, count: homepageSectionsData.length, sections: homepageSectionsData });
 writeApiEndpoint('announcements', { success: true, ...announcementsData });
 writeApiEndpoint('settings/social-share', { success: true, socialLinks: socialSettingsData.socialLinks || [], sharing: socialSettingsData.sharing || {} });
+writeApiEndpoint('settings/shipping', { success: true, settings: shippingSettingsData });
 writeApiEndpoint('settings/badges', { success: true, count: badgesData.length, badges: badgesData });
 writeApiEndpoint('reviews', { success: true, reviews: reviewsData, stats: { averageRating: 5.0, totalReviews: reviewsData.length } });
 writeApiEndpoint('reviews/eligibility', { eligible: false, message: 'Please sign in to leave a review.' });
@@ -312,6 +326,7 @@ writeApiEndpoint('newsletter', { success: true, settings: newsletterSettingsData
 writeApiEndpoint('auth/settings', { success: true, settings: authSettingsData });
 
 // Static Admin Fallbacks
+writeApiEndpoint('admin/settings/shipping', { success: true, settings: shippingSettingsData });
 writeApiEndpoint('admin/backup', {
   success: true,
   backups: initialBackupsList,
@@ -384,6 +399,7 @@ const workerCode = '// InfiniCharm Production Cloudflare Pages Edge Worker\n' +
 'const ANNOUNCEMENTS = ' + JSON.stringify(announcementsData) + ';\n' +
 'const SOCIAL_SETTINGS = ' + JSON.stringify(socialSettingsData) + ';\n' +
 'const BADGES = ' + JSON.stringify(badgesData) + ';\n' +
+'const SHIPPING_SETTINGS = ' + JSON.stringify(shippingSettingsData) + ';\n' +
 'const REVIEWS = ' + JSON.stringify(reviewsData) + ';\n' +
 'const REVIEW_SETTINGS = ' + JSON.stringify(reviewSettingsData) + ';\n' +
 'const NEWSLETTER_SETTINGS = ' + JSON.stringify(newsletterSettingsData) + ';\n' +
@@ -431,6 +447,7 @@ const emailCampaignsStore = [...EMAIL_CAMPAIGNS];
 let announcementsStore = { ...ANNOUNCEMENTS };
 let socialSettingsStore = { ...SOCIAL_SETTINGS };
 let badgesStore = [...BADGES];
+let shippingSettingsStore = { ...SHIPPING_SETTINGS };
 let authSettingsStore = { ...AUTH_SETTINGS };
 const paymentGatewaysStore = [...PAYMENT_GATEWAYS];
 const reviewsStore = [...REVIEWS];
@@ -1748,6 +1765,38 @@ async function handleApi(request, url, env) {
       const body = await request.clone().json().catch(() => ({}));
       if (Array.isArray(body)) badgesStore = body;
       return json({ success: true, badges: badgesStore });
+    }
+  }
+
+  // /api/settings/shipping & /api/admin/settings/shipping
+  if (p === '/api/settings/shipping' || p === '/api/admin/settings/shipping') {
+    if (method === 'GET') {
+      return json({ success: true, settings: shippingSettingsStore });
+    }
+    if (method === 'PUT') {
+      const body = await request.clone().json().catch(() => ({}));
+      shippingSettingsStore = {
+        ...shippingSettingsStore,
+        ...body,
+        updatedAt: new Date().toISOString(),
+      };
+      if (typeof shippingSettingsStore.freeShippingThresholdRupees === 'number') {
+        const tr = shippingSettingsStore.freeShippingThresholdRupees;
+        const bIdx = badgesStore.findIndex(b => b.key === 'free_shipping' || b.id === 'badge-free-shipping');
+        if (bIdx > -1) {
+          badgesStore[bIdx] = {
+            ...badgesStore[bIdx],
+            title: 'Free Shipping on orders above ₹' + tr,
+            thresholdRupees: tr,
+            conditionsText: 'Applicable on orders above ₹' + tr + ' across all pincodes in India.',
+          };
+        }
+      }
+      return json({
+        success: true,
+        settings: shippingSettingsStore,
+        message: 'Shipping settings saved and storefront badges synchronized successfully.',
+      });
     }
   }
 

@@ -385,7 +385,7 @@ export default function AdminDashboardPage() {
                   <ArrowRight className="w-4 h-4 text-muted group-hover:text-accent group-hover:translate-x-1 transition-all" />
                 </div>
                 <p className="text-xs text-muted leading-relaxed">
-                  Configure free shipping thresholds (₹999), legal compliance, and FSSAI credentials.
+                  Configure free shipping thresholds (₹4,999), delivery rules, legal compliance, and FSSAI credentials.
                 </p>
               </div>
             </Link>

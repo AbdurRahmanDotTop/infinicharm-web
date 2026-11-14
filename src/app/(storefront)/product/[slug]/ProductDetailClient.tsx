@@ -157,11 +157,11 @@ export default function ProductDetailClient({ initialSlug }: { initialSlug?: str
     {
       id: 'badge-free-shipping',
       key: 'free_shipping',
-      title: 'Free Shipping on orders above ₹499',
+      title: 'Free Shipping on orders above ₹4,999',
       icon: 'Truck',
       isEnabled: true,
       displayOrder: 1,
-      thresholdRupees: 499,
+      thresholdRupees: 4999,
       linkUrl: '/policies/shipping',
     },
     {
@@ -353,7 +353,17 @@ export default function ProductDetailClient({ initialSlug }: { initialSlug?: str
     return 0;
   }, [selectedVariant]);
 
-  const images = product.media.length > 0 ? product.media : [];
+  const images = useMemo(() => {
+    const variantMedia = (selectedVariant as any)?.media;
+    if (Array.isArray(variantMedia) && variantMedia.length > 0) {
+      return variantMedia;
+    }
+    return product.media && product.media.length > 0 ? product.media : [];
+  }, [product.media, selectedVariant]);
+
+  useEffect(() => {
+    setSelectedImageIndex(0);
+  }, [selectedVariantId]);
 
   const handleAddToCart = () => {
     if (!selectedVariant) return;

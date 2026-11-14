@@ -1,0 +1,13 @@
+{
+  "freeShippingEnabled": true,
+  "freeShippingThresholdPaise": 499900,
+  "freeShippingThresholdRupees": 4999,
+  "standardShippingFeePaise": 6000,
+  "standardShippingFeeRupees": 60,
+  "expressShippingFeePaise": 15000,
+  "expressShippingFeeRupees": 150,
+  "codConvenienceFeePaise": 0,
+  "bannerMessage": "Free Express Delivery over ₹4,999",
+  "policyText": "Orders with a qualifying subtotal of ₹4,999 or higher automatically receive Free Standard Shipping across India.",
+  "updatedAt": "2026-11-14T08:42:58.884Z"
+}

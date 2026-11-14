@@ -152,7 +152,7 @@ export default function AdminCmsPage() {
     'Ward No. 07, Lahsaniya, Khoripakar, Dewapur, Pachpakari, Patahi, Dhaka, Motihari, East Champaran, Bihar, India - 845427'
   );
   const [returnDaysClothing, setReturnDaysClothing] = useState('7');
-  const [freeShippingThresholdRupees, setFreeShippingThresholdRupees] = useState('999');
+  const [freeShippingThresholdRupees, setFreeShippingThresholdRupees] = useState('4999');
 
   // Fetch Homepage Sections from Server
   const fetchHomepageSections = useCallback(async () => {
@@ -1358,7 +1358,7 @@ export default function AdminCmsPage() {
                     className="w-full px-3 py-2 bg-surface-dim border border-border rounded-lg text-primary focus:outline-none focus:ring-1 focus:ring-accent"
                   />
                   <p className="text-[11px] text-muted mt-1">
-                    Server evaluates qualification at ₹999.00 (99900 paise).
+                    Server evaluates qualification at ₹4,999.00 (499900 paise).
                   </p>
                 </div>
               </div>

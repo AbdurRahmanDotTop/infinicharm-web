@@ -155,9 +155,58 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     };
   }, [items, subtotalInPaise, isInitialized, appliedCoupon?.code, mapItemsForCouponApi]);
 
-  const platformSettings = useMemo(() => getPlatformSettings(), []);
-  const freeShippingThresholdPaise = platformSettings.freeShippingThresholdPaise;
-  const standardShippingFeePaise = platformSettings.standardShippingFeePaise;
+  const [shippingConfig, setShippingConfig] = useState<{
+    freeShippingThresholdPaise: number;
+    standardShippingFeePaise: number;
+  }>(() => {
+    const ps = getPlatformSettings();
+    return {
+      freeShippingThresholdPaise: ps.freeShippingThresholdPaise || 499900,
+      standardShippingFeePaise: ps.standardShippingFeePaise || 6000,
+    };
+  });
+
+  useEffect(() => {
+    const fetchShippingSettings = async () => {
+      try {
+        const res = await fetch('/api/settings/shipping', { cache: 'no-store' });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && data.settings) {
+            setShippingConfig({
+              freeShippingThresholdPaise:
+                data.settings.freeShippingThresholdPaise || 499900,
+              standardShippingFeePaise:
+                data.settings.standardShippingFeePaise || 6000,
+            });
+          }
+        }
+      } catch {
+        // preserve current config
+      }
+    };
+
+    fetchShippingSettings();
+
+    const handleShippingUpdate = () => {
+      const ps = getPlatformSettings();
+      setShippingConfig({
+        freeShippingThresholdPaise: ps.freeShippingThresholdPaise || 499900,
+        standardShippingFeePaise: ps.standardShippingFeePaise || 6000,
+      });
+      fetchShippingSettings();
+    };
+
+    window.addEventListener('infinicharm_shipping_settings_updated', handleShippingUpdate);
+    window.addEventListener('storage', handleShippingUpdate);
+    return () => {
+      window.removeEventListener('infinicharm_shipping_settings_updated', handleShippingUpdate);
+      window.removeEventListener('storage', handleShippingUpdate);
+    };
+  }, []);
+
+  const freeShippingThresholdPaise = shippingConfig.freeShippingThresholdPaise;
+  const standardShippingFeePaise = shippingConfig.standardShippingFeePaise;
 
   const shippingInPaise = useMemo(() => {
     if (subtotalInPaise === 0) return 0;
