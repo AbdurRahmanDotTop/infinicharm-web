@@ -1694,6 +1694,7 @@ export default function CheckoutPage() {
                                     <button
                                       type="button"
                                       data-testid="copy-upi-link-btn"
+                                      data-shareable-url={upiPaymentData.shareablePaymentUrl}
                                       onClick={() => {
                                         handleCopy(upiPaymentData.shareablePaymentUrl, 'upi_link');
                                         syncPendingOrderDraft();
