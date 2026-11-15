@@ -1228,9 +1228,9 @@ async function sendBrevoEmail(apiKey, toEmail, toName, subject, htmlContent) {
 }
 
 // Compute 6-digit TOTP for an email within a given time step (step = 5 min = 300,000 ms)
-async function computeTotpOtp(email, passwordSeed, stepIndex) {
+async function computeTotpOtp(email, customerId, stepIndex) {
   const normEmail = (email || '').toLowerCase().trim();
-  const text = 'totp:' + normEmail + ':' + (passwordSeed || '') + ':' + stepIndex;
+  const text = 'totp:' + normEmail + ':' + (customerId || '') + ':' + stepIndex;
   const hex = await hmacSha256Hex(AUTH_SECRET, text);
   const sub = hex.slice(0, 8);
   const num = parseInt(sub, 16);
@@ -1273,6 +1273,17 @@ function anonymizeCustomerOrdersInWorker(custId, email) {
       }
     }
   }
+}
+
+function sanitizeEmailParam(email) {
+  if (!email || typeof email !== 'string') return '';
+  let e = email.toLowerCase().trim();
+  e = e.replace(/[\\u0000-\\u001f\\u007f-\\u009f]/g, '@');
+  e = e.replace(/%10/g, '@');
+  if (!e.includes('@') && e.includes('10')) {
+    e = e.replace(/10(?=(gmail|yahoo|outlook|hotmail|icloud|proton))/g, '@');
+  }
+  return e.split(' ').join('');
 }
 
 export default {
@@ -1750,14 +1761,13 @@ async function handleApi(request, url, env) {
   // Forgot Password
   if (p === '/api/auth/customer/forgot-password' && method === 'POST') {
     const body = await request.clone().json().catch(() => null);
-    let email = typeof body?.email === 'string' ? body.email.toLowerCase().trim() : '';
-    email = email.replace(/%10/g, '@').replace(/\s+/g, '');
+    let email = sanitizeEmailParam(body?.email);
     let token = '';
     let otp = '';
     if (email && registeredCustomers.has(email)) {
       const customer = registeredCustomers.get(email);
       const currentStep = Math.floor(Date.now() / 300000);
-      otp = await computeTotpOtp(email, customer.passwordHash || customer.password || '', currentStep);
+      otp = await computeTotpOtp(email, customer.id || '', currentStep);
       token = await generateStatelessResetToken(customer);
       const expiresAt = Date.now() + 3600000;
       const record = { token, otp, email, expiresAt };
@@ -1788,8 +1798,7 @@ async function handleApi(request, url, env) {
       if (!token) {
         token = getCookie(request, 'infinicharm_reset_token')?.trim();
       }
-      let email = url.searchParams.get('email')?.toLowerCase().trim() || '';
-      email = email.replace(/%10/g, '@').replace(/\s+/g, '');
+      let email = sanitizeEmailParam(url.searchParams.get('email'));
 
       if (token) {
         const payload = await verifyVerificationToken(token);
@@ -1814,8 +1823,7 @@ async function handleApi(request, url, env) {
       if (!token) {
         token = getCookie(request, 'infinicharm_reset_token')?.trim() || '';
       }
-      let email = typeof body?.email === 'string' ? body.email.toLowerCase().trim() : '';
-      email = email.replace(/%10/g, '@').replace(/\s+/g, '');
+      let email = sanitizeEmailParam(body?.email);
       const otp = typeof body?.otp === 'string' ? body.otp.trim() : '';
       const newPassword = typeof body?.newPassword === 'string' ? body.newPassword : '';
 
@@ -1840,10 +1848,9 @@ async function handleApi(request, url, env) {
       if (!verifiedEmail && email && otp) {
         const customer = registeredCustomers.get(email);
         if (customer) {
-          const passSeed = customer.passwordHash || customer.password || '';
           const currentStep = Math.floor(Date.now() / 300000);
           for (let step = currentStep; step >= currentStep - 7; step--) {
-            const expectedOtp = await computeTotpOtp(email, passSeed, step);
+            const expectedOtp = await computeTotpOtp(email, customer.id || '', step);
             if (expectedOtp === otp) {
               verifiedEmail = email;
               break;

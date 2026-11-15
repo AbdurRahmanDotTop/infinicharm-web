@@ -16,7 +16,11 @@ function ResetPasswordForm() {
   const searchParams = useSearchParams();
   const tokenParam = searchParams?.get('token') || '';
   const rawEmailParam = searchParams?.get('email') || '';
-  const sanitizedEmail = rawEmailParam.replace(/[\x00-\x1F\x7F]/g, '').replace(/%10/gi, '@');
+  const sanitizedEmail = rawEmailParam
+    .replace(/[\u0000-\u001f\u007f-\u009f]/g, '@')
+    .replace(/%10/gi, '@')
+    .replace(/\s+/g, '')
+    .trim();
 
   const [policy, setPolicy] = useState<PublicAuthSettings | null>(null);
   const [tokenCheck, setTokenCheck] = useState<{
