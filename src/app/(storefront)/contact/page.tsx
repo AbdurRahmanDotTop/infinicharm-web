@@ -145,7 +145,7 @@ export default function ContactPage() {
                     <div>
                       <strong className="block text-primary font-medium">Official Contact Helpline</strong>
                       <a
-                        href={`tel:${settings.primaryPhone || '+918825164657'}`}
+                        href={`tel:${(settings.primaryPhone || '+918825164657').replace(/\s+/g, '')}`}
                         data-testid="contact-primary-phone-link"
                         className="text-sm sm:text-base font-bold text-accent hover:underline block mt-0.5 font-mono"
                       >
@@ -229,7 +229,7 @@ export default function ContactPage() {
                   <p>
                     Helpline:{' '}
                     <a
-                      href={`tel:${settings.grievanceOfficer?.phone || settings.primaryPhone}`}
+                      href={`tel:${(settings.grievanceOfficer?.phone || settings.primaryPhone || '+918825164657').replace(/\s+/g, '')}`}
                       className="text-accent hover:underline font-mono"
                     >
                       {settings.grievanceOfficer?.phone || settings.primaryPhone}
