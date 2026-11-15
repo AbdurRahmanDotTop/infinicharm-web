@@ -15,7 +15,8 @@ function ResetPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const tokenParam = searchParams?.get('token') || '';
-  const emailParam = searchParams?.get('email') || '';
+  const rawEmailParam = searchParams?.get('email') || '';
+  const sanitizedEmail = rawEmailParam.replace(/[\x00-\x1F\x7F]/g, '').replace(/%10/gi, '@');
 
   const [policy, setPolicy] = useState<PublicAuthSettings | null>(null);
   const [tokenCheck, setTokenCheck] = useState<{
@@ -24,7 +25,7 @@ function ResetPasswordForm() {
     error?: string;
   }>({ checked: !tokenParam, valid: !tokenParam });
 
-  const [email, setEmail] = useState(emailParam);
+  const [email, setEmail] = useState(sanitizedEmail);
   const [otp, setOtp] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -89,11 +90,12 @@ function ResetPasswordForm() {
       const res = await fetch('/api/auth/customer/reset-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(
-          tokenParam
-            ? { token: tokenParam, newPassword }
-            : { email: email.trim().toLowerCase(), otp: otp.trim(), newPassword }
-        ),
+        body: JSON.stringify({
+          token: tokenParam || undefined,
+          email: email.trim().toLowerCase(),
+          otp: otp.trim() || undefined,
+          newPassword,
+        }),
       });
       const data = await res.json();
       if (!res.ok || !data?.success) {

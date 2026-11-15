@@ -23,7 +23,7 @@ import {
   sanitizeRedirectPath,
   validatePasswordAgainstPolicy,
 } from '@/lib/validation/auth';
-import type { PublicAuthSettings } from '@/types';
+import type { PublicAuthSettings, RegistrationFormSettings, RegistrationFormField } from '@/types';
 import { AlertCircle, CheckCircle2, MailCheck, ShieldAlert, Loader2, ArrowRight, UserCheck } from 'lucide-react';
 
 function RegisterFormContent() {
@@ -31,11 +31,18 @@ function RegisterFormContent() {
   const redirectTarget = sanitizeRedirectPath(searchParams?.get('redirect'), '/account');
 
   const [policy, setPolicy] = useState<PublicAuthSettings | null>(null);
+  const [formSettings, setFormSettings] = useState<RegistrationFormSettings | null>(null);
+
+  // System field states
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+
+  // Dynamic custom fields state
+  const [customFieldValues, setCustomFieldValues] = useState<Record<string, any>>({});
+
   const [agreedToTerms, setAgreedToTerms] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -93,12 +100,77 @@ function RegisterFormContent() {
         if (d?.success && d.settings) setPolicy(d.settings);
       })
       .catch(() => {});
+
+    // Fetch dynamic registration form settings
+    fetch('/api/settings/registration-form', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d?.success && d.settings) {
+          setFormSettings(d.settings);
+          // Initialize default values for custom fields
+          const defaults: Record<string, any> = {};
+          if (Array.isArray(d.settings.fields)) {
+            d.settings.fields.forEach((f: RegistrationFormField) => {
+              if (!f.isSystemField && f.defaultValue !== undefined) {
+                defaults[f.key] = f.defaultValue;
+              }
+            });
+          }
+          setCustomFieldValues((prev) => ({ ...defaults, ...prev }));
+        }
+      })
+      .catch((err) => console.error('Failed to load registration form settings:', err));
   }, []);
+
+  const handleCustomFieldChange = (key: string, value: any) => {
+    setCustomFieldValues((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleVerifyOtp = async (codeToVerify?: string) => {
+    const finalOtp = (codeToVerify || otp).trim();
+    if (finalOtp.length !== 6) {
+      setOtpError('Please enter a complete 6-digit code.');
+      return;
+    }
+
+    setVerifyingOtp(true);
+    setOtpError(null);
+
+    try {
+      const res = await fetch('/api/auth/customer/verify-email-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: pendingVerificationEmail,
+          otp: finalOtp,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Verification failed. Please re-enter the code.');
+      }
+
+      setOtpSuccess(true);
+      if (data.customer) {
+        persistClientCustomerSession(data.customer);
+      }
+
+      setTimeout(() => {
+        window.location.href = redirectTarget;
+      }, 700);
+    } catch (err: any) {
+      setOtpError(err?.message || 'Invalid or expired code. Please try again.');
+    } finally {
+      setVerifyingOtp(false);
+    }
+  };
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
+    // 1. Validate System Fields
     if (!name.trim()) {
       setError('Please provide your full name.');
       return;
@@ -120,8 +192,63 @@ function RegisterFormContent() {
       return;
     }
 
-    if (!agreedToTerms) {
-      setError('Please accept the Terms of Service and Privacy Policy to proceed.');
+    // 2. Validate Dynamic Custom Fields
+    if (formSettings && Array.isArray(formSettings.fields)) {
+      for (const field of formSettings.fields) {
+        if (!field.isEnabled) continue;
+
+        if (field.key === 'phone') {
+          if (field.required && !phone.trim()) {
+            setError(`Please provide your ${field.label}.`);
+            return;
+          }
+          if (phone.trim() && field.validation?.pattern) {
+            try {
+              const regex = new RegExp(field.validation.pattern);
+              if (!regex.test(phone.trim())) {
+                setError(`Please enter a valid ${field.label}.`);
+                return;
+              }
+            } catch {}
+          }
+        } else if (!field.isSystemField) {
+          const val = customFieldValues[field.key];
+          const strVal = typeof val === 'string' ? val.trim() : '';
+
+          if (field.required) {
+            if (val === undefined || val === null || val === '' || val === false) {
+              setError(`Please complete the required field: "${field.label}".`);
+              return;
+            }
+          }
+
+          if (strVal && field.validation?.minLength && strVal.length < field.validation.minLength) {
+            setError(`"${field.label}" must be at least ${field.validation.minLength} characters.`);
+            return;
+          }
+
+          if (strVal && field.validation?.maxLength && strVal.length > field.validation.maxLength) {
+            setError(`"${field.label}" cannot exceed ${field.validation.maxLength} characters.`);
+            return;
+          }
+
+          if (strVal && field.validation?.pattern) {
+            try {
+              const regex = new RegExp(field.validation.pattern);
+              if (!regex.test(strVal)) {
+                setError(`"${field.label}" format is invalid.`);
+                return;
+              }
+            } catch {}
+          }
+        }
+      }
+    }
+
+    // 3. Terms Agreement Check
+    const termsRequired = formSettings ? formSettings.termsAgreementRequired !== false : true;
+    if (termsRequired && !agreedToTerms) {
+      setError('Please accept the Terms of Service and acknowledge the Privacy Policy to proceed.');
       return;
     }
 
@@ -136,6 +263,7 @@ function RegisterFormContent() {
           email: normalizedEmail,
           phone: phone.trim() || '',
           password,
+          customFields: customFieldValues,
           source: 'REGISTER_PAGE',
           redirectPath: redirectTarget,
         }),
@@ -178,52 +306,14 @@ function RegisterFormContent() {
         <div className="pt-2">
           <Link
             href={`/login?redirect=${encodeURIComponent(redirectTarget)}`}
-            className="inline-flex items-center justify-center px-5 py-2.5 rounded-xl bg-accent text-white text-xs font-bold hover:bg-accent-hover"
+            className="inline-flex items-center justify-center px-5 py-2.5 bg-accent hover:bg-accent-hover text-white text-xs font-bold rounded-xl transition-colors uppercase tracking-wider"
           >
-            Go to Sign In
+            Sign In to Existing Account
           </Link>
         </div>
       </Card>
     );
   }
-
-  const handleVerifyOtp = async (codeToVerify?: string) => {
-    const code = (codeToVerify || otp).trim();
-    if (!code || code.length !== 6) {
-      setOtpError('Please enter the full 6-digit code received in your email.');
-      return;
-    }
-    if (!pendingVerificationEmail) return;
-
-    setVerifyingOtp(true);
-    setOtpError(null);
-    try {
-      const res = await fetch('/api/auth/customer/verify-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: pendingVerificationEmail,
-          otp: code,
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Verification failed. Please check the 6-digit code.');
-      }
-
-      setOtpSuccess(true);
-      if (data.customer) {
-        persistClientCustomerSession(data.customer);
-      }
-      setTimeout(() => {
-        window.location.href = data.redirectPath || redirectTarget;
-      }, 900);
-    } catch (err: any) {
-      setOtpError(err?.message || 'Invalid or expired verification code.');
-    } finally {
-      setVerifyingOtp(false);
-    }
-  };
 
   if (pendingVerificationEmail) {
     return (
@@ -402,6 +492,23 @@ function RegisterFormContent() {
     );
   }
 
+  // Sort fields by order
+  const activeFields: RegistrationFormField[] = formSettings?.fields
+    ? formSettings.fields.filter((f) => f.isEnabled).sort((a, b) => a.order - b.order)
+    : [
+        { id: '1', key: 'fullName', label: 'Full Name', type: 'text', placeholder: 'Aarav Sharma', required: true, isEnabled: true, order: 1, isSystemField: true },
+        { id: '2', key: 'email', label: 'Email Address', type: 'email', placeholder: 'aarav@example.com', required: true, isEnabled: true, order: 2, isSystemField: true },
+        { id: '3', key: 'phone', label: 'Mobile Phone (Optional)', type: 'phone', placeholder: '+91 98765 43210', required: false, isEnabled: true, order: 3, isSystemField: false },
+        { id: '4', key: 'password', label: 'Password', type: 'password', placeholder: 'Create a strong password', required: true, isEnabled: true, order: 4, isSystemField: true },
+        { id: '5', key: 'confirmPassword', label: 'Confirm Password', type: 'password', placeholder: 'Re-enter your password', required: true, isEnabled: true, order: 5, isSystemField: true },
+      ];
+
+  const termsRequired = formSettings ? formSettings.termsAgreementRequired !== false : true;
+  const termsText = formSettings?.termsText || 'I agree to the Terms of Service and acknowledge the Privacy Policy (DPDP Act).';
+  const termsLink = formSettings?.termsLink || '/policies/terms';
+  const privacyLink = formSettings?.privacyLink || '/policies/privacy';
+  const submitButtonText = formSettings?.submitButtonText || 'Create InfiniCharm Account';
+
   return (
     <Card level={1} className="p-6 sm:p-8 space-y-5 bg-surface border border-border">
       {error && (
@@ -422,90 +529,270 @@ function RegisterFormContent() {
       )}
 
       <form onSubmit={handleRegister} className="space-y-4">
-        <Input
-          label="Full Name"
-          type="text"
-          placeholder="Aarav Sharma"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          required
-          autoComplete="name"
-        />
-
-        <Input
-          label="Email Address"
-          type="email"
-          placeholder="aarav@example.com"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-          autoComplete="email"
-        />
-
-        <Input
-          label="Mobile Phone (Optional)"
-          type="tel"
-          placeholder="+91 98765 43210"
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-          autoComplete="tel"
-        />
-
-        <PasswordInput
-          label="Password"
-          placeholder="Create a strong password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          autoComplete="new-password"
-          showStrengthMeter={true}
-          policy={policy}
-        />
-
-        <PasswordInput
-          label="Confirm Password"
-          placeholder="Re-enter your password"
-          value={confirmPassword}
-          onChange={(e) => setConfirmPassword(e.target.value)}
-          required
-          autoComplete="new-password"
-          error={
-            confirmPassword.length > 0 && confirmPassword !== password
-              ? 'Passwords do not match.'
-              : undefined
+        {activeFields.map((field) => {
+          // System field: fullName
+          if (field.key === 'fullName') {
+            return (
+              <div key={field.key} className="space-y-1">
+                <Input
+                  label={field.label || 'Full Name'}
+                  type="text"
+                  placeholder={field.placeholder || 'Aarav Sharma'}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required={field.required}
+                  autoComplete="name"
+                />
+                {field.description && (
+                  <p className="text-[10px] text-muted">{field.description}</p>
+                )}
+              </div>
+            );
           }
-        />
 
-        <div className="pt-1">
-          <label className="flex items-start gap-2 cursor-pointer text-xs text-muted">
-            <input
-              type="checkbox"
-              checked={agreedToTerms}
-              onChange={(e) => setAgreedToTerms(e.target.checked)}
-              className="mt-0.5 rounded border-border text-accent focus:ring-accent"
-            />
-            <span>
-              I agree to the{' '}
-              <Link href="/policies/terms" className="text-accent underline hover:text-accent-hover">
-                Terms of Service
-              </Link>{' '}
-              and acknowledge the{' '}
-              <Link href="/policies/privacy" className="text-accent underline hover:text-accent-hover">
-                Privacy Policy (DPDP Act)
-              </Link>
-              .
-            </span>
-          </label>
-        </div>
+          // System field: email
+          if (field.key === 'email') {
+            return (
+              <div key={field.key} className="space-y-1">
+                <Input
+                  label={field.label || 'Email Address'}
+                  type="email"
+                  placeholder={field.placeholder || 'aarav@example.com'}
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required={field.required}
+                  autoComplete="email"
+                />
+                {field.description && (
+                  <p className="text-[10px] text-muted">{field.description}</p>
+                )}
+              </div>
+            );
+          }
+
+          // System field: phone
+          if (field.key === 'phone') {
+            return (
+              <div key={field.key} className="space-y-1">
+                <Input
+                  label={field.label || 'Mobile Phone'}
+                  type="tel"
+                  placeholder={field.placeholder || '+91 98765 43210'}
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  required={field.required}
+                  autoComplete="tel"
+                />
+                {field.description && (
+                  <p className="text-[10px] text-muted">{field.description}</p>
+                )}
+              </div>
+            );
+          }
+
+          // System field: password
+          if (field.key === 'password') {
+            return (
+              <div key={field.key} className="space-y-1">
+                <PasswordInput
+                  label={field.label || 'Password'}
+                  placeholder={field.placeholder || 'Create a strong password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required={field.required}
+                  autoComplete="new-password"
+                  showStrengthMeter={true}
+                  policy={policy}
+                />
+                {field.description && (
+                  <p className="text-[10px] text-muted">{field.description}</p>
+                )}
+              </div>
+            );
+          }
+
+          // System field: confirmPassword
+          if (field.key === 'confirmPassword') {
+            return (
+              <div key={field.key} className="space-y-1">
+                <PasswordInput
+                  label={field.label || 'Confirm Password'}
+                  placeholder={field.placeholder || 'Re-enter your password'}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required={field.required}
+                  autoComplete="new-password"
+                  error={
+                    confirmPassword.length > 0 && confirmPassword !== password
+                      ? 'Passwords do not match.'
+                      : undefined
+                  }
+                />
+                {field.description && (
+                  <p className="text-[10px] text-muted">{field.description}</p>
+                )}
+              </div>
+            );
+          }
+
+          // Dynamic Custom Fields: Select
+          if (field.type === 'select') {
+            return (
+              <div key={field.key} className="space-y-1">
+                <label className="block text-xs font-semibold text-primary">
+                  {field.label} {field.required && <span className="text-rose-500">*</span>}
+                </label>
+                <select
+                  value={customFieldValues[field.key] || ''}
+                  onChange={(e) => handleCustomFieldChange(field.key, e.target.value)}
+                  required={field.required}
+                  className="w-full px-3.5 py-2.5 bg-surface-dim border border-border rounded-xl text-primary text-xs focus:outline-none focus:border-accent"
+                >
+                  <option value="">{field.placeholder || 'Select an option...'}</option>
+                  {field.options?.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+                {field.description && (
+                  <p className="text-[10px] text-muted">{field.description}</p>
+                )}
+              </div>
+            );
+          }
+
+          // Dynamic Custom Fields: Textarea
+          if (field.type === 'textarea') {
+            return (
+              <div key={field.key} className="space-y-1">
+                <label className="block text-xs font-semibold text-primary">
+                  {field.label} {field.required && <span className="text-rose-500">*</span>}
+                </label>
+                <textarea
+                  value={customFieldValues[field.key] || ''}
+                  onChange={(e) => handleCustomFieldChange(field.key, e.target.value)}
+                  placeholder={field.placeholder}
+                  required={field.required}
+                  rows={3}
+                  className="w-full px-3.5 py-2 bg-surface-dim border border-border rounded-xl text-primary text-xs focus:outline-none focus:border-accent resize-y"
+                />
+                {field.description && (
+                  <p className="text-[10px] text-muted">{field.description}</p>
+                )}
+              </div>
+            );
+          }
+
+          // Dynamic Custom Fields: Radio
+          if (field.type === 'radio') {
+            return (
+              <div key={field.key} className="space-y-1.5">
+                <label className="block text-xs font-semibold text-primary">
+                  {field.label} {field.required && <span className="text-rose-500">*</span>}
+                </label>
+                <div className="space-y-1.5">
+                  {field.options?.map((opt) => (
+                    <label key={opt.value} className="flex items-center gap-2 text-xs text-secondary cursor-pointer">
+                      <input
+                        type="radio"
+                        name={field.key}
+                        value={opt.value}
+                        checked={customFieldValues[field.key] === opt.value}
+                        onChange={() => handleCustomFieldChange(field.key, opt.value)}
+                        required={field.required}
+                        className="text-accent focus:ring-accent"
+                      />
+                      <span>{opt.label}</span>
+                    </label>
+                  ))}
+                </div>
+                {field.description && (
+                  <p className="text-[10px] text-muted">{field.description}</p>
+                )}
+              </div>
+            );
+          }
+
+          // Dynamic Custom Fields: Checkbox
+          if (field.type === 'checkbox') {
+            return (
+              <div key={field.key} className="pt-1">
+                <label className="flex items-start gap-2 cursor-pointer text-xs text-primary">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(customFieldValues[field.key])}
+                    onChange={(e) => handleCustomFieldChange(field.key, e.target.checked)}
+                    required={field.required}
+                    className="mt-0.5 rounded border-border text-accent focus:ring-accent"
+                  />
+                  <div>
+                    <span className="font-semibold">{field.label}</span> {field.required && <span className="text-rose-500">*</span>}
+                    {field.description && (
+                      <p className="text-[10px] text-muted">{field.description}</p>
+                    )}
+                  </div>
+                </label>
+              </div>
+            );
+          }
+
+          // Dynamic Custom Fields: Default (text, number, date, etc.)
+          return (
+            <div key={field.key} className="space-y-1">
+              <Input
+                label={field.label}
+                type={field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : 'text'}
+                placeholder={field.placeholder}
+                value={customFieldValues[field.key] || ''}
+                onChange={(e) => handleCustomFieldChange(field.key, e.target.value)}
+                required={field.required}
+              />
+              {field.description && (
+                <p className="text-[10px] text-muted">{field.description}</p>
+              )}
+            </div>
+          );
+        })}
+
+        {termsRequired && (
+          <div className="pt-1">
+            <label className="flex items-start gap-2 cursor-pointer text-xs text-muted">
+              <input
+                type="checkbox"
+                checked={agreedToTerms}
+                onChange={(e) => setAgreedToTerms(e.target.checked)}
+                className="mt-0.5 rounded border-border text-accent focus:ring-accent"
+              />
+              <span>
+                {termsText.includes('Terms of Service') ? (
+                  <>
+                    I agree to the{' '}
+                    <Link href={termsLink} className="text-accent underline hover:text-accent-hover">
+                      Terms of Service
+                    </Link>{' '}
+                    and acknowledge the{' '}
+                    <Link href={privacyLink} className="text-accent underline hover:text-accent-hover">
+                      Privacy Policy (DPDP Act)
+                    </Link>
+                    .
+                  </>
+                ) : (
+                  termsText
+                )}
+              </span>
+            </label>
+          </div>
+        )}
 
         <Button
           type="submit"
           variant="primary"
           size="md"
-          className="w-full"
+          className="w-full font-bold uppercase tracking-wider"
           isLoading={loading}
         >
-          Create InfiniCharm Account
+          {submitButtonText}
         </Button>
       </form>
 
@@ -525,6 +812,23 @@ function RegisterFormContent() {
 }
 
 export default function CustomerRegisterPage() {
+  const [pageTitle, setPageTitle] = useState('Create Your Account');
+  const [pageSubtitle, setPageSubtitle] = useState(
+    'Join the InfiniCharm Circle for pure batch living, expedited checkout, and tracking.'
+  );
+
+  useEffect(() => {
+    fetch('/api/settings/registration-form', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d?.success && d.settings) {
+          if (d.settings.title) setPageTitle(d.settings.title);
+          if (d.settings.subtitle) setPageSubtitle(d.settings.subtitle);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   return (
     <div className="py-12 sm:py-16 bg-canvas min-h-[calc(100vh-200px)] flex items-center">
       <Container>
@@ -535,10 +839,10 @@ export default function CustomerRegisterPage() {
             </div>
             <div>
               <h1 className="font-display text-2xl font-bold text-primary">
-                Create Your Account
+                {pageTitle}
               </h1>
-              <p className="text-xs text-muted mt-1">
-                Join the InfiniCharm Circle for pure batch living, expedited checkout, and tracking.
+              <p className="text-xs text-muted mt-1 leading-relaxed">
+                {pageSubtitle}
               </p>
             </div>
           </div>

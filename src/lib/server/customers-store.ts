@@ -331,6 +331,7 @@ export function createCustomer(data: {
   notes?: string;
   addresses?: CustomerAddress[];
   preferences?: Partial<CustomerPreferences>;
+  customFields?: Record<string, any>;
 }): Customer {
   const raw = readRawCustomers();
   const existing = raw.find((c) => c.email.toLowerCase() === data.email.trim().toLowerCase());
@@ -371,6 +372,7 @@ export function createCustomer(data: {
     preferences: defaultPrefs,
     addresses: data.addresses || [],
     wishlistProductIds: [],
+    customFields: data.customFields || {},
     createdAt: now,
     updatedAt: now,
     lastLoginAt: emailVerified ? now : undefined,
@@ -436,8 +438,9 @@ export function updateCustomer(
 }
 
 /**
- * Delete customer with complete cascading data cleanup across all application records
- * Removes customer profile, all associated orders, reviews, saved addresses, and inquiries
+ * Delete customer with cascading data cleanup and statutory order PII anonymization
+ * In accordance with Indian statutory and tax regulations (GST, Companies Act),
+ * invoice records are retained while personal identifying info is securely anonymized.
  */
 export function deleteCustomer(id: string): boolean {
   const raw = readRawCustomers();
@@ -448,17 +451,50 @@ export function deleteCustomer(id: string): boolean {
   const filtered = raw.filter((c) => c.id !== id);
   writeRawCustomers(filtered);
 
-  // 2. Cascade delete all orders and fulfillment records belonging to this customer from orders.json
+  // 2. Anonymize PII on orders and fulfillment records in orders.json (statutory compliance)
   try {
     const allOrders = readRawOrders();
-    const remainingOrders = allOrders.filter((ord) => {
+    let ordersModified = false;
+    const anonymizedOrders = allOrders.map((ord) => {
       const isCustomerMatch =
         (ord.customerId && ord.customerId === targetCust.id) ||
         (ord.customerEmail && ord.customerEmail.toLowerCase() === targetCust.email.toLowerCase()) ||
         (ord.customerPhone && targetCust.phone && ord.customerPhone === targetCust.phone);
-      return !isCustomerMatch;
+
+      if (isCustomerMatch) {
+        ordersModified = true;
+        return {
+          ...ord,
+          customerId: null,
+          customerName: 'Deleted Customer',
+          customerEmail: `anonymized-${targetCust.id}@infinicharm.com`,
+          customerPhone: 'REDACTED',
+          shippingAddress: {
+            ...ord.shippingAddress,
+            fullName: 'Deleted Customer',
+            phone: 'REDACTED',
+            addressLine1: 'REDACTED (Statutory Tax Archive)',
+            addressLine2: undefined,
+          },
+          timeline: [
+            ...(ord.timeline || []),
+            {
+              title: 'Customer PII Anonymized',
+              description: 'Customer account deleted. Personal identifying information (PII) anonymized in compliance with DPDP Act & Statutory Tax Record Retention requirements.',
+              timestamp: new Date().toISOString(),
+              actor: 'SYSTEM_AUDIT',
+              isCustomerVisible: false,
+              type: 'EXCEPTION' as const,
+            },
+          ],
+        };
+      }
+      return ord;
     });
-    fs.writeFileSync(ORDERS_FILE_PATH, JSON.stringify(remainingOrders, null, 2), 'utf-8');
+
+    if (ordersModified) {
+      fs.writeFileSync(ORDERS_FILE_PATH, JSON.stringify(anonymizedOrders, null, 2), 'utf-8');
+    }
   } catch (err) {
     console.error('Error cascading customer deletion to orders.json:', err);
   }
@@ -528,7 +564,70 @@ export function deleteCustomer(id: string): boolean {
     console.error('Error cascading customer deletion to newsletter_subscribers.json:', err);
   }
 
+  // 7. Invalidate password reset and email verification tokens
+  try {
+    const resetTokensPath = path.join(process.cwd(), 'src', 'data', 'password_reset_tokens.json');
+    if (fs.existsSync(resetTokensPath)) {
+      const allTokens = JSON.parse(fs.readFileSync(resetTokensPath, 'utf8'));
+      if (Array.isArray(allTokens)) {
+        const remaining = allTokens.filter((t) => t.email?.toLowerCase() !== targetCust.email.toLowerCase());
+        fs.writeFileSync(resetTokensPath, JSON.stringify(remaining, null, 2), 'utf8');
+      }
+    }
+  } catch {}
+
   return true;
+}
+
+/**
+ * Bulk delete customers with cascading cleanup
+ */
+export function bulkDeleteCustomers(ids: string[]): {
+  success: boolean;
+  deletedCount: number;
+  failedCount: number;
+  errors: string[];
+} {
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return { success: false, deletedCount: 0, failedCount: 0, errors: ['No customer IDs provided.'] };
+  }
+
+  let deletedCount = 0;
+  let failedCount = 0;
+  const errors: string[] = [];
+
+  for (const id of ids) {
+    try {
+      const cust = getServerCustomerById(id);
+      if (!cust) {
+        failedCount++;
+        errors.push(`Customer ${id} not found.`);
+        continue;
+      }
+      if (cust.role === 'ADMIN') {
+        failedCount++;
+        errors.push(`Customer ${cust.email} is an administrator and cannot be bulk deleted.`);
+        continue;
+      }
+      const ok = deleteCustomer(id);
+      if (ok) {
+        deletedCount++;
+      } else {
+        failedCount++;
+        errors.push(`Failed to delete customer ${id}.`);
+      }
+    } catch (err: any) {
+      failedCount++;
+      errors.push(`Error deleting ${id}: ${err?.message || 'Unknown error'}`);
+    }
+  }
+
+  return {
+    success: deletedCount > 0,
+    deletedCount,
+    failedCount,
+    errors,
+  };
 }
 
 /**

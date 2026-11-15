@@ -32,6 +32,7 @@ export default function ProfilePage() {
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
+  const [customFields, setCustomFields] = useState<Record<string, any>>({});
   const [preferences, setPreferences] = useState<CustomerPreferences>({
     newsletterSubscribed: true,
     smsAlerts: true,
@@ -65,6 +66,9 @@ export default function ProfilePage() {
             setFullName(data.customer.fullName || '');
             setEmail(data.customer.email || '');
             setPhone(data.customer.phone || '');
+            if (data.customer.customFields) {
+              setCustomFields(data.customer.customFields);
+            }
             if (data.customer.preferences) {
               setPreferences({
                 newsletterSubscribed: data.customer.preferences.newsletterSubscribed ?? true,
@@ -372,6 +376,27 @@ export default function ProfilePage() {
                   </label>
                 </div>
               </div>
+
+              {/* Additional Registration Information */}
+              {Object.keys(customFields).length > 0 && (
+                <div className="space-y-3 pt-4 border-t border-border">
+                  <h3 className="font-display text-sm font-bold text-primary uppercase tracking-wider">
+                    Additional Registration Information
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-surface-dim/40 p-4 rounded-2xl border border-border">
+                    {Object.entries(customFields).map(([k, v]) => (
+                      <div key={k} className="space-y-0.5 text-xs">
+                        <span className="font-semibold text-muted capitalize block">
+                          {k.replace(/([A-Z])/g, ' $1')}:
+                        </span>
+                        <span className="font-medium text-primary block">
+                          {typeof v === 'boolean' ? (v ? 'Yes' : 'No') : String(v || '-')}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="pt-2 flex justify-end">
                 <button

@@ -24,6 +24,7 @@ export async function POST(req: NextRequest) {
       email: String(email || ''),
       phone: phone ? String(phone) : '',
       password: String(password || ''),
+      customFields: body.customFields && typeof body.customFields === 'object' ? body.customFields : undefined,
       registrationSource: source === 'CHECKOUT' ? 'CHECKOUT' : 'REGISTER_PAGE',
       redirectPath: typeof redirectPath === 'string' ? redirectPath : undefined,
       origin,

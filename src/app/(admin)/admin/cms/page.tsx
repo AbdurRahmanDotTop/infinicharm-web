@@ -22,6 +22,10 @@ import {
   SpotlightCardItem,
   SourcingCenterCardItem,
   ContactSettings,
+  RegistrationFormSettings,
+  RegistrationFormField,
+  RegistrationFieldType,
+  RegistrationFormFieldOption,
 } from '@/types';
 import { CATEGORIES } from '@/lib/constants/categories';
 import { logAdminAction } from '@/lib/services/audit';
@@ -57,6 +61,11 @@ import {
   Bell,
   Phone,
   Mail,
+  UserPlus,
+  AlertCircle,
+  Loader2,
+  CheckSquare,
+  Square,
 } from 'lucide-react';
 
 interface HeroBannerConfig {
@@ -70,11 +79,33 @@ interface HeroBannerConfig {
 }
 
 export default function AdminCmsPage() {
-  const [activeTab, setActiveTab] = useState<'HOMEPAGE' | 'BLOG' | 'HERO' | 'POLICIES' | 'CONTACT'>('HOMEPAGE');
+  const [activeTab, setActiveTab] = useState<'HOMEPAGE' | 'BLOG' | 'HERO' | 'POLICIES' | 'CONTACT' | 'REGISTRATION'>('HOMEPAGE');
   const [posts, setPosts] = useState<BlogPost[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddPostModal, setShowAddPostModal] = useState(false);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
+
+  // Registration Form Builder State
+  const [regSettings, setRegSettings] = useState<RegistrationFormSettings | null>(null);
+  const [isLoadingReg, setIsLoadingReg] = useState(false);
+  const [isSavingReg, setIsSavingReg] = useState(false);
+  const [regSuccessMsg, setRegSuccessMsg] = useState<string | null>(null);
+  const [regErrorMsg, setRegErrorMsg] = useState<string | null>(null);
+
+  // Field Edit / Add Modal State
+  const [editingField, setEditingField] = useState<RegistrationFormField | null>(null);
+  const [showFieldModal, setShowFieldModal] = useState(false);
+  const [fieldKey, setFieldKey] = useState('');
+  const [fieldLabel, setFieldLabel] = useState('');
+  const [fieldType, setFieldType] = useState<RegistrationFieldType>('text');
+  const [fieldPlaceholder, setFieldPlaceholder] = useState('');
+  const [fieldDescription, setFieldDescription] = useState('');
+  const [fieldRequired, setFieldRequired] = useState(false);
+  const [fieldEnabled, setFieldEnabled] = useState(true);
+  const [fieldMinLength, setFieldMinLength] = useState<number | ''>('');
+  const [fieldMaxLength, setFieldMaxLength] = useState<number | ''>('');
+  const [fieldPattern, setFieldPattern] = useState('');
+  const [fieldOptionsText, setFieldOptionsText] = useState('');
 
   // Contact Page Settings State
   const [contactSettings, setContactSettings] = useState<ContactSettings | null>(null);
@@ -203,6 +234,16 @@ export default function AdminCmsPage() {
       })
       .catch((err) => console.error('Failed to load contact settings:', err));
 
+    // Fetch registration form configuration
+    fetch('/api/admin/settings/registration-form', { cache: 'no-store' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.success && data?.settings) {
+          setRegSettings(data.settings);
+        }
+      })
+      .catch((err) => console.error('Failed to load registration settings:', err));
+
     try {
       const storedPosts = localStorage.getItem('infinicharm_cms_posts');
       if (storedPosts) {
@@ -258,6 +299,222 @@ export default function AdminCmsPage() {
       alert('Network error while saving contact settings.');
     } finally {
       setIsSavingContact(false);
+    }
+  };
+
+  // --------------------------------------------------------------------------
+  // REGISTRATION FORM BUILDER CONTROLLERS
+  // --------------------------------------------------------------------------
+  const fetchRegistrationSettings = useCallback(async () => {
+    setIsLoadingReg(true);
+    try {
+      const res = await fetch('/api/admin/settings/registration-form');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.settings) {
+          setRegSettings(data.settings);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch registration settings:', err);
+    } finally {
+      setIsLoadingReg(false);
+    }
+  }, []);
+
+  const handleSaveRegGeneralSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!regSettings) return;
+    setIsSavingReg(true);
+    setRegErrorMsg(null);
+    try {
+      const res = await fetch('/api/admin/settings/registration-form', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(regSettings),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || 'Failed to save settings.');
+      setRegSuccessMsg('Registration form configuration saved successfully.');
+      setTimeout(() => setRegSuccessMsg(null), 3500);
+      if (data.settings) setRegSettings(data.settings);
+    } catch (err: any) {
+      setRegErrorMsg(err?.message || 'Error saving registration settings.');
+    } finally {
+      setIsSavingReg(false);
+    }
+  };
+
+  const handleToggleFieldEnabled = async (field: RegistrationFormField) => {
+    if (!regSettings) return;
+    const updatedFields = regSettings.fields.map((f) =>
+      f.key === field.key ? { ...f, isEnabled: !f.isEnabled } : f
+    );
+    setRegSettings({ ...regSettings, fields: updatedFields });
+    try {
+      await fetch(`/api/admin/settings/registration-form/fields/${encodeURIComponent(field.key)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isEnabled: !field.isEnabled }),
+      });
+    } catch {
+      fetchRegistrationSettings();
+    }
+  };
+
+  const handleToggleFieldRequired = async (field: RegistrationFormField) => {
+    if (!regSettings || field.isSystemField) return;
+    const updatedFields = regSettings.fields.map((f) =>
+      f.key === field.key ? { ...f, required: !f.required } : f
+    );
+    setRegSettings({ ...regSettings, fields: updatedFields });
+    try {
+      await fetch(`/api/admin/settings/registration-form/fields/${encodeURIComponent(field.key)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ required: !field.required }),
+      });
+    } catch {
+      fetchRegistrationSettings();
+    }
+  };
+
+  const handleMoveField = async (index: number, direction: 'UP' | 'DOWN') => {
+    if (!regSettings) return;
+    const fields = [...regSettings.fields];
+    const targetIndex = direction === 'UP' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= fields.length) return;
+
+    const temp = fields[index];
+    fields[index] = fields[targetIndex];
+    fields[targetIndex] = temp;
+
+    fields.forEach((f, idx) => {
+      f.order = idx + 1;
+    });
+    setRegSettings({ ...regSettings, fields });
+
+    try {
+      await fetch('/api/admin/settings/registration-form/reorder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ keys: fields.map((f) => f.key) }),
+      });
+    } catch {
+      fetchRegistrationSettings();
+    }
+  };
+
+  const handleOpenAddField = () => {
+    setEditingField(null);
+    setFieldKey('');
+    setFieldLabel('');
+    setFieldType('text');
+    setFieldPlaceholder('');
+    setFieldDescription('');
+    setFieldRequired(false);
+    setFieldEnabled(true);
+    setFieldMinLength('');
+    setFieldMaxLength('');
+    setFieldPattern('');
+    setFieldOptionsText('');
+    setShowFieldModal(true);
+  };
+
+  const handleOpenEditField = (field: RegistrationFormField) => {
+    setEditingField(field);
+    setFieldKey(field.key);
+    setFieldLabel(field.label);
+    setFieldType(field.type);
+    setFieldPlaceholder(field.placeholder || '');
+    setFieldDescription(field.description || '');
+    setFieldRequired(field.required);
+    setFieldEnabled(field.isEnabled);
+    setFieldMinLength(field.validation?.minLength ?? '');
+    setFieldMaxLength(field.validation?.maxLength ?? '');
+    setFieldPattern(field.validation?.pattern || '');
+    setFieldOptionsText(
+      field.options ? field.options.map((o) => `${o.label}:${o.value}`).join('\n') : ''
+    );
+    setShowFieldModal(true);
+  };
+
+  const handleSaveField = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!fieldLabel.trim()) return;
+
+    let parsedOptions: RegistrationFormFieldOption[] | undefined = undefined;
+    if (['select', 'radio', 'checkbox'].includes(fieldType) && fieldOptionsText.trim()) {
+      parsedOptions = fieldOptionsText
+        .split('\n')
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .map((line) => {
+          if (line.includes(':')) {
+            const [lbl, val] = line.split(':');
+            return { label: lbl.trim(), value: val.trim() };
+          }
+          return { label: line, value: line.toLowerCase().replace(/[^a-z0-9]/g, '_') };
+        });
+    }
+
+    const payload: Partial<RegistrationFormField> = {
+      label: fieldLabel.trim(),
+      type: fieldType,
+      placeholder: fieldPlaceholder.trim() || undefined,
+      description: fieldDescription.trim() || undefined,
+      required: fieldRequired,
+      isEnabled: fieldEnabled,
+      options: parsedOptions,
+      validation: {
+        minLength: fieldMinLength !== '' ? Number(fieldMinLength) : undefined,
+        maxLength: fieldMaxLength !== '' ? Number(fieldMaxLength) : undefined,
+        pattern: fieldPattern.trim() || undefined,
+      },
+    };
+
+    try {
+      if (editingField) {
+        const res = await fetch(`/api/admin/settings/registration-form/fields/${encodeURIComponent(editingField.key)}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) throw new Error(data.error || 'Failed to update field.');
+      } else {
+        const generatedKey = fieldKey.trim() || fieldLabel.toLowerCase().replace(/[^a-z0-9]/g, '_');
+        const res = await fetch('/api/admin/settings/registration-form/fields', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...payload, key: generatedKey }),
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) throw new Error(data.error || 'Failed to create field.');
+      }
+
+      setShowFieldModal(false);
+      fetchRegistrationSettings();
+      setRegSuccessMsg('Registration field updated successfully.');
+      setTimeout(() => setRegSuccessMsg(null), 3500);
+    } catch (err: any) {
+      setRegErrorMsg(err?.message || 'Error saving registration field.');
+    }
+  };
+
+  const handleDeleteField = async (key: string) => {
+    if (!confirm(`Are you sure you want to permanently delete registration field "${key}"?`)) return;
+    try {
+      const res = await fetch(`/api/admin/settings/registration-form/fields/${encodeURIComponent(key)}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || 'Failed to delete field.');
+      fetchRegistrationSettings();
+      setRegSuccessMsg(`Field "${key}" deleted successfully.`);
+      setTimeout(() => setRegSuccessMsg(null), 3500);
+    } catch (err: any) {
+      setRegErrorMsg(err?.message || 'Error deleting field.');
     }
   };
 
@@ -987,6 +1244,18 @@ export default function AdminCmsPage() {
           >
             <Phone className="w-4 h-4" />
             <span>Public Contact Page</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('REGISTRATION')}
+            className={`px-4 py-2 rounded-xl transition-colors flex items-center gap-2 whitespace-nowrap ${
+              activeTab === 'REGISTRATION'
+                ? 'bg-primary text-white shadow-sm'
+                : 'text-muted hover:text-primary hover:bg-surface-dim'
+            }`}
+          >
+            <UserPlus className="w-4 h-4" />
+            <span>Registration Form Builder ({regSettings?.fields?.length || 6})</span>
           </button>
 
           <Link
@@ -1794,6 +2063,318 @@ export default function AdminCmsPage() {
               </form>
             ) : (
               <div className="py-12 text-center text-xs text-muted">Loading contact settings...</div>
+            )}
+          </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* TAB 6: REGISTRATION FORM BUILDER CMS                                     */}
+        {/* ========================================================================= */}
+        {activeTab === 'REGISTRATION' && (
+          <div className="space-y-6 max-w-5xl">
+            {/* Header & Subtitle */}
+            <div className="bg-surface rounded-2xl border border-border p-6 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h2 className="font-display text-lg sm:text-xl font-bold text-primary flex items-center gap-2">
+                  <UserPlus className="w-5 h-5 text-accent" />
+                  <span>Customer Registration Form Architecture</span>
+                </h2>
+                <p className="text-xs text-muted mt-1 leading-relaxed">
+                  Dynamic form builder for customer account registration (<code className="text-primary font-mono bg-surface-dim px-1.5 py-0.5 rounded">/register</code>). Add custom fields, toggle visibility, customize validation, and drag/reorder layout.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={handleOpenAddField}
+                  className="px-4 py-2 bg-accent hover:bg-accent-hover text-white text-xs font-bold rounded-xl flex items-center gap-2 shadow-xs transition-colors uppercase tracking-wider"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Add Custom Field</span>
+                </button>
+                <Link
+                  href="/register"
+                  target="_blank"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-surface-dim border border-border text-xs font-bold text-primary hover:text-accent hover:border-accent transition-colors"
+                >
+                  <span>Preview /register</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+            </div>
+
+            {/* Notifications */}
+            {regSuccessMsg && (
+              <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-900 font-medium flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>{regSuccessMsg}</span>
+              </div>
+            )}
+            {regErrorMsg && (
+              <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-900 font-medium flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                <span>{regErrorMsg}</span>
+              </div>
+            )}
+
+            {regSettings ? (
+              <>
+                {/* General Settings */}
+                <div className="bg-surface rounded-2xl border border-border p-6 shadow-sm space-y-4">
+                  <h3 className="font-display text-sm font-bold text-primary uppercase tracking-wider border-b border-border pb-2.5">
+                    Form Copy & Legal Agreement Configuration
+                  </h3>
+                  <form onSubmit={handleSaveRegGeneralSettings} className="space-y-4 text-xs">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div>
+                        <label className="block font-semibold text-primary mb-1">Page Headline</label>
+                        <input
+                          type="text"
+                          value={regSettings.title}
+                          onChange={(e) => setRegSettings({ ...regSettings, title: e.target.value })}
+                          className="w-full px-3 py-2 bg-surface-dim border border-border rounded-xl text-primary focus:outline-none focus:border-accent"
+                        />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <label className="block font-semibold text-primary mb-1">Page Tagline / Subtitle</label>
+                        <input
+                          type="text"
+                          value={regSettings.subtitle}
+                          onChange={(e) => setRegSettings({ ...regSettings, subtitle: e.target.value })}
+                          className="w-full px-3 py-2 bg-surface-dim border border-border rounded-xl text-primary focus:outline-none focus:border-accent"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div>
+                        <label className="block font-semibold text-primary mb-1">Submit Button Label</label>
+                        <input
+                          type="text"
+                          value={regSettings.submitButtonText}
+                          onChange={(e) => setRegSettings({ ...regSettings, submitButtonText: e.target.value })}
+                          className="w-full px-3 py-2 bg-surface-dim border border-border rounded-xl text-primary focus:outline-none focus:border-accent"
+                        />
+                      </div>
+                      <div>
+                        <label className="block font-semibold text-primary mb-1">Terms Link</label>
+                        <input
+                          type="text"
+                          value={regSettings.termsLink}
+                          onChange={(e) => setRegSettings({ ...regSettings, termsLink: e.target.value })}
+                          className="w-full px-3 py-2 bg-surface-dim border border-border rounded-xl text-primary focus:outline-none focus:border-accent font-mono text-[11px]"
+                        />
+                      </div>
+                      <div>
+                        <label className="block font-semibold text-primary mb-1">Privacy Policy Link</label>
+                        <input
+                          type="text"
+                          value={regSettings.privacyLink}
+                          onChange={(e) => setRegSettings({ ...regSettings, privacyLink: e.target.value })}
+                          className="w-full px-3 py-2 bg-surface-dim border border-border rounded-xl text-primary focus:outline-none focus:border-accent font-mono text-[11px]"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-border/60">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={regSettings.termsAgreementRequired}
+                          onChange={(e) => setRegSettings({ ...regSettings, termsAgreementRequired: e.target.checked })}
+                          className="rounded border-border text-accent focus:ring-accent"
+                        />
+                        <span className="font-semibold text-primary">Require Customer Agreement to Terms & Privacy Policy</span>
+                      </label>
+
+                      <button
+                        type="submit"
+                        disabled={isSavingReg}
+                        className="px-5 py-2 bg-primary hover:bg-primary-hover text-white rounded-xl font-bold text-xs flex items-center gap-1.5 transition-colors shadow-xs"
+                      >
+                        {isSavingReg ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                        <span>Save Copy Settings</span>
+                      </button>
+                    </div>
+                  </form>
+                </div>
+
+                {/* Form Fields Table */}
+                <div className="bg-surface rounded-2xl border border-border overflow-hidden shadow-sm">
+                  <div className="p-4 sm:p-5 border-b border-border flex items-center justify-between">
+                    <div>
+                      <h3 className="font-display text-sm font-bold text-primary uppercase tracking-wider">
+                        Form Fields & Sequence Architecture ({regSettings.fields.length} Fields)
+                      </h3>
+                      <p className="text-[11px] text-muted">
+                        Active fields render dynamically on the storefront in the sequence specified below.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-surface-dim border-b border-border text-muted font-bold uppercase tracking-wider text-[11px]">
+                        <tr>
+                          <th className="py-3 px-4 w-16 text-center">Order</th>
+                          <th className="py-3 px-4">Field Name & Key</th>
+                          <th className="py-3 px-4">Field Type</th>
+                          <th className="py-3 px-4">Validation</th>
+                          <th className="py-3 px-4 text-center">Mandatory</th>
+                          <th className="py-3 px-4 text-center">Storefront Status</th>
+                          <th className="py-3 px-4 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        {regSettings.fields.map((field, idx) => (
+                          <tr key={field.key} className="hover:bg-surface-dim/40 transition-colors">
+                            <td className="py-3.5 px-4 text-center font-bold text-muted">
+                              <div className="flex items-center justify-center gap-1">
+                                <span className="font-mono text-xs">{field.order}</span>
+                                <div className="flex flex-col gap-0.5">
+                                  <button
+                                    type="button"
+                                    disabled={idx === 0}
+                                    onClick={() => handleMoveField(idx, 'UP')}
+                                    className="p-0.5 hover:text-accent disabled:opacity-20 text-muted"
+                                    title="Move Up"
+                                  >
+                                    <ArrowUp className="w-3 h-3" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={idx === regSettings.fields.length - 1}
+                                    onClick={() => handleMoveField(idx, 'DOWN')}
+                                    className="p-0.5 hover:text-accent disabled:opacity-20 text-muted"
+                                    title="Move Down"
+                                  >
+                                    <ArrowDown className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              </div>
+                            </td>
+
+                            <td className="py-3.5 px-4">
+                              <div className="space-y-0.5">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-bold text-primary">{field.label}</span>
+                                  {field.isSystemField && (
+                                    <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-zinc-100 text-zinc-700 border border-zinc-200">
+                                      System Critical
+                                    </span>
+                                  )}
+                                </div>
+                                <span className="font-mono text-[10px] text-muted block">key: {field.key}</span>
+                                {field.description && (
+                                  <p className="text-[10px] text-secondary italic max-w-xs truncate">{field.description}</p>
+                                )}
+                              </div>
+                            </td>
+
+                            <td className="py-3.5 px-4">
+                              <span className="px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider bg-surface-dim border border-border text-primary">
+                                {field.type}
+                              </span>
+                              {field.options && field.options.length > 0 && (
+                                <span className="text-[10px] text-muted block mt-1 font-mono">
+                                  {field.options.length} options configured
+                                </span>
+                              )}
+                            </td>
+
+                            <td className="py-3.5 px-4">
+                              <div className="text-[11px] text-muted space-y-0.5">
+                                {field.validation?.minLength && (
+                                  <span>min: {field.validation.minLength} chars </span>
+                                )}
+                                {field.validation?.maxLength && (
+                                  <span>max: {field.validation.maxLength} chars </span>
+                                )}
+                                {field.validation?.pattern && (
+                                  <span className="block font-mono text-[9px] text-accent truncate max-w-[120px]" title={field.validation.pattern}>
+                                    regex: {field.validation.pattern}
+                                  </span>
+                                )}
+                                {!field.validation?.minLength && !field.validation?.maxLength && !field.validation?.pattern && (
+                                  <span className="italic text-muted">Standard</span>
+                                )}
+                              </div>
+                            </td>
+
+                            <td className="py-3.5 px-4 text-center">
+                              {field.isSystemField && ['fullName', 'email', 'password', 'confirmPassword'].includes(field.key) ? (
+                                <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-100 text-amber-800">
+                                  Required (Locked)
+                                </span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleFieldRequired(field)}
+                                  className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider transition-colors ${
+                                    field.required
+                                      ? 'bg-rose-100 text-rose-800'
+                                      : 'bg-surface-dim text-muted hover:text-primary'
+                                  }`}
+                                >
+                                  {field.required ? 'Required' : 'Optional'}
+                                </button>
+                              )}
+                            </td>
+
+                            <td className="py-3.5 px-4 text-center">
+                              <button
+                                type="button"
+                                onClick={() => handleToggleFieldEnabled(field)}
+                                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider transition-colors ${
+                                  field.isEnabled
+                                    ? 'bg-emerald-100 text-emerald-800'
+                                    : 'bg-zinc-100 text-zinc-500 hover:text-primary'
+                                }`}
+                              >
+                                <span className={`w-1.5 h-1.5 rounded-full ${field.isEnabled ? 'bg-emerald-600' : 'bg-zinc-400'}`} />
+                                <span>{field.isEnabled ? 'Active' : 'Disabled'}</span>
+                              </button>
+                            </td>
+
+                            <td className="py-3.5 px-4 text-right">
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenEditField(field)}
+                                  className="p-1.5 hover:bg-surface-dim text-primary rounded-lg transition-colors"
+                                  title="Edit field settings"
+                                >
+                                  <Edit2 className="w-3.5 h-3.5" />
+                                </button>
+                                {!field.isSystemField ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteField(field.key)}
+                                    className="p-1.5 hover:bg-rose-50 text-rose-600 rounded-lg transition-colors"
+                                    title="Delete custom field"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                ) : (
+                                  <span className="p-1.5 text-muted opacity-30 cursor-not-allowed" title="System field cannot be deleted">
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="py-12 text-center text-xs text-muted">
+                <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-accent" />
+                <span>Loading registration form configuration...</span>
+              </div>
             )}
           </div>
         )}
@@ -3431,6 +4012,200 @@ export default function AdminCmsPage() {
                     className="px-5 py-2 bg-accent hover:bg-accent-hover text-white font-bold rounded-xl shadow-xs"
                   >
                     {editingHeroItem ? 'Update Card' : 'Add Card'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* MODAL: ADD / EDIT REGISTRATION FIELD                                      */}
+        {/* ========================================================================= */}
+        {showFieldModal && (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+            <div className="bg-surface border border-border rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between border-b border-border pb-3">
+                <div>
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-muted">
+                    Registration Form Builder
+                  </span>
+                  <h3 className="font-display text-lg font-bold text-primary">
+                    {editingField ? `Edit Field: ${editingField.label}` : 'Create New Registration Field'}
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowFieldModal(false)}
+                  className="p-2 text-muted hover:text-primary rounded-xl hover:bg-surface-dim transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveField} className="space-y-4 text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-semibold text-primary mb-1">Field Label *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. How Did You Discover InfiniCharm?"
+                      value={fieldLabel}
+                      onChange={(e) => {
+                        setFieldLabel(e.target.value);
+                        if (!editingField && !fieldKey) {
+                          setFieldKey(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '_'));
+                        }
+                      }}
+                      className="w-full px-3 py-2 bg-surface-dim border border-border rounded-xl text-primary focus:outline-none focus:border-accent"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-primary mb-1">
+                      Field Key {editingField?.isSystemField && '(Locked)'}
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      disabled={Boolean(editingField?.isSystemField)}
+                      placeholder="e.g. hearAboutUs"
+                      value={fieldKey}
+                      onChange={(e) => setFieldKey(e.target.value.replace(/[^a-zA-Z0-9_]/g, ''))}
+                      className="w-full px-3 py-2 bg-surface-dim border border-border rounded-xl text-primary font-mono text-xs focus:outline-none focus:border-accent disabled:opacity-50"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-semibold text-primary mb-1">Field Type</label>
+                    <select
+                      value={fieldType}
+                      disabled={Boolean(editingField?.isSystemField)}
+                      onChange={(e) => setFieldType(e.target.value as RegistrationFieldType)}
+                      className="w-full px-3 py-2 bg-surface-dim border border-border rounded-xl text-primary text-xs focus:outline-none focus:border-accent disabled:opacity-50"
+                    >
+                      <option value="text">Text (Single Line)</option>
+                      <option value="textarea">Textarea (Multi-Line)</option>
+                      <option value="email">Email</option>
+                      <option value="phone">Mobile Phone</option>
+                      <option value="number">Number</option>
+                      <option value="select">Dropdown Select</option>
+                      <option value="radio">Radio Choice</option>
+                      <option value="checkbox">Checkbox (Boolean)</option>
+                      <option value="date">Date Picker</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-primary mb-1">Placeholder Text</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Select an option or enter details..."
+                      value={fieldPlaceholder}
+                      onChange={(e) => setFieldPlaceholder(e.target.value)}
+                      className="w-full px-3 py-2 bg-surface-dim border border-border rounded-xl text-primary focus:outline-none focus:border-accent"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-primary mb-1">Description / Helper Text</label>
+                  <input
+                    type="text"
+                    placeholder="Helper text displayed underneath the field input"
+                    value={fieldDescription}
+                    onChange={(e) => setFieldDescription(e.target.value)}
+                    className="w-full px-3 py-2 bg-surface-dim border border-border rounded-xl text-primary focus:outline-none focus:border-accent"
+                  />
+                </div>
+
+                {['select', 'radio', 'checkbox'].includes(fieldType) && (
+                  <div className="p-3 bg-surface-dim rounded-xl border border-border space-y-2">
+                    <label className="block font-semibold text-primary">
+                      Options List (one per line, format: <code className="text-accent">Label:value</code> or just <code className="text-accent">Label</code>)
+                    </label>
+                    <textarea
+                      rows={4}
+                      value={fieldOptionsText}
+                      onChange={(e) => setFieldOptionsText(e.target.value)}
+                      placeholder="Google Search:google&#10;Instagram:instagram&#10;Friend Recommendation:referral&#10;YouTube:youtube"
+                      className="w-full px-3 py-2 bg-surface border border-border rounded-xl text-primary font-mono text-xs focus:outline-none focus:border-accent"
+                    />
+                  </div>
+                )}
+
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="block font-semibold text-primary mb-1">Min Length</label>
+                    <input
+                      type="number"
+                      placeholder="e.g. 2"
+                      value={fieldMinLength}
+                      onChange={(e) => setFieldMinLength(e.target.value ? Number(e.target.value) : '')}
+                      className="w-full px-3 py-2 bg-surface-dim border border-border rounded-xl text-primary focus:outline-none focus:border-accent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-primary mb-1">Max Length</label>
+                    <input
+                      type="number"
+                      placeholder="e.g. 100"
+                      value={fieldMaxLength}
+                      onChange={(e) => setFieldMaxLength(e.target.value ? Number(e.target.value) : '')}
+                      className="w-full px-3 py-2 bg-surface-dim border border-border rounded-xl text-primary focus:outline-none focus:border-accent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-primary mb-1">Regex Pattern</label>
+                    <input
+                      type="text"
+                      placeholder="^[a-zA-Z0-9]+$"
+                      value={fieldPattern}
+                      onChange={(e) => setFieldPattern(e.target.value)}
+                      className="w-full px-3 py-2 bg-surface-dim border border-border rounded-xl text-primary font-mono text-[11px] focus:outline-none focus:border-accent"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-6 pt-2 border-t border-border">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={fieldRequired}
+                      disabled={Boolean(editingField?.isSystemField && ['fullName', 'email', 'password', 'confirmPassword'].includes(editingField.key))}
+                      onChange={(e) => setFieldRequired(e.target.checked)}
+                      className="rounded border-border text-accent focus:ring-accent"
+                    />
+                    <span className="font-semibold text-primary">Mandatory Field</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={fieldEnabled}
+                      onChange={(e) => setFieldEnabled(e.target.checked)}
+                      className="rounded border-border text-accent focus:ring-accent"
+                    />
+                    <span className="font-semibold text-primary">Enabled on Storefront</span>
+                  </label>
+                </div>
+
+                <div className="flex justify-end gap-2.5 pt-3 border-t border-border">
+                  <button
+                    type="button"
+                    onClick={() => setShowFieldModal(false)}
+                    className="px-4 py-2 bg-surface-dim hover:bg-border text-primary rounded-xl font-medium text-xs transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 bg-accent hover:bg-accent-hover text-white font-bold rounded-xl text-xs shadow-xs transition-colors"
+                  >
+                    {editingField ? 'Save Changes' : 'Create Field'}
                   </button>
                 </div>
               </form>

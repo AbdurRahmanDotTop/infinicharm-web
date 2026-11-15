@@ -183,6 +183,7 @@ export async function registerCustomerAccount(input: {
   email: string;
   phone?: string;
   password: string;
+  customFields?: Record<string, any>;
   registrationSource?: 'REGISTER_PAGE' | 'CHECKOUT';
   redirectPath?: string | null;
   origin: string;
@@ -262,6 +263,7 @@ export async function registerCustomerAccount(input: {
     emailVerified: !requiresVerification,
     emailVerifiedAt: !requiresVerification ? new Date().toISOString() : null,
     registrationSource: source,
+    customFields: input.customFields,
   });
 
   if (requiresVerification) {

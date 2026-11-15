@@ -1,0 +1,146 @@
+{
+  "title": "Create Your Account",
+  "subtitle": "Join the InfiniCharm Circle for pure batch living, expedited checkout, and tracking.",
+  "submitButtonText": "Create InfiniCharm Account",
+  "termsAgreementRequired": true,
+  "termsText": "I agree to the Terms of Service and acknowledge the Privacy Policy (DPDP Act).",
+  "termsLink": "/policies/terms",
+  "privacyLink": "/policies/privacy",
+  "fields": [
+    {
+      "id": "field-fullname",
+      "key": "fullName",
+      "label": "Full Name",
+      "type": "text",
+      "placeholder": "Aarav Sharma",
+      "description": "Your official legal or personal name for parcel delivery",
+      "required": true,
+      "isEnabled": true,
+      "order": 1,
+      "section": "personal",
+      "isSystemField": true,
+      "validation": {
+        "minLength": 2,
+        "maxLength": 100
+      }
+    },
+    {
+      "id": "field-email",
+      "key": "email",
+      "label": "Email Address",
+      "type": "email",
+      "placeholder": "aarav@example.com",
+      "description": "Your primary account identifier and dispatch notification channel",
+      "required": true,
+      "isEnabled": true,
+      "order": 2,
+      "section": "account",
+      "isSystemField": true,
+      "validation": {
+        "minLength": 5,
+        "maxLength": 120
+      }
+    },
+    {
+      "id": "field-phone",
+      "key": "phone",
+      "label": "Mobile Phone (Optional)",
+      "type": "phone",
+      "placeholder": "+91 98765 43210",
+      "description": "Used for courier SMS and WhatsApp delivery tracking notifications",
+      "required": false,
+      "isEnabled": true,
+      "order": 3,
+      "section": "personal",
+      "isSystemField": false,
+      "validation": {
+        "pattern": "^[+0-9\\s-]{10,15}$"
+      }
+    },
+    {
+      "id": "field-password",
+      "key": "password",
+      "label": "Password",
+      "type": "password",
+      "placeholder": "Create a strong password",
+      "description": "Must be at least 8 characters with letters, numbers, and symbols",
+      "required": true,
+      "isEnabled": true,
+      "order": 4,
+      "section": "account",
+      "isSystemField": true,
+      "validation": {
+        "minLength": 8,
+        "maxLength": 128
+      }
+    },
+    {
+      "id": "field-confirm-password",
+      "key": "confirmPassword",
+      "label": "Confirm Password",
+      "type": "password",
+      "placeholder": "Re-enter your password",
+      "description": "Confirm your password to ensure accurate typing",
+      "required": true,
+      "isEnabled": true,
+      "order": 5,
+      "section": "account",
+      "isSystemField": true,
+      "validation": {
+        "minLength": 8,
+        "maxLength": 128
+      }
+    },
+    {
+      "id": "field-hear-about-us",
+      "key": "hearAboutUs",
+      "label": "How Did You Discover InfiniCharm?",
+      "type": "select",
+      "placeholder": "Select an option",
+      "description": "Helps us improve our craft and artisan reach across India",
+      "required": false,
+      "isEnabled": true,
+      "order": 6,
+      "section": "additional",
+      "isSystemField": false,
+      "options": [
+        {
+          "label": "Google Search / Organic",
+          "value": "google"
+        },
+        {
+          "label": "Instagram / Social Media",
+          "value": "instagram"
+        },
+        {
+          "label": "Word of Mouth / Recommendation",
+          "value": "referral"
+        },
+        {
+          "label": "YouTube / Reviews",
+          "value": "youtube"
+        },
+        {
+          "label": "Press / News Feature",
+          "value": "press"
+        },
+        {
+          "label": "Other",
+          "value": "other"
+        }
+      ]
+    },
+    {
+      "key": "test_company_1794714768181",
+      "label": "Company Name",
+      "type": "text",
+      "placeholder": "Acme Inc.",
+      "required": false,
+      "isEnabled": true,
+      "id": "field-1794714768181-787",
+      "order": 7,
+      "isSystemField": false
+    }
+  ],
+  "updatedAt": "2026-11-15T03:53:43.677Z"
+}

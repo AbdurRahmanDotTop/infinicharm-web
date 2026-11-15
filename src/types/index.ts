@@ -327,6 +327,7 @@ export interface Customer {
   preferences: CustomerPreferences;
   addresses: CustomerAddress[];
   wishlistProductIds: string[];
+  customFields?: Record<string, any>;
   createdAt: string;
   updatedAt: string;
   lastLoginAt?: string;
@@ -363,6 +364,58 @@ export interface AuthSettings {
 }
 
 export type PublicAuthSettings = Omit<AuthSettings, 'updatedBy'>;
+
+export type RegistrationFieldType =
+  | 'text'
+  | 'textarea'
+  | 'email'
+  | 'phone'
+  | 'number'
+  | 'password'
+  | 'select'
+  | 'radio'
+  | 'checkbox'
+  | 'date';
+
+export interface RegistrationFormFieldOption {
+  label: string;
+  value: string;
+}
+
+export interface RegistrationFormField {
+  id: string;
+  key: string;
+  label: string;
+  type: RegistrationFieldType;
+  placeholder?: string;
+  description?: string;
+  required: boolean;
+  isEnabled: boolean;
+  order: number;
+  section?: 'account' | 'personal' | 'preferences' | 'additional';
+  isSystemField?: boolean;
+  validation?: {
+    minLength?: number;
+    maxLength?: number;
+    pattern?: string;
+    min?: number;
+    max?: number;
+  };
+  options?: RegistrationFormFieldOption[];
+  defaultValue?: string | boolean | number;
+}
+
+export interface RegistrationFormSettings {
+  title: string;
+  subtitle: string;
+  submitButtonText: string;
+  termsAgreementRequired: boolean;
+  termsText: string;
+  termsLink: string;
+  privacyLink: string;
+  fields: RegistrationFormField[];
+  updatedAt?: string;
+}
 
 export interface OrderItem {
   id: string;

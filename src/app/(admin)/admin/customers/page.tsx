@@ -33,6 +33,9 @@ import {
   Filter,
   Heart,
   KeyRound,
+  Loader2,
+  CheckSquare,
+  Square,
 } from 'lucide-react';
 
 export default function AdminCustomersPage() {
@@ -52,6 +55,11 @@ export default function AdminCustomersPage() {
   const [editingCustomer, setEditingCustomer] = useState<CustomerSummary | null>(null);
   const [deletingCustomerId, setDeletingCustomerId] = useState<string | null>(null);
   const [addressModalCustomer, setAddressModalCustomer] = useState<CustomerSummary | null>(null);
+
+  // Bulk Actions State
+  const [selectedCustomerIds, setSelectedCustomerIds] = useState<Set<string>>(new Set());
+  const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
 
   // Notifications
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -261,6 +269,52 @@ export default function AdminCustomersPage() {
       fetchCustomers();
     } catch (err: any) {
       setErrorMsg(err?.message || 'Error deleting customer.');
+    }
+  };
+
+  const toggleSelectCustomer = (id: string) => {
+    setSelectedCustomerIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedCustomerIds.size === filteredCustomers.length && filteredCustomers.length > 0) {
+      setSelectedCustomerIds(new Set());
+    } else {
+      setSelectedCustomerIds(new Set(filteredCustomers.map((c) => c.id)));
+    }
+  };
+
+  const clearSelection = () => {
+    setSelectedCustomerIds(new Set());
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedCustomerIds.size === 0) return;
+    setIsBulkDeleting(true);
+    try {
+      const res = await fetch('/api/admin/customers/bulk-delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customerIds: Array.from(selectedCustomerIds) }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Failed to complete bulk deletion.');
+      }
+      setSuccessMsg(`Successfully deleted ${data.deletedCount} customer account(s).`);
+      setTimeout(() => setSuccessMsg(null), 3500);
+      setShowBulkDeleteModal(false);
+      clearSelection();
+      fetchCustomers();
+    } catch (err: any) {
+      setErrorMsg(err?.message || 'Error processing bulk customer deletion.');
+    } finally {
+      setIsBulkDeleting(false);
     }
   };
 
@@ -619,18 +673,27 @@ export default function AdminCustomersPage() {
                     className="bg-surface rounded-2xl border border-border p-4 shadow-sm space-y-3 text-xs"
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <h3 className="font-bold text-primary text-sm truncate">{cust.fullName}</h3>
-                        <p className="text-muted font-mono text-[11px] flex items-center gap-1 break-all mt-0.5">
-                          <Mail className="w-3 h-3 text-accent shrink-0" />
-                          <span>{cust.email}</span>
-                        </p>
-                        {cust.phone && (
-                          <p className="text-muted text-[11px] flex items-center gap-1 mt-0.5">
-                            <Phone className="w-3 h-3 text-accent shrink-0" />
-                            <span>{cust.phone}</span>
+                      <div className="flex items-start gap-2.5 min-w-0">
+                        <input
+                          type="checkbox"
+                          checked={selectedCustomerIds.has(cust.id)}
+                          onChange={() => toggleSelectCustomer(cust.id)}
+                          className="mt-1 rounded border-border text-accent focus:ring-accent"
+                          aria-label={`Select ${cust.fullName}`}
+                        />
+                        <div className="min-w-0">
+                          <h3 className="font-bold text-primary text-sm truncate">{cust.fullName}</h3>
+                          <p className="text-muted font-mono text-[11px] flex items-center gap-1 break-all mt-0.5">
+                            <Mail className="w-3 h-3 text-accent shrink-0" />
+                            <span>{cust.email}</span>
                           </p>
-                        )}
+                          {cust.phone && (
+                            <p className="text-muted text-[11px] flex items-center gap-1 mt-0.5">
+                              <Phone className="w-3 h-3 text-accent shrink-0" />
+                              <span>{cust.phone}</span>
+                            </p>
+                          )}
+                        </div>
                       </div>
                       <div className="text-right shrink-0 space-y-1">
                         <span
@@ -731,6 +794,15 @@ export default function AdminCustomersPage() {
                 <table className="w-full text-left text-xs">
                 <thead className="bg-surface-dim border-b border-border text-muted font-bold uppercase tracking-wider text-[11px]">
                   <tr>
+                    <th className="py-3 px-4 w-10 text-center">
+                      <input
+                        type="checkbox"
+                        checked={selectedCustomerIds.size === filteredCustomers.length && filteredCustomers.length > 0}
+                        onChange={toggleSelectAll}
+                        className="rounded border-border text-accent focus:ring-accent"
+                        aria-label="Select all customers"
+                      />
+                    </th>
                     <th className="py-3 px-4">Customer Name & Contact</th>
                     <th className="py-3 px-4">Status & Security</th>
                     <th className="py-3 px-4">Primary Address</th>
@@ -743,7 +815,16 @@ export default function AdminCustomersPage() {
                   {filteredCustomers.map((cust) => {
                     const primaryAddr = cust.addresses?.find((a) => a.isDefaultShipping) || cust.addresses?.[0];
                     return (
-                      <tr key={cust.id} className="hover:bg-surface-dim/40 transition-colors">
+                      <tr key={cust.id} className={`hover:bg-surface-dim/40 transition-colors ${selectedCustomerIds.has(cust.id) ? 'bg-accent/5' : ''}`}>
+                        <td className="py-4 px-4 w-10 text-center">
+                          <input
+                            type="checkbox"
+                            checked={selectedCustomerIds.has(cust.id)}
+                            onChange={() => toggleSelectCustomer(cust.id)}
+                            className="rounded border-border text-accent focus:ring-accent"
+                            aria-label={`Select ${cust.fullName}`}
+                          />
+                        </td>
                         <td className="py-4 px-4">
                           <div className="space-y-0.5">
                             <span className="font-bold text-primary block text-sm">
@@ -1118,6 +1199,24 @@ export default function AdminCustomersPage() {
                   </div>
                 )}
               </div>
+
+              {/* Custom Registration Fields */}
+              {selectedCustomer.customFields && Object.keys(selectedCustomer.customFields).length > 0 && (
+                <div className="space-y-2 pt-3 border-t border-border">
+                  <h4 className="text-xs font-bold text-primary uppercase tracking-wider flex items-center gap-1.5">
+                    <FileText className="w-3.5 h-3.5 text-accent" />
+                    <span>Custom Registration Information</span>
+                  </h4>
+                  <div className="bg-surface-dim/80 p-3.5 rounded-xl border border-border space-y-2 text-xs">
+                    {Object.entries(selectedCustomer.customFields).map(([k, v]) => (
+                      <div key={k} className="flex items-center justify-between text-[11px] py-1 border-b border-border/40 last:border-none">
+                        <span className="font-semibold text-muted capitalize">{k.replace(/([A-Z])/g, ' $1')}:</span>
+                        <span className="font-bold text-primary">{typeof v === 'boolean' ? (v ? 'Yes' : 'No') : String(v || '-')}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Customer Actions & Governance */}
               <div className="pt-4 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-2.5">
@@ -1547,11 +1646,11 @@ export default function AdminCustomersPage() {
               </div>
 
               <div className="p-3.5 rounded-xl border border-rose-100 bg-rose-50/50 text-[11px] text-rose-900 space-y-2 leading-relaxed">
-                <p className="font-semibold">Notice of Data Anonymization & Cleanup (Complete Purge):</p>
+                <p className="font-semibold">Notice of Data Anonymization & Cleanup:</p>
                 <ul className="list-disc pl-4 space-y-1 text-muted text-[11px]">
-                  <li>Customer profile, contact records, and authentication credentials will be permanently erased.</li>
-                  <li>All associated orders, invoices, fulfillment items, and shipments will be completely deleted from Order Fulfillment.</li>
-                  <li>Address book records, reviews, ratings, and saved wishlist items will be immediately purged across the application.</li>
+                  <li>Customer profile, contact details, active sessions, and authentication credentials will be permanently erased.</li>
+                  <li>Address book records, reviews, inquiries, newsletter entries, and saved wishlist items will be immediately purged across the application.</li>
+                  <li>In accordance with Indian tax (GST) and statutory audit requirements, financial invoice records will be retained with customer personal identifying information (PII) anonymized (DPDP Act compliant).</li>
                   <li>The customer will be permanently blocked from future logins.</li>
                 </ul>
               </div>
@@ -1570,6 +1669,112 @@ export default function AdminCustomersPage() {
                   className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-xs shadow-sm transition-colors"
                 >
                   Confirm Permanent Deletion
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Floating / Sticky Bulk Action Bar */}
+        {selectedCustomerIds.size > 0 && (
+          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-neutral-900 text-white px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-4 border border-neutral-700 animate-slide-up max-w-[95vw]">
+            <div className="flex items-center gap-2 text-xs font-bold whitespace-nowrap">
+              <span className="w-2.5 h-2.5 rounded-full bg-accent animate-pulse" />
+              <span>{selectedCustomerIds.size} customer{selectedCustomerIds.size === 1 ? '' : 's'} selected</span>
+            </div>
+            <div className="h-4 w-px bg-neutral-700 shrink-0" />
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowBulkDeleteModal(true)}
+                className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors shadow-xs whitespace-nowrap"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Delete Selected</span>
+              </button>
+              <button
+                type="button"
+                onClick={clearSelection}
+                className="px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 rounded-xl text-xs font-medium transition-colors whitespace-nowrap"
+              >
+                Deselect All
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Bulk Delete Confirmation Modal */}
+        {showBulkDeleteModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-neutral-900/60 backdrop-blur-sm animate-fade-in">
+            <div className="bg-surface rounded-3xl border border-border p-6 max-w-lg w-full shadow-2xl space-y-4">
+              <div className="flex items-center gap-3 text-rose-600">
+                <div className="p-2.5 rounded-2xl bg-rose-50 border border-rose-200">
+                  <Trash2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-display text-base font-bold text-primary">
+                    Bulk Delete {selectedCustomerIds.size} Customer Accounts
+                  </h3>
+                  <p className="text-[11px] text-muted">
+                    Irreversible deletion with statutory order PII anonymization
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-3.5 bg-rose-50/50 border border-rose-200/60 rounded-2xl text-xs space-y-2 text-rose-950">
+                <p className="font-semibold text-rose-800">
+                  You are about to delete {selectedCustomerIds.size} customer account(s).
+                </p>
+                <ul className="list-disc pl-4 text-[11px] text-muted space-y-1">
+                  <li>Profiles, saved addresses, wishlist items, active sessions, and carts will be permanently erased.</li>
+                  <li>In accordance with Indian tax (GST) and statutory audit requirements, invoice records will be retained with customer personal details anonymized (DPDP Act compliant).</li>
+                  <li>Administrator accounts cannot be deleted.</li>
+                </ul>
+              </div>
+
+              <div className="max-h-36 overflow-y-auto space-y-1.5 bg-surface-dim p-2.5 rounded-xl border border-border text-xs">
+                {filteredCustomers
+                  .filter((c) => selectedCustomerIds.has(c.id))
+                  .slice(0, 5)
+                  .map((c) => (
+                    <div key={c.id} className="flex items-center justify-between py-1 px-2 rounded bg-surface border border-border/50 text-[11px]">
+                      <span className="font-semibold text-primary">{c.fullName}</span>
+                      <span className="text-muted font-mono">{c.email}</span>
+                    </div>
+                  ))}
+                {selectedCustomerIds.size > 5 && (
+                  <p className="text-[10px] text-center text-muted italic">
+                    ... and {selectedCustomerIds.size - 5} more selected accounts
+                  </p>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-2.5 pt-2 border-t border-border">
+                <button
+                  type="button"
+                  onClick={() => setShowBulkDeleteModal(false)}
+                  disabled={isBulkDeleting}
+                  className="px-4 py-2 bg-surface-dim hover:bg-border text-primary rounded-xl font-medium text-xs transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleBulkDelete}
+                  disabled={isBulkDeleting}
+                  className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-xs shadow-sm transition-colors flex items-center gap-2"
+                >
+                  {isBulkDeleting ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Deleting Accounts...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Confirm Delete {selectedCustomerIds.size} Account(s)</span>
+                    </>
+                  )}
                 </button>
               </div>
             </div>

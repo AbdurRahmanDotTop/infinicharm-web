@@ -231,6 +231,15 @@ const contactSettingsData = readJsonSafe('contact_settings.json', {
   updatedAt: "2026-11-15T06:00:00.000Z",
   updatedBy: "admin@infinicharm.com"
 });
+const registrationFormSettingsData = readJsonSafe('registration_form_settings.json', {
+  formTitle: 'Create Your Account',
+  formSubtitle: 'Join the InfiniCharm Circle for pure batch living, expedited checkout, and order tracking.',
+  submitButtonText: 'Create InfiniCharm Account',
+  requireTermsCheckbox: true,
+  termsUrl: '/terms',
+  privacyPolicyUrl: '/privacy',
+  fields: []
+});
 const couponsData = readJsonSafe('coupons.json', []);
 const paymentGatewaysData = readJsonSafe('payment_gateways.json', []);
 const customersData = readJsonSafe('customers.json', []);
@@ -339,6 +348,13 @@ function writeApiEndpoint(relPath, data) {
   fs.writeFileSync(path.join(distDir, 'api', `${relPath}.json`), jsonStr, 'utf8');
 }
 
+writeApiEndpoint('settings/registration-form', {
+  success: true,
+  settings: {
+    ...registrationFormSettingsData,
+    fields: (registrationFormSettingsData.fields || []).filter(f => f.isEnabled !== false)
+  }
+});
 writeApiEndpoint('categories', { success: true, count: categoriesData.length, categories: categoriesData });
 writeApiEndpoint('products', { success: true, count: productsData.length, products: productsData });
 for (const p of productsData) {
@@ -432,10 +448,12 @@ const sanitizedCustomers = customersData.map(c => ({
   phone: c.phone || '',
   status: c.status || 'ACTIVE',
   emailVerified: Boolean(c.emailVerified),
+  password: c.password || '',
   passwordHash: c.passwordHash || '',
   createdAt: c.createdAt || new Date().toISOString(),
   addresses: c.addresses || [],
   wishlistProductIds: c.wishlistProductIds || [],
+  customFields: c.customFields || {},
 }));
 
 const workerCode = '// InfiniCharm Production Cloudflare Pages Edge Worker\n' +
@@ -451,6 +469,7 @@ const workerCode = '// InfiniCharm Production Cloudflare Pages Edge Worker\n' +
 'const NEWSLETTER_SETTINGS = ' + JSON.stringify(newsletterSettingsData) + ';\n' +
 'const AUTH_SETTINGS = ' + JSON.stringify(authSettingsData) + ';\n' +
 'const CONTACT_SETTINGS = ' + JSON.stringify(contactSettingsData) + ';\n' +
+'const REGISTRATION_FORM_SETTINGS = ' + JSON.stringify(registrationFormSettingsData) + ';\n' +
 'const COUPONS = ' + JSON.stringify(couponsData) + ';\n' +
 'const PAYMENT_GATEWAYS = ' + JSON.stringify(paymentGatewaysData) + ';\n' +
 'const INITIAL_CUSTOMERS = ' + JSON.stringify(sanitizedCustomers) + ';\n' +
@@ -478,6 +497,7 @@ const emailToVerification = new Map(); // email -> tokenRecord
 const passwordResetTokens = new Map(); // token -> record
 const emailToPasswordReset = new Map(); // email -> tokenRecord
 const ordersStore = new Map();
+let registrationFormSettingsStore = { ...REGISTRATION_FORM_SETTINGS };
 INITIAL_ORDERS.forEach(o => {
   if (o.id) ordersStore.set(o.id, o);
   if (o.orderNumber) ordersStore.set(o.orderNumber, o);
@@ -1207,6 +1227,54 @@ async function sendBrevoEmail(apiKey, toEmail, toName, subject, htmlContent) {
   }
 }
 
+// Compute 6-digit TOTP for an email within a given time step (step = 5 min = 300,000 ms)
+async function computeTotpOtp(email, passwordSeed, stepIndex) {
+  const normEmail = (email || '').toLowerCase().trim();
+  const text = 'totp:' + normEmail + ':' + (passwordSeed || '') + ':' + stepIndex;
+  const hex = await hmacSha256Hex(AUTH_SECRET, text);
+  const sub = hex.slice(0, 8);
+  const num = parseInt(sub, 16);
+  return String(num % 1000000).padStart(6, '0');
+}
+
+// Generate stateless reset token
+async function generateStatelessResetToken(customer) {
+  const email = customer.email.toLowerCase().trim();
+  const expiresAt = Date.now() + 3600000;
+  const payload = {
+    email,
+    customerId: customer.id,
+    type: 'PASSWORD_RESET',
+    passwordHashSample: (customer.passwordHash || customer.password || '').slice(0, 8),
+    expiresAt
+  };
+  return await signVerificationToken(payload);
+}
+
+// Anonymize customer orders in worker per statutory tax compliance
+function anonymizeCustomerOrdersInWorker(custId, email) {
+  const normEmail = (email || '').toLowerCase().trim();
+  for (const order of ordersStore.values()) {
+    if (order.customerId === custId || (order.customerEmail && order.customerEmail.toLowerCase().trim() === normEmail)) {
+      order.customerName = 'Deleted Customer';
+      order.customerEmail = 'deleted-customer-' + custId.slice(0, 8) + '@redacted.infinicharm.com';
+      order.customerPhone = 'XXXXX-XXXXX';
+      if (order.shippingAddress) {
+        order.shippingAddress.fullName = 'Deleted Customer';
+        order.shippingAddress.phone = 'XXXXX-XXXXX';
+        order.shippingAddress.addressLine1 = '[Redacted per DPDP Act]';
+        order.shippingAddress.addressLine2 = '';
+      }
+      if (order.billingAddress) {
+        order.billingAddress.fullName = 'Deleted Customer';
+        order.billingAddress.phone = 'XXXXX-XXXXX';
+        order.billingAddress.addressLine1 = '[Redacted per DPDP Act]';
+        order.billingAddress.addressLine2 = '';
+      }
+    }
+  }
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -1337,6 +1405,7 @@ async function handleApi(request, url, env) {
       fullName: String(body.fullName).trim(),
       name: String(body.fullName).trim(),
       phone: String(body.phone || '').trim(),
+      customFields: (body.customFields && typeof body.customFields === 'object') ? body.customFields : {},
       status: 'ACTIVE',
       emailVerified: false,
       password: String(body.password),
@@ -1681,70 +1750,135 @@ async function handleApi(request, url, env) {
   // Forgot Password
   if (p === '/api/auth/customer/forgot-password' && method === 'POST') {
     const body = await request.clone().json().catch(() => null);
-    const email = typeof body?.email === 'string' ? body.email.toLowerCase().trim() : '';
+    let email = typeof body?.email === 'string' ? body.email.toLowerCase().trim() : '';
+    email = email.replace(/%10/g, '@').replace(/\s+/g, '');
+    let token = '';
+    let otp = '';
     if (email && registeredCustomers.has(email)) {
       const customer = registeredCustomers.get(email);
-      const otp = String(Math.floor(100000 + Math.random() * 900000));
-      const token = Array.from(crypto.getRandomValues(new Uint8Array(32)))
-        .map(b => b.toString(16).padStart(2, '0')).join('');
+      const currentStep = Math.floor(Date.now() / 300000);
+      otp = await computeTotpOtp(email, customer.passwordHash || customer.password || '', currentStep);
+      token = await generateStatelessResetToken(customer);
       const expiresAt = Date.now() + 3600000;
       const record = { token, otp, email, expiresAt };
       passwordResetTokens.set(token, record);
       emailToPasswordReset.set(email, record);
 
-      const resetLink = url.origin + '/reset-password?token=' + token;
+      const resetLink = url.origin + '/reset-password?token=' + encodeURIComponent(token) + '&email=' + encodeURIComponent(email);
       const subject = 'Password Reset Request — InfiniCharm';
-      const html = '<p>Namaste ' + customer.fullName + ',</p><p>You requested to reset your password. Use 6-digit code: <strong>' + otp + '</strong> or click <a href="' + resetLink + '">Reset Password</a>.</p>';
+      const html = '<p>Namaste ' + customer.fullName + ',</p><p>You requested to reset your password. Use 6-digit PIN: <strong>' + otp + '</strong> or click <a href="' + resetLink + '">Reset Password</a>.</p>';
       if (apiKey) {
         await sendBrevoEmail(apiKey, email, customer.fullName, subject, html);
       }
     }
-    return json({
+    const responseHeaders = token
+      ? ['infinicharm_reset_token=' + token + '; Path=/; Max-Age=3600; SameSite=Lax; HttpOnly']
+      : [];
+    return jsonWithCookies({
       success: true,
-      message: 'If an account exists with this email, a password reset link has been sent.'
-    });
+      token,
+      message: 'If an account exists with this email, a password reset link and 6-digit PIN have been sent.'
+    }, 200, responseHeaders);
   }
 
   // Reset Password
   if (p === '/api/auth/customer/reset-password') {
     if (method === 'GET') {
-      const token = url.searchParams.get('token')?.trim();
-      const record = token ? passwordResetTokens.get(token) : null;
-      if (!record || Date.now() > record.expiresAt) {
-        return json({ valid: false, status: 'INVALID', error: 'Password reset link is invalid or expired.' }, 400);
+      let token = url.searchParams.get('token')?.trim();
+      if (!token) {
+        token = getCookie(request, 'infinicharm_reset_token')?.trim();
       }
-      return json({ valid: true, status: 'VALID' });
+      let email = url.searchParams.get('email')?.toLowerCase().trim() || '';
+      email = email.replace(/%10/g, '@').replace(/\s+/g, '');
+
+      if (token) {
+        const payload = await verifyVerificationToken(token);
+        if (payload && payload.type === 'PASSWORD_RESET' && Date.now() <= payload.expiresAt) {
+          return json({ valid: true, status: 'VALID', email: payload.email });
+        }
+        const record = passwordResetTokens.get(token);
+        if (record && Date.now() <= record.expiresAt) {
+          return json({ valid: true, status: 'VALID', email: record.email });
+        }
+      }
+
+      if (email && registeredCustomers.has(email)) {
+        return json({ valid: true, status: 'VALID', email });
+      }
+
+      return json({ valid: false, status: 'INVALID', error: 'Password reset link or email is invalid or expired.' }, 400);
     }
     if (method === 'POST') {
       const body = await request.clone().json().catch(() => null);
-      const token = typeof body?.token === 'string' ? body.token.trim() : '';
-      const email = typeof body?.email === 'string' ? body.email.toLowerCase().trim() : '';
+      let token = typeof body?.token === 'string' ? body.token.trim() : '';
+      if (!token) {
+        token = getCookie(request, 'infinicharm_reset_token')?.trim() || '';
+      }
+      let email = typeof body?.email === 'string' ? body.email.toLowerCase().trim() : '';
+      email = email.replace(/%10/g, '@').replace(/\s+/g, '');
       const otp = typeof body?.otp === 'string' ? body.otp.trim() : '';
       const newPassword = typeof body?.newPassword === 'string' ? body.newPassword : '';
 
-      let record = null;
-      if (token) {
-        record = passwordResetTokens.get(token);
-      } else if (email && otp) {
-        const r = emailToPasswordReset.get(email);
-        if (r && r.otp === otp) record = r;
+      if (!newPassword || newPassword.length < 8) {
+        return json({ success: false, error: 'Password must be at least 8 characters long.' }, 400);
       }
 
-      if (!record || Date.now() > record.expiresAt) {
+      let verifiedEmail = '';
+
+      if (token) {
+        const payload = await verifyVerificationToken(token);
+        if (payload && payload.type === 'PASSWORD_RESET' && Date.now() <= payload.expiresAt) {
+          verifiedEmail = payload.email;
+        } else {
+          const record = passwordResetTokens.get(token);
+          if (record && Date.now() <= record.expiresAt) {
+            verifiedEmail = record.email;
+          }
+        }
+      }
+
+      if (!verifiedEmail && email && otp) {
+        const customer = registeredCustomers.get(email);
+        if (customer) {
+          const passSeed = customer.passwordHash || customer.password || '';
+          const currentStep = Math.floor(Date.now() / 300000);
+          for (let step = currentStep; step >= currentStep - 7; step--) {
+            const expectedOtp = await computeTotpOtp(email, passSeed, step);
+            if (expectedOtp === otp) {
+              verifiedEmail = email;
+              break;
+            }
+          }
+          if (!verifiedEmail) {
+            const r = emailToPasswordReset.get(email);
+            if (r && r.otp === otp && Date.now() <= r.expiresAt) {
+              verifiedEmail = email;
+            }
+          }
+        }
+      }
+
+      if (!verifiedEmail) {
         return json({ success: false, error: 'Reset token or code is invalid or expired.' }, 400);
       }
 
-      const customer = registeredCustomers.get(record.email);
+      const customer = registeredCustomers.get(verifiedEmail);
       if (customer) {
         customer.password = newPassword;
+        customer.passwordHash = '';
+        customer.updatedAt = new Date().toISOString();
       }
-      passwordResetTokens.delete(record.token);
-      emailToPasswordReset.delete(record.email);
+      if (token) passwordResetTokens.delete(token);
+      emailToPasswordReset.delete(verifiedEmail);
 
-      return json({
+      const responseHeaders = [
+        'infinicharm_reset_token=; Path=/; Max-Age=0; SameSite=Lax; HttpOnly'
+      ];
+
+      return jsonWithCookies({
         success: true,
         message: 'Your password has been reset successfully. Please sign in.'
-      });
+      }, 200, responseHeaders);
     }
   }
 
@@ -2964,7 +3098,49 @@ async function handleApi(request, url, env) {
     return json({ success: false, error: 'Unsupported action.' }, 400);
   }
 
-  if (p.startsWith('/api/admin/customers/') && !p.includes('/verify-email') && !p.includes('/addresses')) {
+  // Bulk Delete Customers
+  if (p === '/api/admin/customers/bulk-delete' && method === 'POST') {
+    const body = await request.clone().json().catch(() => ({}));
+    const customerIds = Array.isArray(body?.customerIds) ? body.customerIds : [];
+    if (!customerIds.length) {
+      return json({ success: false, error: 'No customer IDs provided for bulk deletion.' }, 400);
+    }
+
+    let deletedCount = 0;
+    for (const custId of customerIds) {
+      const customer = [...registeredCustomers.values()].find(c => c.id === custId);
+      if (customer) {
+        const email = customer.email.toLowerCase().trim();
+        registeredCustomers.delete(email);
+        passwordResetTokens.delete(email);
+        emailToPasswordReset.delete(email);
+        verificationTokens.delete(email);
+        emailToVerification.delete(email);
+
+        anonymizeCustomerOrdersInWorker(custId, email);
+        deletedCount++;
+      }
+    }
+
+    auditLogsStore.unshift({
+      id: 'aud-' + Date.now(),
+      action: 'CUSTOMERS_BULK_DELETED',
+      entity: 'Customer',
+      entityId: 'BULK',
+      actor: getCookie(request, 'infinicharm_admin_email') || 'admin@infinicharm.com',
+      details: 'Bulk deleted ' + deletedCount + ' customers with statutory order PII redaction',
+      timestamp: new Date().toISOString()
+    });
+
+    return json({
+      success: true,
+      deletedCount,
+      message: 'Successfully deleted ' + deletedCount + ' customer account(s) and sanitized linked data per statutory standards.'
+    });
+  }
+
+  // Single Customer GET / PUT / PATCH / DELETE
+  if (p.startsWith('/api/admin/customers/') && !p.includes('/verify-email') && !p.includes('/addresses') && !p.includes('/bulk-delete')) {
     const custId = decodeURIComponent(p.replace('/api/admin/customers/', ''));
     const customer = [...registeredCustomers.values()].find(c => c.id === custId);
     if (!customer) return json({ success: false, error: 'Customer not found.' }, 404);
@@ -2975,6 +3151,32 @@ async function handleApi(request, url, env) {
       const body = await request.clone().json().catch(() => ({}));
       Object.assign(customer, body);
       return json({ success: true, customer, message: 'Customer updated successfully.' });
+    }
+    if (method === 'DELETE') {
+      const email = customer.email.toLowerCase().trim();
+      registeredCustomers.delete(email);
+      passwordResetTokens.delete(email);
+      emailToPasswordReset.delete(email);
+      verificationTokens.delete(email);
+      emailToVerification.delete(email);
+
+      anonymizeCustomerOrdersInWorker(custId, email);
+
+      auditLogsStore.unshift({
+        id: 'aud-' + Date.now(),
+        action: 'CUSTOMER_DELETED',
+        entity: 'Customer',
+        entityId: custId,
+        actor: getCookie(request, 'infinicharm_admin_email') || 'admin@infinicharm.com',
+        details: 'Deleted customer ' + email + ' (statutory order records retained with PII anonymized)',
+        timestamp: new Date().toISOString()
+      });
+
+      return json({
+        success: true,
+        customerId: custId,
+        message: 'Customer deleted successfully (order financial records retained with PII sanitized per statutory compliance).'
+      });
     }
   }
 
@@ -3670,6 +3872,136 @@ async function handleApi(request, url, env) {
         message: 'Public contact settings updated successfully.',
       });
     }
+  }
+
+  // /api/settings/registration-form (Public)
+  if (p === '/api/settings/registration-form' && method === 'GET') {
+    const activeFields = (registrationFormSettingsStore.fields || [])
+      .filter(f => f.isEnabled !== false)
+      .sort((a, b) => (a.order || 0) - (b.order || 0));
+    return json({
+      success: true,
+      settings: {
+        ...registrationFormSettingsStore,
+        fields: activeFields
+      }
+    });
+  }
+
+  // /api/admin/settings/registration-form (Admin GET / PUT)
+  if (p === '/api/admin/settings/registration-form') {
+    if (method === 'GET') {
+      const fields = (registrationFormSettingsStore.fields || [])
+        .sort((a, b) => (a.order || 0) - (b.order || 0));
+      return json({
+        success: true,
+        settings: {
+          ...registrationFormSettingsStore,
+          fields
+        }
+      });
+    }
+    if (method === 'PUT') {
+      const body = await request.clone().json().catch(() => ({}));
+      registrationFormSettingsStore = {
+        ...registrationFormSettingsStore,
+        ...body,
+        updatedAt: new Date().toISOString(),
+        updatedBy: 'admin@infinicharm.com'
+      };
+      return json({
+        success: true,
+        settings: registrationFormSettingsStore,
+        message: 'Registration form settings saved successfully.'
+      });
+    }
+  }
+
+  // /api/admin/settings/registration-form/fields (Admin POST)
+  if (p === '/api/admin/settings/registration-form/fields' && method === 'POST') {
+    const body = await request.clone().json().catch(() => ({}));
+    if (!body || !body.key || !body.label || !body.type) {
+      return json({ success: false, error: 'Key, label, and type are required.' }, 400);
+    }
+    const cleanKey = String(body.key).trim().toLowerCase().replace(/[^a-z0-9_]/g, '_');
+    const existing = (registrationFormSettingsStore.fields || []).find(f => f.key === cleanKey);
+    if (existing) {
+      return json({ success: false, error: 'A field with key "' + cleanKey + '" already exists.' }, 409);
+    }
+    const maxOrder = (registrationFormSettingsStore.fields || []).reduce((max, f) => Math.max(max, f.order || 0), 0);
+    const newField = {
+      id: 'reg-field-' + Date.now(),
+      key: cleanKey,
+      label: String(body.label).trim(),
+      type: body.type,
+      placeholder: body.placeholder || '',
+      helperText: body.helperText || '',
+      required: Boolean(body.required),
+      isEnabled: body.isEnabled !== false,
+      isSystem: false,
+      order: typeof body.order === 'number' ? body.order : maxOrder + 1,
+      options: Array.isArray(body.options) ? body.options : [],
+      validation: body.validation || {},
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    registrationFormSettingsStore.fields = [...(registrationFormSettingsStore.fields || []), newField];
+    return json({ success: true, field: newField, settings: registrationFormSettingsStore, message: 'Field added successfully.' });
+  }
+
+  // /api/admin/settings/registration-form/fields/:key (Admin PUT / DELETE)
+  if (p.startsWith('/api/admin/settings/registration-form/fields/')) {
+    const fieldKey = decodeURIComponent(p.replace('/api/admin/settings/registration-form/fields/', '')).trim();
+    const fields = registrationFormSettingsStore.fields || [];
+    const fieldIdx = fields.findIndex(f => f.key === fieldKey);
+    if (fieldIdx === -1) {
+      return json({ success: false, error: 'Field not found.' }, 404);
+    }
+    if (method === 'PUT') {
+      const body = await request.clone().json().catch(() => ({}));
+      const updatedField = {
+        ...fields[fieldIdx],
+        ...body,
+        key: fields[fieldIdx].key,
+        isSystem: fields[fieldIdx].isSystem,
+        updatedAt: new Date().toISOString()
+      };
+      fields[fieldIdx] = updatedField;
+      registrationFormSettingsStore.fields = fields;
+      return json({ success: true, field: updatedField, settings: registrationFormSettingsStore, message: 'Field updated successfully.' });
+    }
+    if (method === 'DELETE') {
+      if (fields[fieldIdx].isSystem) {
+        return json({ success: false, error: 'System fields cannot be deleted.' }, 403);
+      }
+      fields.splice(fieldIdx, 1);
+      registrationFormSettingsStore.fields = fields;
+      return json({ success: true, settings: registrationFormSettingsStore, message: 'Field deleted successfully.' });
+    }
+  }
+
+  // /api/admin/settings/registration-form/reorder (Admin POST)
+  if (p === '/api/admin/settings/registration-form/reorder' && method === 'POST') {
+    const body = await request.clone().json().catch(() => ({}));
+    const fieldKeys = Array.isArray(body?.fieldKeys) ? body.fieldKeys : [];
+    if (!fieldKeys.length) {
+      return json({ success: false, error: 'fieldKeys array is required.' }, 400);
+    }
+    const currentFields = registrationFormSettingsStore.fields || [];
+    const reordered = [];
+    fieldKeys.forEach((key, index) => {
+      const f = currentFields.find(item => item.key === key);
+      if (f) {
+        reordered.push({ ...f, order: index + 1 });
+      }
+    });
+    currentFields.forEach(f => {
+      if (!reordered.some(item => item.key === f.key)) {
+        reordered.push({ ...f, order: reordered.length + 1 });
+      }
+    });
+    registrationFormSettingsStore.fields = reordered;
+    return json({ success: true, settings: registrationFormSettingsStore, message: 'Fields reordered successfully.' });
   }
 
   // Always return valid JSON, NEVER HTML!

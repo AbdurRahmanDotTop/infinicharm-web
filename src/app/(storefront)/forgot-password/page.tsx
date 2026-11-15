@@ -10,6 +10,7 @@ import { Mail, ArrowLeft, CheckCircle2, AlertCircle, KeyRound } from 'lucide-rea
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
+  const [resetToken, setResetToken] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [sentMessage, setSentMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -40,6 +41,7 @@ export default function ForgotPasswordPage() {
       }
 
       setIsSubmitting(false);
+      if (data?.token) setResetToken(data.token);
       setSentMessage(
         data?.message ||
           'If an InfiniCharm account matches that email address, a single-use password reset link has been sent to your inbox.'
@@ -80,7 +82,7 @@ export default function ForgotPasswordPage() {
                 </div>
                 <div className="pt-2 flex flex-col gap-2">
                   <Link
-                    href={`/reset-password?email=${encodeURIComponent(email.trim().toLowerCase())}`}
+                    href={`/reset-password?email=${encodeURIComponent(email.trim().toLowerCase())}${resetToken ? `&token=${encodeURIComponent(resetToken)}` : ''}`}
                     className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-surface-dim border border-border text-xs font-semibold text-primary hover:border-accent/50"
                   >
                     <KeyRound className="w-3.5 h-3.5 text-accent" />
