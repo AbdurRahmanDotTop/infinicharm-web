@@ -33,6 +33,7 @@ describe('Customer Management, Deletion Cascade & Registration Form Builder', ()
       placeholder: 'Acme Inc.',
       required: false,
       isEnabled: true,
+      order: 10,
     });
     assert.strictEqual(addRes.success, true);
     assert.ok(addRes.field?.id, 'New field has an id');

@@ -47,6 +47,7 @@ function RegisterFormContent() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [pendingVerificationEmail, setPendingVerificationEmail] = useState<string | null>(null);
+  const [pendingVerificationToken, setPendingVerificationToken] = useState<string | null>(null);
   const [activatedSuccess, setActivatedSuccess] = useState(false);
   const [otp, setOtp] = useState('');
   const [verifyingOtp, setVerifyingOtp] = useState(false);
@@ -137,14 +138,27 @@ function RegisterFormContent() {
     setOtpError(null);
 
     try {
-      const res = await fetch('/api/auth/customer/verify-email-otp', {
+      const payload: { email: string; otp: string; token?: string } = {
+        email: pendingVerificationEmail || '',
+        otp: finalOtp,
+      };
+      if (pendingVerificationToken) {
+        payload.token = pendingVerificationToken;
+      }
+
+      let res = await fetch('/api/auth/customer/verify-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: pendingVerificationEmail,
-          otp: finalOtp,
-        }),
+        body: JSON.stringify(payload),
       });
+
+      if (res.status === 404) {
+        res = await fetch('/api/auth/customer/verify-email-otp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+      }
 
       const data = await res.json();
       if (!res.ok || !data.success) {
@@ -276,6 +290,9 @@ function RegisterFormContent() {
 
       if (data.requiresVerification) {
         setPendingVerificationEmail(normalizedEmail);
+        if (data.token) {
+          setPendingVerificationToken(data.token);
+        }
         setLoading(false);
         return;
       }

@@ -1427,7 +1427,8 @@ async function handleApi(request, url, env) {
     };
     registeredCustomers.set(email, newCustomer);
 
-    const otp = String(Math.floor(100000 + Math.random() * 900000));
+    const currentStep = Math.floor(Date.now() / 300000);
+    const otp = await computeTotpOtp(email, 'verify', currentStep);
     const token = Array.from(crypto.getRandomValues(new Uint8Array(32)))
       .map(b => b.toString(16).padStart(2, '0')).join('');
     const expiresAt = Date.now() + 3600000;
@@ -1471,6 +1472,7 @@ async function handleApi(request, url, env) {
     return jsonWithCookies({
       success: true,
       requiresVerification: true,
+      token: signedToken,
       customer: {
         id: newCustomer.id,
         email: newCustomer.email,
@@ -1486,28 +1488,59 @@ async function handleApi(request, url, env) {
     ]);
   }
 
-  // Verify Email (OTP or Token)
-  if (p === '/api/auth/customer/verify-email' && method === 'POST') {
+  // Verify Email (OTP or Token) - supports /api/auth/customer/verify-email and /api/auth/customer/verify-email-otp
+  if ((p === '/api/auth/customer/verify-email' || p === '/api/auth/customer/verify-email-otp') && method === 'POST') {
     const body = await request.clone().json().catch(() => null);
-    const token = typeof body?.token === 'string' ? body.token.trim() : '';
-    const email = typeof body?.email === 'string' ? body.email.toLowerCase().trim() : '';
+    let token = typeof body?.token === 'string' ? body.token.trim() : '';
+    let email = sanitizeEmailParam(body?.email);
     const otp = typeof body?.otp === 'string' ? body.otp.trim() : '';
 
     let record = null;
-    if (token) {
+    if (token && !otp) {
+      // Direct link verification without OTP input
       record = verificationTokens.get(token) || await verifyVerificationToken(token);
-    } else if (email && otp) {
-      const r = emailToVerification.get(email);
-      if (r && r.otp === otp) {
-        record = r;
-      } else {
-        const cookieHeader = request.headers.get('cookie') || '';
-        const match = cookieHeader.match(/(?:^|;\\s*)infinicharm_pending_auth=([^;]*)/);
-        if (match) {
-          const cookieVal = decodeURIComponent(match[1]);
+    } else if (otp) {
+      // OTP input verification
+      // 1. If signed token provided, verify it and ensure token OTP matches entered OTP
+      if (token) {
+        const payload = verificationTokens.get(token) || await verifyVerificationToken(token);
+        if (payload && payload.otp === otp && (!email || sanitizeEmailParam(payload.email) === sanitizeEmailParam(payload.email))) {
+          record = payload;
+          if (!email) email = sanitizeEmailParam(payload.email);
+        }
+      }
+      // 2. Check in-memory emailToVerification
+      if (!record && email) {
+        const r = emailToVerification.get(email);
+        if (r && r.otp === otp) {
+          record = r;
+        }
+      }
+      // 3. Check pending auth cookie
+      if (!record) {
+        const pendingAuthCookie = getCookie(request, 'infinicharm_pending_auth');
+        if (pendingAuthCookie) {
+          const cookieVal = decodeURIComponent(pendingAuthCookie);
           const verifiedPayload = await verifyVerificationToken(cookieVal);
-          if (verifiedPayload && verifiedPayload.email === email && verifiedPayload.otp === otp) {
+          if (verifiedPayload && verifiedPayload.otp === otp && (!email || sanitizeEmailParam(verifiedPayload.email) === email)) {
             record = verifiedPayload;
+            if (!email) email = sanitizeEmailParam(verifiedPayload.email);
+          }
+        }
+      }
+      // 4. Stateless TOTP verification across isolates (valid for 60 minutes = 12 steps of 5 mins)
+      if (!record && email) {
+        const currentStep = Math.floor(Date.now() / 300000);
+        for (let step = currentStep; step >= currentStep - 12; step--) {
+          const expectedOtp = await computeTotpOtp(email, 'verify', step);
+          if (expectedOtp === otp) {
+            record = {
+              email,
+              otp,
+              expiresAt: Date.now() + 3600000,
+              redirectPath: '/account'
+            };
+            break;
           }
         }
       }
@@ -1517,7 +1550,7 @@ async function handleApi(request, url, env) {
       return json({
         success: false,
         status: 'INVALID',
-        error: 'Verification code or link is invalid or expired. Please request a fresh code.'
+        error: 'Verification code or link is invalid or expired. Please check your email or request a fresh code.'
       }, 400);
     }
 
@@ -1618,7 +1651,8 @@ async function handleApi(request, url, env) {
       registeredCustomers.set(email, customer);
     }
 
-    const otp = String(Math.floor(100000 + Math.random() * 900000));
+    const currentStep = Math.floor(Date.now() / 300000);
+    const otp = await computeTotpOtp(email, 'verify', currentStep);
     const token = Array.from(crypto.getRandomValues(new Uint8Array(32)))
       .map(b => b.toString(16).padStart(2, '0')).join('');
     const expiresAt = Date.now() + 3600000;
@@ -1722,6 +1756,19 @@ async function handleApi(request, url, env) {
 
     if (!matches) {
       return json({ success: false, error: 'Invalid email or password.' }, 401);
+    }
+
+    if (customer && !customer.emailVerified) {
+      const cookieHeader = request.headers.get('cookie') || '';
+      const match = cookieHeader.match(/(?:^|;\s*)infinicharm_customer_data=([^;]*)/);
+      if (match) {
+        try {
+          const parsed = JSON.parse(decodeURIComponent(match[1]));
+          if (parsed && (parsed.email === email || parsed.id === customer.id) && parsed.emailVerified) {
+            customer.emailVerified = true;
+          }
+        } catch {}
+      }
     }
 
     if (!customer.emailVerified && authSettingsStore?.emailVerificationRequired !== false) {

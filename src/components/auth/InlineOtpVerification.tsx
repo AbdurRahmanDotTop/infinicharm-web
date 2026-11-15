@@ -48,7 +48,7 @@ export function InlineOtpVerification({
     setOtpError(null);
 
     try {
-      const res = await fetch('/api/auth/customer/verify-email', {
+      let res = await fetch('/api/auth/customer/verify-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -56,6 +56,17 @@ export function InlineOtpVerification({
           otp: code,
         }),
       });
+
+      if (res.status === 404) {
+        res = await fetch('/api/auth/customer/verify-email-otp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: targetEmail,
+            otp: code,
+          }),
+        });
+      }
 
       const data = await res.json().catch(() => ({}));
 

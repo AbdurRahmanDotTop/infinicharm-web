@@ -42,6 +42,7 @@ export async function POST(req: NextRequest) {
       {
         success: true,
         requiresVerification: Boolean(result.requiresVerification),
+        token: (result as any).token || (result as any).verificationToken,
         customer: result.customer,
         message: result.requiresVerification
           ? 'Account created. Please check your inbox and click the single-use verification link before signing in.'

@@ -52,14 +52,27 @@ function VerifyEmailContent() {
     setVerifyingOtp(true);
     setOtpError(null);
     try {
-      const res = await fetch('/api/auth/customer/verify-email', {
+      let res = await fetch('/api/auth/customer/verify-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: targetEmail,
           otp: code,
+          token: token || undefined,
         }),
       });
+
+      if (res.status === 404) {
+        res = await fetch('/api/auth/customer/verify-email-otp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: targetEmail,
+            otp: code,
+            token: token || undefined,
+          }),
+        });
+      }
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.success) {
         throw new Error(data.error || 'Verification failed. Please check your 6-digit code.');
@@ -95,55 +108,63 @@ function VerifyEmailContent() {
       return;
     }
 
-    fetch('/api/auth/customer/verify-email', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token }),
-    })
-      .then(async (res) => {
-        const data = await res.json().catch(() => ({}));
-        const resolvedRedirect = sanitizeRedirectPath(
-          queryRedirect || data?.redirectPath,
-          '/account'
-        );
+    (async () => {
+      let res = await fetch('/api/auth/customer/verify-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token }),
+      });
 
-        if (res.ok && data?.success) {
-          if (data?.customer) {
-            persistClientCustomerSession(data.customer);
-          }
-          setState({
-            phase: 'VERIFIED',
-            message:
-              data.message ||
-              'Your email address has been verified. You can now sign in securely.',
-            email: data.email,
-            redirectPath: resolvedRedirect,
-          });
-          return;
+      if (res.status === 404) {
+        res = await fetch('/api/auth/customer/verify-email-otp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token }),
+        });
+      }
+
+      const data = await res.json().catch(() => ({}));
+      const resolvedRedirect = sanitizeRedirectPath(
+        queryRedirect || data?.redirectPath,
+        '/account'
+      );
+
+      if (res.ok && data?.success) {
+        if (data?.customer) {
+          persistClientCustomerSession(data.customer);
         }
-
-        const errStatus =
-          data?.status === 'EXPIRED' ||
-          data?.status === 'ALREADY_USED' ||
-          data?.status === 'SUPERSEDED'
-            ? data.status
-            : 'INVALID';
-
         setState({
-          phase: errStatus,
+          phase: 'VERIFIED',
           message:
-            data?.error || 'This verification link is invalid, expired, or has already been used.',
-          email: data?.email,
+            data.message ||
+            'Your email address has been verified. You can now sign in securely.',
+          email: data.email,
           redirectPath: resolvedRedirect,
         });
-      })
-      .catch(() => {
-        setState({
-          phase: 'INVALID',
-          message: 'Network error verifying your email. Please try again.',
-          redirectPath: sanitizeRedirectPath(queryRedirect, '/account'),
-        });
+        return;
+      }
+
+      const errStatus =
+        data?.status === 'EXPIRED' ||
+        data?.status === 'ALREADY_USED' ||
+        data?.status === 'SUPERSEDED'
+          ? data.status
+          : 'INVALID';
+
+      setState({
+        phase: errStatus,
+        message:
+          data?.error || 'This verification link is invalid, expired, or has already been used.',
+        email: data?.email,
+        redirectPath: resolvedRedirect,
       });
+    })().catch(() => {
+      setState({
+        phase: 'INVALID',
+        message: 'Network error verifying your email. Please try again.',
+        redirectPath: sanitizeRedirectPath(queryRedirect, '/account'),
+      });
+    });
   }, [token, queryRedirect]);
 
   const loginUrl =

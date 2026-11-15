@@ -163,7 +163,7 @@ export function saveRegistrationFormSettings(settings: RegistrationFormSettings)
   }
 }
 
-export function addRegistrationFormField(field: Omit<RegistrationFormField, 'id'>): {
+export function addRegistrationFormField(field: Omit<RegistrationFormField, 'id' | 'order'> & { order?: number }): {
   success: boolean;
   field?: RegistrationFormField;
   error?: string;
