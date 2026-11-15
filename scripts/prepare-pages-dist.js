@@ -1247,6 +1247,26 @@ export default {
       }
     }
 
+    // 2c. Universal Customer Order Details Route (/account/orders/:id)
+    if (url.pathname.startsWith('/account/orders/') && !url.pathname.endsWith('/')) {
+      const orderNum = url.pathname.replace('/account/orders/', '').split('/')[0];
+      if (orderNum) {
+        if (url.searchParams.has('_rsc')) {
+          const rscUrl = new URL('/account/orders/' + orderNum + '.rsc', request.url);
+          const rscRes = await env.ASSETS.fetch(new Request(rscUrl, request));
+          if (rscRes.status === 200) return rscRes;
+        }
+        if (request.headers.get('accept')?.includes('text/html') || !url.pathname.includes('.')) {
+          const orderUrl = new URL('/account/orders/' + orderNum, request.url);
+          const orderRes = await env.ASSETS.fetch(new Request(orderUrl, request));
+          if (orderRes.status === 200) return orderRes;
+          const fallbackOrderUrl = new URL('/account/orders/INF-202611-2527', request.url);
+          const fallbackRes = await env.ASSETS.fetch(new Request(fallbackOrderUrl, request));
+          if (fallbackRes.status === 200) return fallbackRes;
+        }
+      }
+    }
+
     // 3. API Endpoints
     if (url.pathname.startsWith('/api/')) {
       return await handleApi(request, url, env);
