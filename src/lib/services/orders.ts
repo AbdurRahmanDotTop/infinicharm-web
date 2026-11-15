@@ -47,7 +47,7 @@ export interface PublicTrackedOrder {
  */
 export function isOrderOwnedByCustomer(
   order: Order,
-  customer: { id: string; email?: string; status?: string } | null | undefined
+  customer: { id: string; email?: string; phone?: string; status?: string } | null | undefined
 ): boolean {
   if (!customer || customer.status === 'SUSPENDED') {
     return false;
@@ -58,7 +58,17 @@ export function isOrderOwnedByCustomer(
   }
 
   if (order.customerEmail && customer.email) {
-    return order.customerEmail.trim().toLowerCase() === customer.email.trim().toLowerCase();
+    if (order.customerEmail.trim().toLowerCase() === customer.email.trim().toLowerCase()) {
+      return true;
+    }
+  }
+
+  if (customer.phone) {
+    const cleanCustPhone = customer.phone.replace(/\D/g, '').slice(-10);
+    const cleanOrderPhone = (order.customerPhone || order.shippingAddress?.phone || '').replace(/\D/g, '').slice(-10);
+    if (cleanCustPhone && cleanOrderPhone && cleanCustPhone === cleanOrderPhone) {
+      return true;
+    }
   }
 
   return false;
@@ -108,6 +118,11 @@ export const ORDER_STATUS_LABELS: Record<OrderStatus, { label: string; badgeClas
     label: 'Payment Received',
     badgeClass: 'bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800',
     description: 'Payment successfully received and verified; awaiting confirmation',
+  },
+  PAYMENT_NOT_RECEIVED: {
+    label: 'Payment Not Received',
+    badgeClass: 'bg-rose-50 text-rose-800 border-rose-300 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800',
+    description: 'Payment was not received or failed bank reconciliation; customer may retry payment',
   },
   CONFIRMED: {
     label: 'Confirmed',
@@ -197,8 +212,9 @@ export function isValidOrderTransition(
   if (currentStatus === targetStatus) return true;
 
   const validTransitions: Record<OrderStatus, OrderStatus[]> = {
-    PENDING: ['PAYMENT_RECEIVED', 'CONFIRMED', 'CANCELLED'],
-    PAYMENT_RECEIVED: ['CONFIRMED', 'PROCESSING', 'CANCELLED'],
+    PENDING: ['PAYMENT_RECEIVED', 'PAYMENT_NOT_RECEIVED', 'CONFIRMED', 'CANCELLED'],
+    PAYMENT_RECEIVED: ['CONFIRMED', 'PROCESSING', 'PAYMENT_NOT_RECEIVED', 'CANCELLED'],
+    PAYMENT_NOT_RECEIVED: ['PENDING', 'PAYMENT_RECEIVED', 'CONFIRMED', 'CANCELLED'],
     CONFIRMED: ['PROCESSING', 'PACKED', 'READY_FOR_DISPATCH', 'SHIPPED', 'CANCELLED'],
     PROCESSING: ['PACKED', 'READY_FOR_DISPATCH', 'SHIPPED', 'CANCELLED'],
     PACKED: ['READY_FOR_DISPATCH', 'SHIPPED', 'CANCELLED'],
@@ -217,6 +233,33 @@ export function isValidOrderTransition(
   };
 
   return validTransitions[currentStatus]?.includes(targetStatus) || false;
+}
+
+/**
+ * Determines whether an order is currently eligible for payment retry or Pay Now.
+ */
+export function isOrderEligibleForPaymentRetry(order: Order | null | undefined): boolean {
+  if (!order) return false;
+  if (order.paymentStatus === 'PAID') return false;
+  const terminalOrDispatched: OrderStatus[] = [
+    'CONFIRMED',
+    'PROCESSING',
+    'PACKED',
+    'READY_FOR_DISPATCH',
+    'SHIPPED',
+    'OUT_FOR_DELIVERY',
+    'DELIVERED',
+    'CANCELLED',
+    'RETURN_REQUESTED',
+    'RETURN_APPROVED',
+    'RETURNED',
+    'REFUNDED',
+  ];
+  if (terminalOrDispatched.includes(order.status)) return false;
+  if (order.status === 'PAYMENT_NOT_RECEIVED') return true;
+  if (order.paymentStatus === 'FAILED') return true;
+  if (order.status === 'PENDING') return true;
+  return false;
 }
 
 /**

@@ -21,6 +21,7 @@ import {
   Category,
   SpotlightCardItem,
   SourcingCenterCardItem,
+  ContactSettings,
 } from '@/types';
 import { CATEGORIES } from '@/lib/constants/categories';
 import { logAdminAction } from '@/lib/services/audit';
@@ -54,6 +55,8 @@ import {
   Compass,
   ArrowRight,
   Bell,
+  Phone,
+  Mail,
 } from 'lucide-react';
 
 interface HeroBannerConfig {
@@ -67,11 +70,16 @@ interface HeroBannerConfig {
 }
 
 export default function AdminCmsPage() {
-  const [activeTab, setActiveTab] = useState<'HOMEPAGE' | 'BLOG' | 'HERO' | 'POLICIES'>('HOMEPAGE');
+  const [activeTab, setActiveTab] = useState<'HOMEPAGE' | 'BLOG' | 'HERO' | 'POLICIES' | 'CONTACT'>('HOMEPAGE');
   const [posts, setPosts] = useState<BlogPost[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddPostModal, setShowAddPostModal] = useState(false);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
+
+  // Contact Page Settings State
+  const [contactSettings, setContactSettings] = useState<ContactSettings | null>(null);
+  const [isSavingContact, setIsSavingContact] = useState(false);
+  const [contactSaveMsg, setContactSaveMsg] = useState<string | null>(null);
 
   // Homepage Sections State
   const [homepageSections, setHomepageSections] = useState<HomepageSection[]>([]);
@@ -185,6 +193,16 @@ export default function AdminCmsPage() {
       })
       .catch((err) => console.error('Failed to load catalogue products for CMS:', err));
 
+    // Fetch contact page configuration
+    fetch('/api/contact/settings', { cache: 'no-store' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.success && data?.settings) {
+          setContactSettings(data.settings);
+        }
+      })
+      .catch((err) => console.error('Failed to load contact settings:', err));
+
     try {
       const storedPosts = localStorage.getItem('infinicharm_cms_posts');
       if (storedPosts) {
@@ -211,6 +229,36 @@ export default function AdminCmsPage() {
 
   const notifyError = (msg: string) => {
     alert(msg);
+  };
+
+  const handleSaveContactSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!contactSettings) return;
+    setIsSavingContact(true);
+    setContactSaveMsg(null);
+    try {
+      const res = await fetch('/api/admin/contact/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(contactSettings),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setContactSettings(data.settings);
+        setContactSaveMsg('Public contact page settings updated and saved to server.');
+        setTimeout(() => setContactSaveMsg(null), 4000);
+        logAdminAction('UPDATE_CONTACT_PAGE_CMS', 'cms', 'contact_page', {
+          primaryPhone: data.settings.primaryPhone,
+          supportEmail: data.settings.supportEmail,
+        });
+      } else {
+        alert(data.error || 'Failed to save contact settings.');
+      }
+    } catch {
+      alert('Network error while saving contact settings.');
+    } finally {
+      setIsSavingContact(false);
+    }
   };
 
   // Toggle Section Enabled Status
@@ -929,6 +977,18 @@ export default function AdminCmsPage() {
             <span>Legal Policy Parameters</span>
           </button>
 
+          <button
+            onClick={() => setActiveTab('CONTACT')}
+            className={`px-4 py-2 rounded-xl transition-colors flex items-center gap-2 whitespace-nowrap ${
+              activeTab === 'CONTACT'
+                ? 'bg-primary text-white shadow-sm'
+                : 'text-muted hover:text-primary hover:bg-surface-dim'
+            }`}
+          >
+            <Phone className="w-4 h-4" />
+            <span>Public Contact Page</span>
+          </button>
+
           <Link
             href="/admin/announcements"
             className="px-4 py-2 rounded-xl transition-colors flex items-center gap-2 whitespace-nowrap text-accent hover:text-accent-hover hover:bg-accent/10 border border-accent/25 ml-auto"
@@ -1382,6 +1442,359 @@ export default function AdminCmsPage() {
                 </button>
               </div>
             </form>
+          </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* TAB 5: PUBLIC CONTACT PAGE CMS                                           */}
+        {/* ========================================================================= */}
+        {activeTab === 'CONTACT' && (
+          <div className="bg-surface rounded-2xl border border-border p-6 sm:p-8 shadow-sm space-y-6 max-w-4xl">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-5">
+              <div>
+                <h2 className="font-display text-lg sm:text-xl font-bold text-primary flex items-center gap-2">
+                  <Phone className="w-5 h-5 text-accent" />
+                  <span>Public Contact Page & Helpline CMS</span>
+                </h2>
+                <p className="text-xs text-muted mt-1">
+                  Manage the authoritative contact number (+91 8825164657), support emails, official addresses, and grievance disclosures displayed on /contact.
+                </p>
+              </div>
+              <Link
+                href="/contact"
+                target="_blank"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-surface-dim border border-border text-xs font-bold text-primary hover:text-accent hover:border-accent transition-colors shrink-0"
+              >
+                <span>Preview /contact</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+
+            {contactSaveMsg && (
+              <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-900 font-medium flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>{contactSaveMsg}</span>
+              </div>
+            )}
+
+            {contactSettings ? (
+              <form onSubmit={handleSaveContactSettings} className="space-y-6 text-xs">
+                {/* 1. Header & Intro */}
+                <div className="space-y-3 p-4 rounded-xl bg-surface-dim/40 border border-border">
+                  <h3 className="font-bold text-primary uppercase tracking-wider text-[11px]">
+                    1. Hero Headline & Page Intro
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block font-semibold text-primary mb-1">Badge Tagline</label>
+                      <input
+                        type="text"
+                        value={contactSettings.badge || ''}
+                        onChange={(e) =>
+                          setContactSettings({ ...contactSettings, badge: e.target.value })
+                        }
+                        className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-primary focus:outline-none focus:border-accent"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-semibold text-primary mb-1">Page Title</label>
+                      <input
+                        type="text"
+                        value={contactSettings.pageTitle || ''}
+                        onChange={(e) =>
+                          setContactSettings({ ...contactSettings, pageTitle: e.target.value })
+                        }
+                        className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-primary focus:outline-none focus:border-accent font-semibold"
+                      />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="block font-semibold text-primary mb-1">Subtitle / Description</label>
+                      <textarea
+                        rows={2}
+                        value={contactSettings.pageDescription || ''}
+                        onChange={(e) =>
+                          setContactSettings({ ...contactSettings, pageDescription: e.target.value })
+                        }
+                        className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-primary focus:outline-none focus:border-accent"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. Official Phone Helpline */}
+                <div className="space-y-3 p-4 rounded-xl bg-surface-dim/40 border border-border">
+                  <h3 className="font-bold text-primary uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                    <Phone className="w-3.5 h-3.5 text-accent" />
+                    <span>2. Official Contact Phone Helpline</span>
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block font-semibold text-primary mb-1">
+                        Primary Phone (E.164 tel: link)
+                      </label>
+                      <input
+                        type="text"
+                        value={contactSettings.primaryPhone || ''}
+                        onChange={(e) =>
+                          setContactSettings({ ...contactSettings, primaryPhone: e.target.value })
+                        }
+                        placeholder="+91 8825164657"
+                        className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-primary font-mono font-bold focus:outline-none focus:border-accent"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-semibold text-primary mb-1">Display Label</label>
+                      <input
+                        type="text"
+                        value={contactSettings.displayPhone || ''}
+                        onChange={(e) =>
+                          setContactSettings({ ...contactSettings, displayPhone: e.target.value })
+                        }
+                        placeholder="+91 8825164657"
+                        className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-primary font-mono focus:outline-none focus:border-accent"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-semibold text-primary mb-1">Phone Hours</label>
+                      <input
+                        type="text"
+                        value={contactSettings.phoneHours || ''}
+                        onChange={(e) =>
+                          setContactSettings({ ...contactSettings, phoneHours: e.target.value })
+                        }
+                        placeholder="Mon – Sat: 9:00 AM – 7:00 PM IST"
+                        className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-primary focus:outline-none focus:border-accent"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. Support Email Channels */}
+                <div className="space-y-3 p-4 rounded-xl bg-surface-dim/40 border border-border">
+                  <h3 className="font-bold text-primary uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                    <Mail className="w-3.5 h-3.5 text-accent" />
+                    <span>3. Support Email Channels</span>
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block font-semibold text-primary mb-1">Primary Support Email</label>
+                      <input
+                        type="email"
+                        value={contactSettings.supportEmail || ''}
+                        onChange={(e) =>
+                          setContactSettings({ ...contactSettings, supportEmail: e.target.value })
+                        }
+                        placeholder="support@infinicharm.com"
+                        className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-primary focus:outline-none focus:border-accent"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-semibold text-primary mb-1">Inquiry / Escalation Email</label>
+                      <input
+                        type="email"
+                        value={contactSettings.inquiryEmail || ''}
+                        onChange={(e) =>
+                          setContactSettings({ ...contactSettings, inquiryEmail: e.target.value })
+                        }
+                        placeholder="support@infinicharm.com"
+                        className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-primary focus:outline-none focus:border-accent"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 4. Physical Addresses */}
+                <div className="space-y-3 p-4 rounded-xl bg-surface-dim/40 border border-border">
+                  <h3 className="font-bold text-primary uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                    <MapPin className="w-3.5 h-3.5 text-accent" />
+                    <span>4. Registered Office & Operating Hours</span>
+                  </h3>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block font-semibold text-primary mb-1">
+                        Registered Office & Fulfillment Address
+                      </label>
+                      <textarea
+                        rows={2}
+                        value={contactSettings.registeredOffice || ''}
+                        onChange={(e) =>
+                          setContactSettings({ ...contactSettings, registeredOffice: e.target.value })
+                        }
+                        className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-primary focus:outline-none focus:border-accent"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-semibold text-primary mb-1">General Operating Hours</label>
+                      <input
+                        type="text"
+                        value={contactSettings.operatingHours || ''}
+                        onChange={(e) =>
+                          setContactSettings({ ...contactSettings, operatingHours: e.target.value })
+                        }
+                        placeholder="Monday to Saturday: 9:00 AM – 7:00 PM IST"
+                        className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-primary focus:outline-none focus:border-accent"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 5. Grievance Officer */}
+                <div className="space-y-3 p-4 rounded-xl bg-surface-dim/40 border border-border">
+                  <h3 className="font-bold text-primary uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                    <ShieldCheck className="w-3.5 h-3.5 text-accent" />
+                    <span>5. Consumer Protection Grievance Officer</span>
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block font-semibold text-primary mb-1">Officer Name</label>
+                      <input
+                        type="text"
+                        value={contactSettings.grievanceOfficer?.name || ''}
+                        onChange={(e) =>
+                          setContactSettings({
+                            ...contactSettings,
+                            grievanceOfficer: {
+                              ...contactSettings.grievanceOfficer,
+                              name: e.target.value,
+                            },
+                          })
+                        }
+                        className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-primary focus:outline-none focus:border-accent"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-semibold text-primary mb-1">Designation</label>
+                      <input
+                        type="text"
+                        value={contactSettings.grievanceOfficer?.designation || ''}
+                        onChange={(e) =>
+                          setContactSettings({
+                            ...contactSettings,
+                            grievanceOfficer: {
+                              ...contactSettings.grievanceOfficer,
+                              designation: e.target.value,
+                            },
+                          })
+                        }
+                        className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-primary focus:outline-none focus:border-accent"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-semibold text-primary mb-1">Officer Email</label>
+                      <input
+                        type="email"
+                        value={contactSettings.grievanceOfficer?.email || ''}
+                        onChange={(e) =>
+                          setContactSettings({
+                            ...contactSettings,
+                            grievanceOfficer: {
+                              ...contactSettings.grievanceOfficer,
+                              email: e.target.value,
+                            },
+                          })
+                        }
+                        className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-primary focus:outline-none focus:border-accent"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-semibold text-primary mb-1">Officer Helpline</label>
+                      <input
+                        type="text"
+                        value={contactSettings.grievanceOfficer?.phone || ''}
+                        onChange={(e) =>
+                          setContactSettings({
+                            ...contactSettings,
+                            grievanceOfficer: {
+                              ...contactSettings.grievanceOfficer,
+                              phone: e.target.value,
+                            },
+                          })
+                        }
+                        className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-primary font-mono focus:outline-none focus:border-accent"
+                      />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="block font-semibold text-primary mb-1">Acknowledgment SLA</label>
+                      <input
+                        type="text"
+                        value={contactSettings.grievanceOfficer?.responseTime || ''}
+                        onChange={(e) =>
+                          setContactSettings({
+                            ...contactSettings,
+                            grievanceOfficer: {
+                              ...contactSettings.grievanceOfficer,
+                              responseTime: e.target.value,
+                            },
+                          })
+                        }
+                        className="w-full px-3 py-2 bg-surface border border-border rounded-lg text-primary focus:outline-none focus:border-accent"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 6. Section Visibility Toggles */}
+                <div className="space-y-3 p-4 rounded-xl bg-surface-dim/40 border border-border">
+                  <h3 className="font-bold text-primary uppercase tracking-wider text-[11px]">
+                    6. Section Display Toggles
+                  </h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {[
+                      { key: 'showPhone', label: 'Helpline Phone' },
+                      { key: 'showEmail', label: 'Support Email' },
+                      { key: 'showOffice', label: 'Office Address' },
+                      { key: 'showOperatingHours', label: 'Operating Hours' },
+                      { key: 'showGrievanceOfficer', label: 'Grievance Officer' },
+                      { key: 'showInquiryForm', label: 'Inquiry Form' },
+                    ].map(({ key, label }) => {
+                      const isVisible =
+                        contactSettings.sectionsVisibility?.[key as keyof typeof contactSettings.sectionsVisibility] !==
+                        false;
+                      return (
+                        <label
+                          key={key}
+                          className="flex items-center gap-2 p-2.5 bg-surface border border-border rounded-lg cursor-pointer hover:border-accent transition-colors"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isVisible}
+                            onChange={(e) =>
+                              setContactSettings({
+                                ...contactSettings,
+                                sectionsVisibility: {
+                                  ...contactSettings.sectionsVisibility,
+                                  [key]: e.target.checked,
+                                },
+                              })
+                            }
+                            className="rounded border-border text-accent focus:ring-accent"
+                          />
+                          <span className="font-medium text-primary text-xs">{label}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Submit Action */}
+                <div className="flex items-center justify-end gap-3 pt-4 border-t border-border">
+                  <button
+                    type="submit"
+                    disabled={isSavingContact}
+                    className="px-6 py-2.5 bg-accent hover:bg-accent-hover text-white text-xs font-bold rounded-xl flex items-center gap-2 shadow-sm transition-all disabled:opacity-50"
+                  >
+                    {isSavingContact ? (
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Save className="w-4 h-4" />
+                    )}
+                    <span>{isSavingContact ? 'Saving Changes...' : 'Save Contact Settings'}</span>
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <div className="py-12 text-center text-xs text-muted">Loading contact settings...</div>
+            )}
           </div>
         )}
 

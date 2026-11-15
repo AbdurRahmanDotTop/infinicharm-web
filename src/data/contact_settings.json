@@ -1,0 +1,30 @@
+{
+  "pageTitle": "We Are Here to Assist You",
+  "badge": "Customer Care & Support",
+  "pageDescription": "Have a question about product origins, packaging, or an existing order? Get in touch with our team.",
+  "primaryPhone": "+91 8825164657",
+  "displayPhone": "+91 8825164657",
+  "phoneHours": "Monday to Saturday: 9:00 AM – 7:00 PM IST",
+  "supportEmail": "support@infinicharm.com",
+  "inquiryEmail": "support@infinicharm.com",
+  "registeredOffice": "Ward No. 07, Lahsaniya, Khoripakar, Dewapur, Pachpakari, Patahi, Dhaka, Motihari, East Champaran, Bihar, India - 845427",
+  "fulfillmentCenter": "InfiniCharm Heritage Sourcing & Fulfillment Hub, East Champaran, Bihar - 845427",
+  "operatingHours": "Monday to Saturday: 9:00 AM – 7:00 PM IST",
+  "grievanceOfficer": {
+    "name": "AbdurRahman Ibn Ghufran",
+    "designation": "Founder & CEO",
+    "email": "support@infinicharm.com",
+    "phone": "+91 8825164657",
+    "responseTime": "Complaints acknowledged within 48 hours."
+  },
+  "sectionsVisibility": {
+    "showPhone": true,
+    "showEmail": true,
+    "showOffice": true,
+    "showOperatingHours": true,
+    "showGrievanceOfficer": true,
+    "showInquiryForm": true
+  },
+  "updatedAt": "2026-11-15T06:00:00.000Z",
+  "updatedBy": "admin@infinicharm.com"
+}

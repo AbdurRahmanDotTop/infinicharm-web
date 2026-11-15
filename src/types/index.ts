@@ -239,6 +239,7 @@ export interface Coupon {
 export type OrderStatus =
   | 'PENDING'
   | 'PAYMENT_RECEIVED'
+  | 'PAYMENT_NOT_RECEIVED'
   | 'CONFIRMED'
   | 'PROCESSING'
   | 'PACKED'
@@ -374,7 +375,16 @@ export interface OrderItem {
   priceInPaise: number;
   quantity: number;
   totalInPaise: number;
+  image?: string;
   itemMetadata?: Record<string, any>;
+}
+
+export interface OrderPrivacyMeta {
+  isAuthenticated: boolean;
+  isOwner: boolean;
+  isAdmin: boolean;
+  canViewPrivateDetails: boolean;
+  accessState: 'AUTHORIZED' | 'UNAUTHENTICATED' | 'WRONG_ACCOUNT';
 }
 
 export interface Order {
@@ -1025,6 +1035,37 @@ export interface SocialAndShareSettings {
   socialLinks: SocialMediaLink[];
   sharing: ShareFeatureSettings;
   updatedAt?: string;
+}
+
+export interface ContactSettings {
+  pageTitle: string;
+  badge: string;
+  pageDescription: string;
+  primaryPhone: string;
+  displayPhone: string;
+  phoneHours: string;
+  supportEmail: string;
+  inquiryEmail: string;
+  registeredOffice: string;
+  fulfillmentCenter: string;
+  operatingHours: string;
+  grievanceOfficer: {
+    name: string;
+    designation: string;
+    email: string;
+    phone: string;
+    responseTime: string;
+  };
+  sectionsVisibility: {
+    showPhone: boolean;
+    showEmail: boolean;
+    showOffice: boolean;
+    showOperatingHours: boolean;
+    showGrievanceOfficer: boolean;
+    showInquiryForm: boolean;
+  };
+  updatedAt?: string;
+  updatedBy?: string;
 }
 
 

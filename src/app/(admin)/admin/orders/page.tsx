@@ -246,6 +246,44 @@ export default function AdminOrdersPage() {
     }
   };
 
+  // Mark Payment Not Received (allows customer to retry payment)
+  const handleMarkPaymentNotReceived = async (order: Order) => {
+    try {
+      const res = await fetch(`/api/orders/${encodeURIComponent(order.orderNumber)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'UPDATE_STATUS',
+          status: 'PAYMENT_NOT_RECEIVED',
+          adminNotes: rejectReason.trim() || 'Payment not received / bank statement reconciliation pending',
+          actor: 'Finance Admin',
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.order) {
+          const updated = orders.map((o) =>
+            o.id === order.id || o.orderNumber === order.orderNumber ? data.order : o
+          );
+          setOrders(updated);
+          localStorage.setItem('infinicharm_orders', JSON.stringify(updated));
+          window.dispatchEvent(new Event('infinicharm_orders_updated'));
+          setReviewUtrOrder(null);
+          setShowRejectInput(false);
+          setRejectReason('');
+          logAdminAction('UPDATE_ORDER_STATUS', 'orders', order.orderNumber, {
+            status: 'PAYMENT_NOT_RECEIVED',
+            reason: rejectReason.trim(),
+          });
+          return;
+        }
+      }
+    } catch (err) {
+      console.error('Failed to mark payment not received:', err);
+    }
+  };
+
   // Save Logistics & Tracking Info
   const handleSaveLogistics = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -420,6 +458,7 @@ export default function AdminOrdersPage() {
             <option value="ALL">All Order States</option>
             <option value="PENDING">PENDING</option>
             <option value="PAYMENT_RECEIVED">PAYMENT_RECEIVED</option>
+            <option value="PAYMENT_NOT_RECEIVED">PAYMENT_NOT_RECEIVED</option>
             <option value="CONFIRMED">CONFIRMED</option>
             <option value="PROCESSING">PROCESSING</option>
             <option value="PACKED">PACKED</option>
@@ -573,6 +612,7 @@ export default function AdminOrdersPage() {
                       >
                         <option value="PENDING">PENDING</option>
                         <option value="PAYMENT_RECEIVED">PAYMENT_RECEIVED</option>
+                        <option value="PAYMENT_NOT_RECEIVED">PAYMENT_NOT_RECEIVED</option>
                         <option value="CONFIRMED">CONFIRMED</option>
                         <option value="PROCESSING">PROCESSING</option>
                         <option value="PACKED">PACKED</option>
@@ -788,6 +828,7 @@ export default function AdminOrdersPage() {
                           >
                             <option value="PENDING">PENDING</option>
                             <option value="PAYMENT_RECEIVED">PAYMENT_RECEIVED</option>
+                            <option value="PAYMENT_NOT_RECEIVED">PAYMENT_NOT_RECEIVED</option>
                             <option value="CONFIRMED">CONFIRMED</option>
                             <option value="PROCESSING">PROCESSING</option>
                             <option value="PACKED">PACKED</option>
@@ -968,22 +1009,41 @@ export default function AdminOrdersPage() {
               )}
 
               {/* Action Buttons */}
-              <div className="flex items-center justify-between gap-3 border-t border-border pt-4">
-                {!showRejectInput ? (
-                  <button
-                    onClick={() => setShowRejectInput(true)}
-                    className="px-4 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold rounded-xl border border-rose-200 transition-colors"
-                  >
-                    Reject Payment...
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => handleRejectUtr(reviewUtrOrder)}
-                    className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl transition-colors"
-                  >
-                    Confirm Rejection & Cancel
-                  </button>
-                )}
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  {!showRejectInput ? (
+                    <>
+                      <button
+                        onClick={() => handleMarkPaymentNotReceived(reviewUtrOrder)}
+                        className="px-3.5 py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 text-xs font-bold rounded-xl border border-amber-200 transition-colors"
+                        title="Mark status as PAYMENT_NOT_RECEIVED so customer can retry payment without cancelling"
+                      >
+                        Payment Not Received
+                      </button>
+                      <button
+                        onClick={() => setShowRejectInput(true)}
+                        className="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold rounded-xl border border-rose-200 transition-colors"
+                      >
+                        Reject & Cancel...
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => handleMarkPaymentNotReceived(reviewUtrOrder)}
+                        className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl transition-colors"
+                      >
+                        Confirm Payment Not Received
+                      </button>
+                      <button
+                        onClick={() => handleRejectUtr(reviewUtrOrder)}
+                        className="px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl transition-colors"
+                      >
+                        Confirm Rejection & Cancel
+                      </button>
+                    </>
+                  )}
+                </div>
 
                 <div className="flex items-center gap-2">
                   <button

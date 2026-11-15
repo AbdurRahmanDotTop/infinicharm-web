@@ -170,6 +170,11 @@ export function updateServerOrderStatus(
     if (existing.paymentMethod === 'CUSTOM_UPI') {
       updated.manualApprovalStatus = 'APPROVED';
     }
+  } else if (newStatus === 'PAYMENT_NOT_RECEIVED') {
+    updated.paymentStatus = 'FAILED';
+    if (existing.paymentMethod === 'CUSTOM_UPI') {
+      updated.manualApprovalStatus = 'REJECTED';
+    }
   } else if (['CONFIRMED', 'PROCESSING', 'PACKED', 'READY_FOR_DISPATCH', 'SHIPPED', 'OUT_FOR_DELIVERY', 'DELIVERED'].includes(newStatus)) {
     if (existing.paymentMethod === 'CUSTOM_UPI') {
       updated.paymentStatus = 'PAID';

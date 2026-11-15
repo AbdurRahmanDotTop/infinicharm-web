@@ -13,10 +13,14 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { PasswordInput } from '@/components/auth/PasswordInput';
 import { ResendVerificationBox } from '@/components/auth/ResendVerificationBox';
 import { InlineOtpVerification } from '@/components/auth/InlineOtpVerification';
-import { persistClientCustomerSession } from '@/lib/auth/client-session';
+import {
+  persistClientCustomerSession,
+  clearClientCustomerSession,
+  getClientCustomerUser,
+} from '@/lib/auth/client-session';
 import { sanitizeRedirectPath } from '@/lib/validation/auth';
 import type { PublicAuthSettings } from '@/types';
-import { AlertCircle, Sparkles, CheckCircle2, ShieldAlert } from 'lucide-react';
+import { AlertCircle, Sparkles, CheckCircle2, ShieldAlert, UserCheck } from 'lucide-react';
 
 function LoginFormContent() {
   const searchParams = useSearchParams();
@@ -34,6 +38,52 @@ function LoginFormContent() {
   const [unverifiedEmail, setUnverifiedEmail] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [alreadyLoggedInUser, setAlreadyLoggedInUser] = useState<{
+    id: string;
+    email: string;
+    fullName?: string;
+  } | null>(null);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+
+  // Check for active session
+  useEffect(() => {
+    const hasSessionCookie =
+      typeof document !== 'undefined' &&
+      document.cookie.includes('infinicharm_customer_session=active');
+    const localUser = getClientCustomerUser();
+
+    if (hasSessionCookie || (localUser && localUser.id)) {
+      fetch('/api/customers/me', { cache: 'no-store' })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (data?.success && data?.customer) {
+            setAlreadyLoggedInUser(data.customer);
+          } else if (localUser && localUser.id) {
+            setAlreadyLoggedInUser(localUser);
+          } else {
+            setAlreadyLoggedInUser(null);
+          }
+        })
+        .catch(() => {
+          if (localUser && localUser.id) {
+            setAlreadyLoggedInUser(localUser);
+          }
+        })
+        .finally(() => {
+          setIsCheckingAuth(false);
+        });
+    } else {
+      setIsCheckingAuth(false);
+    }
+  }, []);
+
+  const handleSwitchAccount = async () => {
+    try {
+      await fetch('/api/auth/customer/logout', { method: 'POST' });
+    } catch {}
+    clearClientCustomerSession();
+    setAlreadyLoggedInUser(null);
+  };
 
   useEffect(() => {
     fetch('/api/auth/settings', { cache: 'no-store' })
@@ -116,6 +166,51 @@ function LoginFormContent() {
         <p className="text-xs text-muted leading-relaxed">
           Customer sign-in has been temporarily paused by store administration for maintenance. Please try again shortly or browse our catalog as a visitor.
         </p>
+      </Card>
+    );
+  }
+
+  if (alreadyLoggedInUser) {
+    return (
+      <Card level={1} className="p-6 sm:p-8 space-y-6 bg-surface border border-border">
+        <div className="flex items-center gap-3.5 border-b border-border pb-4">
+          <div className="w-12 h-12 rounded-2xl bg-accent/15 text-accent flex items-center justify-center font-bold text-lg">
+            <UserCheck className="w-6 h-6" />
+          </div>
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                Active Session
+              </span>
+            </div>
+            <h2 className="font-display text-base font-bold text-primary">
+              Signed in as {alreadyLoggedInUser.fullName || 'Valued Patron'}
+            </h2>
+            <p className="text-xs text-muted font-mono">{alreadyLoggedInUser.email}</p>
+          </div>
+        </div>
+
+        <p className="text-xs text-muted leading-relaxed">
+          You are currently signed in to your InfiniCharm account. You do not need to sign in again. You can proceed directly or switch to a different account below.
+        </p>
+
+        <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
+          <Link
+            href={redirectPath && redirectPath !== '/login' ? redirectPath : '/account'}
+            className="w-full sm:flex-1 py-3 px-4 bg-primary hover:bg-primary-hover text-white text-xs font-bold rounded-xl uppercase tracking-wider transition-colors text-center shadow-sm"
+          >
+            {redirectPath && redirectPath !== '/account' && redirectPath !== '/login'
+              ? 'Continue to Destination'
+              : 'Go to My Account'}
+          </Link>
+          <button
+            type="button"
+            onClick={handleSwitchAccount}
+            className="w-full sm:w-auto py-3 px-4 bg-surface hover:bg-surface-dim text-muted hover:text-primary border border-border text-xs font-semibold rounded-xl transition-colors text-center"
+          >
+            Switch Account / Sign Out
+          </button>
+        </div>
       </Card>
     );
   }

@@ -201,6 +201,36 @@ const reviewsData = readJsonSafe('reviews.json', []);
 const reviewSettingsData = readJsonSafe('review_settings.json', {});
 const newsletterSettingsData = readJsonSafe('newsletter_settings.json', {});
 const authSettingsData = readJsonSafe('auth_settings.json', {});
+const contactSettingsData = readJsonSafe('contact_settings.json', {
+  pageTitle: "We Are Here to Assist You",
+  badge: "Customer Care & Support",
+  pageDescription: "Have a question about product origins, packaging, or an existing order? Get in touch with our team.",
+  primaryPhone: "+91 8825164657",
+  displayPhone: "+91 8825164657",
+  phoneHours: "Monday to Saturday: 9:00 AM – 7:00 PM IST",
+  supportEmail: "support@infinicharm.com",
+  inquiryEmail: "support@infinicharm.com",
+  registeredOffice: "Ward No. 07, Lahsaniya, Khoripakar, Dewapur, Pachpakari, Patahi, Dhaka, Motihari, East Champaran, Bihar, India - 845427",
+  fulfillmentCenter: "InfiniCharm Heritage Sourcing & Fulfillment Hub, East Champaran, Bihar - 845427",
+  operatingHours: "Monday to Saturday: 9:00 AM – 7:00 PM IST",
+  grievanceOfficer: {
+    name: "AbdurRahman Ibn Ghufran",
+    designation: "Founder & CEO",
+    email: "support@infinicharm.com",
+    phone: "+91 8825164657",
+    responseTime: "Complaints acknowledged within 48 hours."
+  },
+  sectionsVisibility: {
+    showPhone: true,
+    showEmail: true,
+    showOffice: true,
+    showOperatingHours: true,
+    showGrievanceOfficer: true,
+    showInquiryForm: true
+  },
+  updatedAt: "2026-11-15T06:00:00.000Z",
+  updatedBy: "admin@infinicharm.com"
+});
 const couponsData = readJsonSafe('coupons.json', []);
 const paymentGatewaysData = readJsonSafe('payment_gateways.json', []);
 const customersData = readJsonSafe('customers.json', []);
@@ -338,9 +368,11 @@ writeApiEndpoint('reviews', { success: true, reviews: reviewsData, stats: { aver
 writeApiEndpoint('reviews/eligibility', { eligible: false, message: 'Please sign in to leave a review.' });
 writeApiEndpoint('newsletter', { success: true, settings: newsletterSettingsData });
 writeApiEndpoint('auth/settings', { success: true, settings: authSettingsData });
+writeApiEndpoint('contact/settings', { success: true, settings: contactSettingsData });
 
 // Static Admin Fallbacks
 writeApiEndpoint('admin/settings/shipping', { success: true, settings: shippingSettingsData });
+writeApiEndpoint('admin/contact/settings', { success: true, settings: contactSettingsData });
 writeApiEndpoint('admin/backup', {
   success: true,
   backups: initialBackupsList,
@@ -418,6 +450,7 @@ const workerCode = '// InfiniCharm Production Cloudflare Pages Edge Worker\n' +
 'const REVIEW_SETTINGS = ' + JSON.stringify(reviewSettingsData) + ';\n' +
 'const NEWSLETTER_SETTINGS = ' + JSON.stringify(newsletterSettingsData) + ';\n' +
 'const AUTH_SETTINGS = ' + JSON.stringify(authSettingsData) + ';\n' +
+'const CONTACT_SETTINGS = ' + JSON.stringify(contactSettingsData) + ';\n' +
 'const COUPONS = ' + JSON.stringify(couponsData) + ';\n' +
 'const PAYMENT_GATEWAYS = ' + JSON.stringify(paymentGatewaysData) + ';\n' +
 'const INITIAL_CUSTOMERS = ' + JSON.stringify(sanitizedCustomers) + ';\n' +
@@ -467,6 +500,7 @@ let socialSettingsStore = { ...SOCIAL_SETTINGS };
 let badgesStore = [...BADGES];
 let shippingSettingsStore = { ...SHIPPING_SETTINGS };
 let authSettingsStore = { ...AUTH_SETTINGS };
+let contactSettingsStore = { ...CONTACT_SETTINGS };
 const paymentGatewaysStore = [...PAYMENT_GATEWAYS];
 const reviewsStore = [...REVIEWS];
 let reviewSettingsStore = { ...REVIEW_SETTINGS };
@@ -602,6 +636,46 @@ function makeCustomerDataCookie(customer) {
     createdAt: customer.createdAt || new Date().toISOString()
   };
   return 'infinicharm_customer_data=' + encodeURIComponent(JSON.stringify(safeData)) + '; Path=/; Max-Age=2592000; SameSite=Lax; HttpOnly';
+}
+
+function isOrderOwnedByCustomerEdge(order, customer) {
+  if (!order || !customer || customer.status === 'SUSPENDED') return false;
+  if (order.customerId && order.customerId !== 'guest') {
+    return order.customerId === customer.id;
+  }
+  if (order.customerEmail && customer.email && order.customerEmail.toLowerCase().trim() === customer.email.toLowerCase().trim()) return true;
+  if (order.shippingAddress?.email && customer.email && order.shippingAddress.email.toLowerCase().trim() === customer.email.toLowerCase().trim()) return true;
+  if (customer.phone) {
+    const custPhone = customer.phone.replace(/\\D/g, '').slice(-10);
+    if (custPhone) {
+      const orderPhone1 = (order.customerPhone || '').replace(/\\D/g, '').slice(-10);
+      const orderPhone2 = (order.shippingAddress?.phone || '').replace(/\\D/g, '').slice(-10);
+      if (orderPhone1 && orderPhone1 === custPhone) return true;
+      if (orderPhone2 && orderPhone2 === custPhone) return true;
+    }
+  }
+  return false;
+}
+
+function sanitizeOrderForPublicTrackingEdge(order) {
+  return {
+    id: order.id,
+    orderNumber: order.orderNumber,
+    status: order.status,
+    paymentMethod: order.paymentMethod,
+    paymentStatus: order.paymentStatus,
+    manualApprovalStatus: order.manualApprovalStatus,
+    utrNumber: order.utrNumber,
+    rejectionReason: order.rejectionReason,
+    courierName: order.courierName,
+    trackingNumber: order.trackingNumber,
+    trackingUrl: order.trackingUrl,
+    estimatedDeliveryDate: order.estimatedDeliveryDate,
+    actualDeliveryDate: order.actualDeliveryDate,
+    timeline: (order.timeline || []).filter(ev => ev.isCustomerVisible !== false),
+    createdAt: order.createdAt,
+    updatedAt: order.updatedAt,
+  };
 }
 
 function toCsv(rows) {
@@ -1665,12 +1739,8 @@ async function handleApi(request, url, env) {
     }
 
     if (method === 'GET') {
-      const customerOrders = [...ordersStore.values()].filter(o => 
-        o.customerId === customer.id || 
-        (o.customerEmail && o.customerEmail.toLowerCase() === customer.email.toLowerCase()) ||
-        (o.shippingAddress && o.shippingAddress.email && o.shippingAddress.email.toLowerCase() === customer.email.toLowerCase()) ||
-        (customer.phone && o.shippingAddress && o.shippingAddress.phone === customer.phone)
-      );
+      const uniqueOrders = Array.from(new Map([...ordersStore.values()].map(o => [o.orderNumber || o.id, o])).values());
+      const customerOrders = uniqueOrders.filter(o => isOrderOwnedByCustomerEdge(o, customer));
       const validProductIds = new Set(PRODUCTS.filter(p => p.status === 'PUBLISHED').map(p => p.id));
       const cleanWishlist = (customer.wishlistProductIds || []).filter(id => validProductIds.has(id));
       customer.wishlistProductIds = cleanWishlist;
@@ -2122,12 +2192,33 @@ async function handleApi(request, url, env) {
 
     const q = url.searchParams.get('q')?.toLowerCase();
     const phone = url.searchParams.get('phone');
-    let list = [...ordersStore.values()];
+    const status = url.searchParams.get('status');
+    const isAdmin = getCookie(request, 'infinicharm_admin_session') === 'active';
+    const authCustomer = getAuthenticatedCustomer(request);
+
+    if (!isAdmin && !authCustomer) {
+      return json({ success: false, error: 'Unauthorized. Sign in required to view order records.' }, 401);
+    }
+
+    let list = Array.from(new Map([...ordersStore.values()].map(o => [o.orderNumber || o.id, o])).values());
+
+    if (!isAdmin && authCustomer) {
+      list = list.filter(o => isOrderOwnedByCustomerEdge(o, authCustomer));
+    }
+
+    if (status && status !== 'ALL') {
+      list = list.filter(o => o.status === status);
+    }
     if (q) {
       list = list.filter(o => o.id?.toLowerCase().includes(q) || o.orderNumber?.toLowerCase().includes(q));
     }
     if (phone) {
-      list = list.filter(o => o.shippingAddress?.phone?.includes(phone) || o.customerPhone?.includes(phone));
+      const cleanP = phone.replace(/\D/g, '').slice(-10);
+      list = list.filter(o => {
+        const p1 = (o.shippingAddress?.phone || '').replace(/\D/g, '').slice(-10);
+        const p2 = (o.customerPhone || '').replace(/\D/g, '').slice(-10);
+        return p1.includes(cleanP) || p2.includes(cleanP);
+      });
     }
     return json({ success: true, count: list.length, orders: list });
   }
@@ -2195,7 +2286,194 @@ async function handleApi(request, url, env) {
       }
     }
     if (!order) return json({ success: false, error: 'Order not found.' }, 404);
-    return json({ success: true, order });
+
+    if (method === 'PATCH') {
+      const body = await request.clone().json().catch(() => ({}));
+      const action = body.action;
+      if (!action) return json({ success: false, error: 'Missing action parameter in request body.' }, 400);
+
+      if (action === 'SUBMIT_UTR') {
+        const utr = body.utr || body.utrNumber;
+        const payerName = body.payerName || 'Customer / Payer';
+        if (!utr || typeof utr !== 'string' || utr.trim().length < 10) {
+          return json({ success: false, error: 'Please enter a valid 12-digit UPI UTR number.' }, 400);
+        }
+        order.utrNumber = utr.trim();
+        order.customUpiUtrNumber = utr.trim();
+        order.paymentMethod = 'CUSTOM_UPI';
+        order.paymentStatus = 'PENDING';
+        order.manualApprovalStatus = 'PENDING_REVIEW';
+        order.updatedAt = new Date().toISOString();
+        if (!order.timeline) order.timeline = [];
+        order.timeline.push({
+          id: 'evt-' + Date.now() + '-utr',
+          status: 'PENDING',
+          title: 'UPI Payment Reference (UTR) Submitted',
+          description: 'Payer submitted UTR ' + utr.trim() + '. Awaiting bank statement verification.',
+          location: 'Payment Desk',
+          timestamp: new Date().toISOString(),
+          actor: payerName,
+          isCustomerVisible: true,
+          type: 'PAYMENT',
+        });
+        ordersStore.set(order.id, order);
+        if (order.orderNumber) ordersStore.set(order.orderNumber, order);
+        return json({ success: true, order });
+      }
+
+      const isAdmin = getCookie(request, 'infinicharm_admin_session') === 'active';
+      if (!isAdmin) {
+        return json({ success: false, error: 'Unauthorized. Admin privileges required.' }, 401);
+      }
+
+      if (action === 'APPROVE_UTR') {
+        const adminName = body.adminName || 'Super Admin';
+        order.paymentStatus = 'PAID';
+        order.manualApprovalStatus = 'APPROVED';
+        order.status = 'CONFIRMED';
+        order.rejectionReason = undefined;
+        order.updatedAt = new Date().toISOString();
+        if (!order.timeline) order.timeline = [];
+        order.timeline.push({
+          id: 'evt-' + Date.now() + '-appr',
+          status: 'CONFIRMED',
+          title: 'UPI Payment Verified & Approved',
+          description: 'Payment reference ' + (order.utrNumber || '') + ' successfully verified in IndusInd Bank current account by ' + adminName + '.',
+          location: 'East Champaran Merchant Desk',
+          timestamp: new Date().toISOString(),
+          actor: adminName,
+          isCustomerVisible: true,
+          type: 'PAYMENT',
+        });
+        ordersStore.set(order.id, order);
+        if (order.orderNumber) ordersStore.set(order.orderNumber, order);
+        return json({ success: true, order });
+      }
+
+      if (action === 'REJECT_UTR') {
+        const reason = body.reason || 'UTR could not be verified in bank statement.';
+        const adminName = body.adminName || 'Super Admin';
+        order.paymentStatus = 'FAILED';
+        order.manualApprovalStatus = 'REJECTED';
+        order.rejectionReason = reason;
+        order.updatedAt = new Date().toISOString();
+        if (!order.timeline) order.timeline = [];
+        order.timeline.push({
+          id: 'evt-' + Date.now() + '-rej',
+          status: order.status,
+          title: 'Payment Verification Rejected',
+          description: reason,
+          location: 'East Champaran Merchant Desk',
+          timestamp: new Date().toISOString(),
+          actor: adminName,
+          isCustomerVisible: true,
+          type: 'PAYMENT',
+        });
+        ordersStore.set(order.id, order);
+        if (order.orderNumber) ordersStore.set(order.orderNumber, order);
+        return json({ success: true, order });
+      }
+
+      if (action === 'UPDATE_STATUS') {
+        const newStatus = body.status;
+        const adminNotes = body.adminNotes;
+        const actor = body.actor || 'Store Admin';
+        if (!newStatus) return json({ success: false, error: 'Target status is required.' }, 400);
+
+        order.status = newStatus;
+        if (newStatus === 'PAYMENT_NOT_RECEIVED') {
+          order.paymentStatus = 'FAILED';
+          order.manualApprovalStatus = 'REJECTED';
+        } else if (newStatus === 'CONFIRMED') {
+          if (order.paymentStatus !== 'PAID') order.paymentStatus = 'PAID';
+          if (order.manualApprovalStatus === 'PENDING_REVIEW') order.manualApprovalStatus = 'APPROVED';
+        }
+        order.updatedAt = new Date().toISOString();
+        if (!order.timeline) order.timeline = [];
+        order.timeline.push({
+          id: 'evt-' + Date.now() + '-st',
+          status: newStatus,
+          title: 'Order Status Changed to ' + newStatus,
+          description: adminNotes || ('Status transitioned to ' + newStatus + ' by ' + actor + '.'),
+          location: 'Fulfillment Operations',
+          timestamp: new Date().toISOString(),
+          actor,
+          isCustomerVisible: true,
+          type: 'STATUS_CHANGE',
+        });
+        ordersStore.set(order.id, order);
+        if (order.orderNumber) ordersStore.set(order.orderNumber, order);
+        return json({ success: true, order });
+      }
+
+      if (action === 'UPDATE_TRACKING') {
+        const { courierName, trackingNumber, estimatedDeliveryDate, checkpointNotes, actor } = body;
+        if (!courierName || !trackingNumber) {
+          return json({ success: false, error: 'courierName and trackingNumber are required.' }, 400);
+        }
+        order.courierName = courierName;
+        order.trackingNumber = trackingNumber;
+        if (estimatedDeliveryDate) order.estimatedDeliveryDate = estimatedDeliveryDate;
+        if (order.status === 'CONFIRMED' || order.status === 'READY_FOR_DISPATCH' || order.status === 'PROCESSING') {
+          order.status = 'SHIPPED';
+        }
+        order.updatedAt = new Date().toISOString();
+        if (!order.timeline) order.timeline = [];
+        order.timeline.push({
+          id: 'evt-' + Date.now() + '-tr',
+          status: order.status,
+          title: 'Consignment Dispatched via ' + courierName,
+          description: checkpointNotes || ('Dispatched via ' + courierName + ' with AWB ' + trackingNumber + '.'),
+          location: 'East Champaran Logistics Hub',
+          timestamp: new Date().toISOString(),
+          actor: actor || 'Logistics Operations',
+          isCustomerVisible: true,
+          type: 'LOGISTICS',
+        });
+        ordersStore.set(order.id, order);
+        if (order.orderNumber) ordersStore.set(order.orderNumber, order);
+        return json({ success: true, order });
+      }
+
+      if (action === 'ADD_TIMELINE_EVENT') {
+        const { title, description, location, actor, status, type, isCustomerVisible } = body;
+        if (!order.timeline) order.timeline = [];
+        order.timeline.push({
+          id: 'evt-' + Date.now() + '-custom',
+          status: status || order.status,
+          title: title || 'Status Update',
+          description: description || '',
+          location: location || 'Operations Hub',
+          actor: actor || 'Store Admin',
+          timestamp: new Date().toISOString(),
+          isCustomerVisible: isCustomerVisible !== false,
+          type: type || 'LOGISTICS',
+        });
+        order.updatedAt = new Date().toISOString();
+        ordersStore.set(order.id, order);
+        if (order.orderNumber) ordersStore.set(order.orderNumber, order);
+        return json({ success: true, order });
+      }
+
+      return json({ success: false, error: 'Unrecognized action: ' + action }, 400);
+    }
+
+    // method === 'GET'
+    const isAdmin = getCookie(request, 'infinicharm_admin_session') === 'active';
+    const authCustomer = getAuthenticatedCustomer(request);
+    const isOwner = isOrderOwnedByCustomerEdge(order, authCustomer);
+    const canViewPrivateDetails = isAdmin || isOwner;
+
+    const privacy = {
+      isAuthenticated: Boolean(authCustomer) || isAdmin,
+      isOwner,
+      isAdmin,
+      canViewPrivateDetails,
+      accessState: canViewPrivateDetails ? 'AUTHORIZED' : (authCustomer ? 'WRONG_ACCOUNT' : 'UNAUTHENTICATED'),
+    };
+
+    const payloadOrder = canViewPrivateDetails ? order : sanitizeOrderForPublicTrackingEdge(order);
+    return json({ success: true, order: payloadOrder, privacy });
   }
 
   // -------------------------------------------------------------
@@ -3347,6 +3625,30 @@ async function handleApi(request, url, env) {
       const body = await request.clone().json().catch(() => ({}));
       authSettingsStore = { ...authSettingsStore, ...body };
       return json({ success: true, settings: authSettingsStore });
+    }
+  }
+
+  // /api/contact/settings & /api/admin/contact/settings
+  if (p === '/api/contact/settings' || p === '/api/admin/contact/settings') {
+    if (method === 'GET') {
+      return json({ success: true, settings: contactSettingsStore });
+    }
+    if (method === 'PUT') {
+      const isAdmin = getCookie(request, 'infinicharm_admin_session') === 'active';
+      if (!isAdmin) {
+        return json({ success: false, error: 'Unauthorized. Admin privileges required.' }, 401);
+      }
+      const body = await request.clone().json().catch(() => ({}));
+      contactSettingsStore = {
+        ...contactSettingsStore,
+        ...body,
+        updatedAt: new Date().toISOString(),
+      };
+      return json({
+        success: true,
+        settings: contactSettingsStore,
+        message: 'Public contact settings updated successfully.',
+      });
     }
   }
 

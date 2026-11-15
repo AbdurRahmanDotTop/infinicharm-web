@@ -5,6 +5,8 @@ export const BRAND = {
   founder: 'AbdurRahman Ibn Ghufran',
   founderWebsite: 'https://www.abdurrahman.top',
   contact: {
+    phone: '+91 8825164657',
+    displayPhone: '+91 8825164657',
     supportEmail: 'support@infinicharm.com',
     adminEmail: 'admin@infinicharm.com',
     personalEmail: 'abdurrahman@infinicharm.com',

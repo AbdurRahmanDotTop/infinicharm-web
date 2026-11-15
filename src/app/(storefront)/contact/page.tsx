@@ -1,14 +1,44 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BRAND } from '@/lib/constants/brand';
 import { Container } from '@/components/ui/Container';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
-import { Mail, MapPin, Phone, ShieldAlert, Clock, CheckCircle2, Send, AlertCircle } from 'lucide-react';
-import { CustomerInquiry } from '@/types';
+import { Mail, MapPin, Phone, ShieldAlert, Clock, CheckCircle2, Send, AlertCircle, Headphones } from 'lucide-react';
+import { CustomerInquiry, ContactSettings } from '@/types';
+
+const FALLBACK_SETTINGS: ContactSettings = {
+  pageTitle: 'We Are Here to Assist You',
+  badge: 'Customer Care & Support',
+  pageDescription: 'Have a question about product origins, packaging, or an existing order? Get in touch with our team.',
+  primaryPhone: '+91 8825164657',
+  displayPhone: '+91 8825164657',
+  phoneHours: 'Monday to Saturday: 9:00 AM – 7:00 PM IST',
+  supportEmail: 'support@infinicharm.com',
+  inquiryEmail: 'support@infinicharm.com',
+  registeredOffice: BRAND.contact.address.fullAddress,
+  fulfillmentCenter: 'InfiniCharm Heritage Sourcing & Fulfillment Hub, East Champaran, Bihar - 845427',
+  operatingHours: 'Monday to Saturday: 9:00 AM – 7:00 PM IST',
+  grievanceOfficer: {
+    name: 'AbdurRahman Ibn Ghufran',
+    designation: 'Founder & CEO',
+    email: 'support@infinicharm.com',
+    phone: '+91 8825164657',
+    responseTime: 'Complaints acknowledged within 48 hours.',
+  },
+  sectionsVisibility: {
+    showPhone: true,
+    showEmail: true,
+    showOffice: true,
+    showOperatingHours: true,
+    showGrievanceOfficer: true,
+    showInquiryForm: true,
+  },
+};
 
 export default function ContactPage() {
+  const [settings, setSettings] = useState<ContactSettings>(FALLBACK_SETTINGS);
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
@@ -17,6 +47,17 @@ export default function ContactPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submittedInquiry, setSubmittedInquiry] = useState<CustomerInquiry | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch('/api/contact/settings', { cache: 'no-store' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.success && data?.settings) {
+          setSettings(data.settings);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -76,13 +117,14 @@ export default function ContactPage() {
       <Container>
         <div className="max-w-2xl mx-auto text-center space-y-3 mb-12">
           <p className="text-xs uppercase tracking-widest font-semibold text-accent">
-            Customer Care & Support
+            {settings.badge || 'Customer Care & Support'}
           </p>
           <h1 className="font-display text-3xl sm:text-4xl font-bold text-primary">
-            We Are Here to Assist You
+            {settings.pageTitle || 'We Are Here to Assist You'}
           </h1>
           <p className="text-xs sm:text-sm text-muted">
-            Have a question about product origins, packaging, or an existing order? Get in touch with our team.
+            {settings.pageDescription ||
+              'Have a question about product origins, packaging, or an existing order? Get in touch with our team.'}
           </p>
         </div>
 
@@ -94,61 +136,111 @@ export default function ContactPage() {
                 Official Contact Channels
               </h2>
 
-              <div className="space-y-4 text-xs">
-                <div className="flex items-start gap-3">
-                  <div className="p-2 rounded-md bg-surface-dim text-accent">
-                    <Mail className="w-4 h-4" />
+              <div className="space-y-5 text-xs">
+                {settings.sectionsVisibility?.showPhone !== false && (
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 rounded-md bg-surface-dim text-accent">
+                      <Phone className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <strong className="block text-primary font-medium">Official Contact Helpline</strong>
+                      <a
+                        href={`tel:${settings.primaryPhone || '+918825164657'}`}
+                        data-testid="contact-primary-phone-link"
+                        className="text-sm sm:text-base font-bold text-accent hover:underline block mt-0.5 font-mono"
+                      >
+                        {settings.displayPhone || settings.primaryPhone || '+91 8825164657'}
+                      </a>
+                      <p className="text-[11px] text-muted mt-0.5">
+                        {settings.phoneHours || 'Monday to Saturday: 9:00 AM – 7:00 PM IST'}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <strong className="block text-primary font-medium">Customer Support Email</strong>
-                    <a href={`mailto:${BRAND.contact.supportEmail}`} className="text-muted hover:text-accent">
-                      {BRAND.contact.supportEmail}
-                    </a>
-                  </div>
-                </div>
+                )}
 
-                <div className="flex items-start gap-3">
-                  <div className="p-2 rounded-md bg-surface-dim text-accent">
-                    <MapPin className="w-4 h-4" />
+                {settings.sectionsVisibility?.showEmail !== false && (
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 rounded-md bg-surface-dim text-accent">
+                      <Mail className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <strong className="block text-primary font-medium">Customer Support Email</strong>
+                      <a
+                        href={`mailto:${settings.supportEmail || BRAND.contact.supportEmail}`}
+                        className="text-muted hover:text-accent font-medium mt-0.5 block"
+                      >
+                        {settings.supportEmail || BRAND.contact.supportEmail}
+                      </a>
+                    </div>
                   </div>
-                  <div>
-                    <strong className="block text-primary font-medium">Registered Office & Fulfillment Center</strong>
-                    <p className="text-muted leading-relaxed mt-0.5">
-                      {BRAND.contact.address.fullAddress}
-                    </p>
-                  </div>
-                </div>
+                )}
 
-                <div className="flex items-start gap-3">
-                  <div className="p-2 rounded-md bg-surface-dim text-accent">
-                    <Clock className="w-4 h-4" />
+                {settings.sectionsVisibility?.showOffice !== false && (
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 rounded-md bg-surface-dim text-accent">
+                      <MapPin className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <strong className="block text-primary font-medium">Registered Office & Sourcing Hub</strong>
+                      <p className="text-muted leading-relaxed mt-0.5">
+                        {settings.registeredOffice || BRAND.contact.address.fullAddress}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <strong className="block text-primary font-medium">Operating Hours</strong>
-                    <p className="text-muted mt-0.5">
-                      Monday to Saturday: 9:00 AM – 7:00 PM IST
-                    </p>
+                )}
+
+                {settings.sectionsVisibility?.showOperatingHours !== false && (
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 rounded-md bg-surface-dim text-accent">
+                      <Clock className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <strong className="block text-primary font-medium">Operating Hours</strong>
+                      <p className="text-muted mt-0.5">
+                        {settings.operatingHours || 'Monday to Saturday: 9:00 AM – 7:00 PM IST'}
+                      </p>
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             </Card>
 
             {/* Grievance Officer Notice */}
-            <Card level={1} className="p-6 bg-surface-dim/40 border-border space-y-2">
-              <div className="flex items-center gap-2 text-primary font-semibold text-xs">
-                <ShieldAlert className="w-4 h-4 text-accent" />
-                <span>Designated Grievance Officer</span>
-              </div>
-              <p className="text-[11px] text-muted leading-relaxed">
-                In compliance with Consumer Protection (E-Commerce) Rules 2020:
-                <br />
-                <strong>{BRAND.founder}</strong> (Founder & CEO)
-                <br />
-                Email: {BRAND.contact.supportEmail}
-                <br />
-                Complaints acknowledged within 48 hours.
-              </p>
-            </Card>
+            {settings.sectionsVisibility?.showGrievanceOfficer !== false && (
+              <Card level={1} className="p-6 bg-surface-dim/40 border-border space-y-2">
+                <div className="flex items-center gap-2 text-primary font-semibold text-xs">
+                  <ShieldAlert className="w-4 h-4 text-accent" />
+                  <span>Designated Grievance Officer</span>
+                </div>
+                <div className="text-[11px] text-muted leading-relaxed space-y-1">
+                  <p>In compliance with Consumer Protection (E-Commerce) Rules 2020:</p>
+                  <p className="text-primary font-semibold">
+                    {settings.grievanceOfficer?.name || BRAND.founder} ({settings.grievanceOfficer?.designation || 'Founder & CEO'})
+                  </p>
+                  <p>
+                    Email:{' '}
+                    <a
+                      href={`mailto:${settings.grievanceOfficer?.email || settings.supportEmail}`}
+                      className="text-accent hover:underline"
+                    >
+                      {settings.grievanceOfficer?.email || settings.supportEmail}
+                    </a>
+                  </p>
+                  <p>
+                    Helpline:{' '}
+                    <a
+                      href={`tel:${settings.grievanceOfficer?.phone || settings.primaryPhone}`}
+                      className="text-accent hover:underline font-mono"
+                    >
+                      {settings.grievanceOfficer?.phone || settings.primaryPhone}
+                    </a>
+                  </p>
+                  <p className="text-[10px] text-muted/80">
+                    {settings.grievanceOfficer?.responseTime || 'Complaints acknowledged within 48 hours.'}
+                  </p>
+                </div>
+              </Card>
+            )}
           </div>
 
           {/* Contact Inquiry Form Column */}

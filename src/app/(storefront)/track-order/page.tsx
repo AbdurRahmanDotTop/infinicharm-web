@@ -48,14 +48,21 @@ function hasPrivateOrderDetails(
   order: TrackedOrderPayload | null,
   privacy: OrderPrivacyMeta | null
 ): order is Order {
-  return Boolean(
-    order &&
-      privacy?.canViewPrivateDetails &&
-      'items' in order &&
-      Array.isArray((order as Order).items) &&
-      'shippingAddress' in order &&
-      Boolean((order as Order).shippingAddress)
-  );
+  if (!order) return false;
+  const hasItemsAndAddress =
+    'items' in order &&
+    Array.isArray((order as Order).items) &&
+    (order as Order).items.length > 0 &&
+    'shippingAddress' in order &&
+    Boolean((order as Order).shippingAddress);
+
+  if (privacy?.canViewPrivateDetails) {
+    return hasItemsAndAddress;
+  }
+  if (hasItemsAndAddress && (!privacy || privacy.accessState === 'AUTHORIZED')) {
+    return true;
+  }
+  return false;
 }
 
 function buildStepperStages(order: TrackedOrderPayload): StepperStage[] {
@@ -73,9 +80,9 @@ function buildStepperStages(order: TrackedOrderPayload): StepperStage[] {
 
     let stage2Status: StepperStage['status'] = 'upcoming';
     let stage2Desc = 'Bank reconciliation';
-    if (order.paymentStatus === 'FAILED' || order.manualApprovalStatus === 'REJECTED') {
+    if (status === 'PAYMENT_NOT_RECEIVED' || order.paymentStatus === 'FAILED' || order.manualApprovalStatus === 'REJECTED') {
       stage2Status = 'failed';
-      stage2Desc = 'UTR Verification Failed';
+      stage2Desc = status === 'PAYMENT_NOT_RECEIVED' ? 'Payment Not Received (Retry Payment)' : 'UTR Verification Failed';
     } else if (
       isPaymentPaid ||
       order.manualApprovalStatus === 'APPROVED' ||
@@ -105,9 +112,15 @@ function buildStepperStages(order: TrackedOrderPayload): StepperStage[] {
 
     let stage3Status: StepperStage['status'] = 'upcoming';
     let stage3Desc = 'Awaiting verification';
-    if (stage2Status === 'failed' || status === 'CANCELLED') {
+    if (status === 'CANCELLED') {
       stage3Status = 'failed';
       stage3Desc = 'Order Cancelled';
+    } else if (status === 'PAYMENT_NOT_RECEIVED') {
+      stage3Status = 'upcoming';
+      stage3Desc = 'Awaiting payment retry';
+    } else if (stage2Status === 'failed') {
+      stage3Status = 'failed';
+      stage3Desc = 'Payment Failed';
     } else if (stage2Status === 'completed') {
       if (
         [
@@ -719,6 +732,46 @@ function TrackOrderContent() {
 
               {/* Status Alerts Section */}
               <div className="p-5 sm:p-7 space-y-6">
+                {searchedOrder.status === 'PAYMENT_NOT_RECEIVED' && (
+                  <div className="p-4 sm:p-5 rounded-2xl bg-rose-50 border border-rose-300 text-rose-900 flex items-start gap-3.5 shadow-sm">
+                    <div className="p-2.5 rounded-xl bg-rose-100 text-rose-700 shrink-0">
+                      <AlertCircle className="w-5 h-5" />
+                    </div>
+                    <div className="space-y-2 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="font-display text-sm font-bold text-rose-900">
+                          Payment Not Received — Action Required
+                        </h3>
+                        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-rose-200 text-rose-900">
+                          Reconciliation Pending
+                        </span>
+                      </div>
+                      <p className="text-xs text-rose-800 leading-relaxed">
+                        Our banking desk was unable to reconcile the previous payment reference for this order. Please retry payment via UPI or provide your updated 12-digit UTR number so our team can verify and dispatch your order.
+                      </p>
+                      <div className="pt-1 flex flex-wrap items-center gap-2.5">
+                        <Link
+                          href={`/pay/${searchedOrder.orderNumber}`}
+                          className="inline-flex items-center gap-1.5 px-4 py-2 bg-accent hover:bg-accent-hover text-white text-xs font-bold rounded-xl transition-all shadow-sm"
+                        >
+                          <span>⚡ Retry Payment / Pay Now</span>
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const payUrl = `${typeof window !== 'undefined' ? window.location.origin : 'https://infinicharm.com'}/pay/${searchedOrder.orderNumber}`;
+                            navigator.clipboard.writeText(payUrl);
+                            handleCopy(payUrl, 'payment_url');
+                          }}
+                          className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white text-primary border border-rose-200 text-xs font-semibold rounded-xl hover:bg-rose-50 transition-all"
+                        >
+                          <span>🔗</span>
+                          <span>{copiedKey === 'payment_url' ? '✓ Copied Link' : 'Copy Payment Link'}</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 {searchedOrder.paymentMethod === 'CUSTOM_UPI' &&
                   searchedOrder.paymentStatus === 'PENDING' && (
                     <div className="p-4 sm:p-5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-900">

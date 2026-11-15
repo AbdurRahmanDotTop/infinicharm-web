@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Container } from '@/components/ui/Container';
 import { Card } from '@/components/ui/Card';
 import { formatPaiseToRupees } from '@/lib/utils/currency';
+import { isOrderEligibleForPaymentRetry, ORDER_STATUS_LABELS } from '@/lib/services/orders';
 import {
   User,
   Package,
@@ -23,6 +24,7 @@ import {
   ExternalLink,
   Settings,
   AlertCircle,
+  CreditCard,
 } from 'lucide-react';
 import { Customer, CustomerAddress, Order } from '@/types';
 import { useWishlist } from '@/lib/context/WishlistContext';
@@ -380,19 +382,14 @@ export default function AccountPage() {
                         {order.orderNumber}
                       </span>
                       <span
-                        className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full ${
-                          order.status === 'DELIVERED'
-                            ? 'bg-emerald-100 text-emerald-800'
-                            : order.status === 'SHIPPED' || order.status === 'OUT_FOR_DELIVERY'
-                            ? 'bg-blue-100 text-blue-800'
-                            : order.status === 'CONFIRMED' || order.status === 'PROCESSING'
-                            ? 'bg-indigo-100 text-indigo-800'
-                            : order.status === 'CANCELLED'
-                            ? 'bg-rose-100 text-rose-800'
-                            : 'bg-amber-100 text-amber-800'
+                        className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${
+                          ORDER_STATUS_LABELS[order.status]?.badgeClass ||
+                          (order.status === 'PAYMENT_NOT_RECEIVED' || order.status === 'CANCELLED'
+                            ? 'bg-rose-100 text-rose-800 border-rose-300'
+                            : 'bg-amber-100 text-amber-800 border-amber-300')
                         }`}
                       >
-                        {order.status}
+                        {ORDER_STATUS_LABELS[order.status]?.label || order.status}
                       </span>
                       <span className="text-[10px] font-semibold text-muted bg-surface-dim px-2 py-0.5 rounded-full uppercase">
                         {order.paymentMethod} • {order.paymentStatus}
@@ -423,10 +420,25 @@ export default function AccountPage() {
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-2 text-xs w-full sm:w-auto">
+                  <div className="flex flex-wrap items-center gap-2 text-xs w-full sm:w-auto">
+                    {isOrderEligibleForPaymentRetry(order) && (
+                      <Link
+                        href={`/pay/${order.orderNumber}`}
+                        className="px-4 py-2 bg-accent hover:bg-accent-hover text-white font-bold rounded-xl transition-all text-center flex-1 sm:flex-initial shadow-sm flex items-center justify-center gap-1.5"
+                      >
+                        <CreditCard className="w-3.5 h-3.5" />
+                        <span>Retry Payment / Pay Now</span>
+                      </Link>
+                    )}
+                    <Link
+                      href={`/account/orders/${order.orderNumber}`}
+                      className="px-3.5 py-2 bg-surface hover:bg-surface-dim border border-border text-primary font-semibold rounded-xl transition-colors text-center flex-1 sm:flex-initial"
+                    >
+                      View Details
+                    </Link>
                     <Link
                       href={`/track-order?id=${order.orderNumber}`}
-                      className="px-4 py-2 bg-accent hover:bg-accent-hover text-white font-semibold rounded-xl transition-colors text-center flex-1 sm:flex-initial"
+                      className="px-3.5 py-2 bg-surface-dim hover:bg-surface text-muted hover:text-primary border border-border font-medium rounded-xl transition-colors text-center flex-1 sm:flex-initial"
                     >
                       Track Package
                     </Link>

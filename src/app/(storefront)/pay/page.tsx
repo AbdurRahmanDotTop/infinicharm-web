@@ -371,7 +371,11 @@ function PaymentPageContent() {
   // State guards
   const isPaid = order?.paymentStatus === 'PAID' || order?.status === 'CONFIRMED';
   const isCancelled = ['CANCELLED', 'RETURNED', 'REFUNDED'].includes(order?.status || '');
-  const isPendingReview = order?.manualApprovalStatus === 'PENDING_REVIEW';
+  const isPaymentNotReceived =
+    order?.status === 'PAYMENT_NOT_RECEIVED' ||
+    (order?.paymentStatus === 'FAILED' && !isCancelled);
+  const isPendingReview =
+    !isPaid && !isCancelled && !isPaymentNotReceived && order?.manualApprovalStatus === 'PENDING_REVIEW';
 
   // ---------------------------------------------------------------------------
   // RENDER: Loading State
@@ -483,6 +487,10 @@ function PaymentPageContent() {
               <span className="px-3.5 py-1.5 bg-rose-500 text-white text-xs font-bold rounded-full shadow-sm">
                 Order Cancelled
               </span>
+            ) : isPaymentNotReceived ? (
+              <span className="px-3.5 py-1.5 bg-rose-600 text-white text-xs font-bold rounded-full shadow-sm flex items-center gap-1.5">
+                ✕ Payment Not Received — Please Retry
+              </span>
             ) : isPendingReview ? (
               <span className="px-3.5 py-1.5 bg-amber-500 text-white text-xs font-bold rounded-full shadow-sm">
                 ⏳ UTR Under Bank Verification
@@ -522,6 +530,20 @@ function PaymentPageContent() {
                 This order was cancelled.
               </strong>
               This order reference is no longer active. If you wish to purchase these products, please place a new order on our store.
+            </div>
+          </div>
+        )}
+
+        {isPaymentNotReceived && (
+          <div className="bg-rose-50 border border-rose-300 rounded-xl p-4 sm:p-5 flex items-start gap-3 shadow-sm">
+            <span className="text-rose-700 font-bold text-lg mt-0.5">⚠️</span>
+            <div className="text-xs text-rose-900 leading-relaxed space-y-1">
+              <strong className="font-bold block text-sm text-rose-950">
+                Payment Not Received / Action Required
+              </strong>
+              <p>
+                Our banking operations desk was unable to reconcile your previous payment reference against our <strong>IndusInd Bank Current Account (258825164657)</strong>. Please transfer the payable amount using the UPI options or QR code below, and submit your updated 12-digit UTR reference so we can verify and confirm your order.
+              </p>
             </div>
           </div>
         )}
@@ -845,9 +867,11 @@ function PaymentPageContent() {
                   2
                 </span>
                 <h3 className="font-bold text-sm text-slate">
-                  {order.utrNumber && !isEditingUtr
-                    ? 'Order Placed & Payment Submitted'
-                    : 'Finalize & Place Order (Payment Verification)'}
+                  {isPaymentNotReceived
+                    ? 'Retry Payment & Submit Updated UTR'
+                    : order.utrNumber && !isEditingUtr
+                      ? 'Order Placed & Payment Submitted'
+                      : 'Finalize & Place Order (Payment Verification)'}
                 </h3>
               </div>
 
@@ -870,7 +894,7 @@ function PaymentPageContent() {
               )}
 
               {/* Already Submitted / Confirmed View */}
-              {order.utrNumber && !isEditingUtr ? (
+              {order.utrNumber && !isEditingUtr && !isPaymentNotReceived ? (
                 <div className="space-y-4">
                   <div className="p-4 bg-stone-50 border border-stone-200 rounded-xl space-y-3">
                     <div className="flex items-center justify-between pb-2 border-b border-stone-200">

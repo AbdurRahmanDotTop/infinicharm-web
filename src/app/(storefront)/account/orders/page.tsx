@@ -15,9 +15,11 @@ import {
   Filter,
   CheckCircle2,
   FileText,
+  CreditCard,
+  Eye,
 } from 'lucide-react';
 import { Order, OrderStatus } from '@/types';
-import { ORDER_STATUS_LABELS } from '@/lib/services/orders';
+import { ORDER_STATUS_LABELS, isOrderEligibleForPaymentRetry } from '@/lib/services/orders';
 
 export default function AccountOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -244,10 +246,26 @@ export default function AccountOrdersPage() {
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {isOrderEligibleForPaymentRetry(order) && (
+                        <Link
+                          href={`/pay/${order.orderNumber}`}
+                          className="px-4 py-2 bg-accent hover:bg-accent-hover text-white text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 shadow-sm"
+                        >
+                          <CreditCard className="w-3.5 h-3.5" />
+                          <span>Retry Payment / Pay Now</span>
+                        </Link>
+                      )}
+                      <Link
+                        href={`/account/orders/${order.orderNumber}`}
+                        className="px-3.5 py-2 bg-surface hover:bg-surface-dim border border-border text-primary text-xs font-semibold rounded-xl transition-colors flex items-center gap-1.5"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        <span>View Details</span>
+                      </Link>
                       <Link
                         href={`/track-order?id=${order.orderNumber}`}
-                        className="px-4 py-2 bg-accent hover:bg-accent-hover text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-1.5"
+                        className="px-3.5 py-2 bg-surface-dim hover:bg-surface border border-border text-muted hover:text-primary text-xs font-medium rounded-xl transition-colors flex items-center gap-1.5"
                       >
                         <Truck className="w-3.5 h-3.5" />
                         <span>Track Consignment</span>
