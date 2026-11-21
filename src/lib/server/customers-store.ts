@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
-import type { Customer, CustomerAddress, CustomerPreferences, CustomerStatus, CustomerSummary, Order } from '../../types/index.ts';
+import type { Customer, CustomerAddress, CustomerPreferences, CustomerStatus, CustomerSummary, Order, UserRole, UserPermission } from '../../types/index.ts';
 import { getAuthSettings } from './auth-settings-store.ts';
 import { validatePasswordAgainstPolicy } from '../validation/auth.ts';
 
@@ -86,7 +86,7 @@ export function sanitizeCustomer(cust: Customer): Omit<Customer, 'passwordHash'>
 /**
  * Get all customers with dynamic spend and order aggregates from orders-store
  */
-export function getServerCustomers(search?: string, status?: string): CustomerSummary[] {
+export function getServerCustomers(search?: string, status?: string, role?: string): CustomerSummary[] {
   const raw = readRawCustomers();
   const allOrders = readRawOrders();
 
@@ -96,6 +96,10 @@ export function getServerCustomers(search?: string, status?: string): CustomerSu
     filtered = filtered.filter((c) => c.status === status);
   }
 
+  if (role && role !== 'ALL') {
+    filtered = filtered.filter((c) => (c.role || 'CUSTOMER') === role);
+  }
+
   if (search && search.trim()) {
     const q = search.trim().toLowerCase();
     filtered = filtered.filter(
@@ -103,6 +107,7 @@ export function getServerCustomers(search?: string, status?: string): CustomerSu
         c.fullName.toLowerCase().includes(q) ||
         c.email.toLowerCase().includes(q) ||
         c.phone.includes(q) ||
+        (c.role && c.role.toLowerCase().includes(q)) ||
         c.addresses.some(
           (a) =>
             a.city.toLowerCase().includes(q) ||
@@ -128,11 +133,17 @@ export function getServerCustomers(search?: string, status?: string): CustomerSu
       ? customerOrders.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0].createdAt
       : undefined;
 
+    const isProtected =
+      cust.id === 'cust-founder-01' ||
+      cust.email.toLowerCase() === 'abdurrahmanibnghufran@gmail.com' ||
+      cust.role === 'SUPER_ADMIN';
+
     return {
       ...sanitizeCustomer(cust),
       totalOrders,
       lifetimeSpendInPaise,
       lastOrderDate,
+      isProtected,
     };
   });
 }
@@ -323,11 +334,12 @@ export function createCustomer(data: {
   phone?: string;
   password?: string;
   status?: CustomerStatus;
-  role?: 'CUSTOMER' | 'ADMIN';
+  role?: UserRole;
+  permissions?: UserPermission[];
   emailVerified?: boolean;
   emailVerifiedAt?: string | null;
   verificationSentAt?: string | null;
-  registrationSource?: 'REGISTER_PAGE' | 'CHECKOUT' | 'ADMIN' | 'SEED';
+  registrationSource?: 'REGISTER_PAGE' | 'CHECKOUT' | 'ADMIN' | 'SEED' | 'INVITATION';
   notes?: string;
   addresses?: CustomerAddress[];
   preferences?: Partial<CustomerPreferences>;
@@ -363,6 +375,7 @@ export function createCustomer(data: {
     phone: data.phone?.trim() || '',
     status: data.status || 'ACTIVE',
     role: data.role || 'CUSTOMER',
+    permissions: data.permissions || (data.role === 'ADMIN' || data.role === 'SUPER_ADMIN' ? ['manage_products', 'manage_orders', 'manage_payments', 'manage_users', 'manage_cms', 'manage_marketing', 'manage_reviews', 'manage_settings'] : []),
     emailVerified,
     emailVerifiedAt: emailVerified ? data.emailVerifiedAt || now : null,
     verificationSentAt: data.verificationSentAt ?? null,
@@ -396,6 +409,16 @@ export function updateCustomer(
   if (index === -1) return null;
 
   const existing = raw[index];
+
+  // Protect system-critical founder account from status suspension or role demotion
+  if (existing.id === 'cust-founder-01' || existing.email.toLowerCase() === 'abdurrahmanibnghufran@gmail.com') {
+    if (updates.status && updates.status !== 'ACTIVE') {
+      throw new Error('Protected root founder account cannot be suspended or deactivated.');
+    }
+    if (updates.role && updates.role !== 'SUPER_ADMIN') {
+      throw new Error('Protected root founder account role cannot be changed.');
+    }
+  }
 
   // If email is being changed, check for duplicates
   if (updates.email && updates.email.trim().toLowerCase() !== existing.email.toLowerCase()) {
@@ -654,6 +677,46 @@ export function bulkDeleteCustomers(ids: string[]): {
     failedCount,
     errors,
   };
+}
+
+/**
+ * Bulk update customers/users status or role
+ */
+export function bulkUpdateCustomers(
+  ids: string[],
+  updates: { status?: CustomerStatus; role?: UserRole }
+): { success: boolean; updatedCount: number; errors: string[] } {
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return { success: false, updatedCount: 0, errors: ['No user IDs provided.'] };
+  }
+
+  let updatedCount = 0;
+  const errors: string[] = [];
+  const raw = readRawCustomers();
+
+  for (const id of ids) {
+    const cust = raw.find((c) => c.id === id);
+    if (!cust) {
+      errors.push(`User ${id} not found.`);
+      continue;
+    }
+    // Prevent modifying protected root founder status or role
+    if (
+      cust.id === 'cust-founder-01' ||
+      cust.email.toLowerCase() === 'abdurrahmanibnghufran@gmail.com' ||
+      cust.role === 'SUPER_ADMIN'
+    ) {
+      errors.push(`Protected root founder account ${cust.email} cannot be bulk modified.`);
+      continue;
+    }
+    if (updates.status) cust.status = updates.status;
+    if (updates.role) cust.role = updates.role;
+    cust.updatedAt = new Date().toISOString();
+    updatedCount++;
+  }
+
+  writeRawCustomers(raw);
+  return { success: updatedCount > 0, updatedCount, errors };
 }
 
 /**

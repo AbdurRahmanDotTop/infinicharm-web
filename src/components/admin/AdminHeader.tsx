@@ -20,6 +20,8 @@ import {
   LogOut,
   ArrowUpRight,
   CreditCard,
+  UserCheck,
+  UserCog,
   Inbox,
   Mail,
   Bell,
@@ -98,6 +100,7 @@ export function AdminHeader() {
     { label: 'Categories', href: '/admin/categories', icon: Layers },
     { label: 'Orders', href: '/admin/orders', icon: ShoppingBag },
     { label: 'Payments', href: '/admin/payments', icon: CreditCard },
+    { label: 'All Users', href: '/admin/users', icon: UserCheck },
     { label: 'Customers', href: '/admin/customers', icon: Users },
     { label: 'Coupons', href: '/admin/coupons', icon: Tag },
     { label: 'Inquiries', href: '/admin/inquiries', icon: Inbox },
@@ -150,9 +153,14 @@ export function AdminHeader() {
             <ArrowUpRight className="w-3.5 h-3.5" />
           </Link>
 
-          <span className="text-muted text-[11px] sm:text-xs hidden sm:inline">
-            <strong className="text-primary font-semibold">{adminEmail}</strong> (Super Admin)
-          </span>
+          <Link
+            href="/admin/profile"
+            className="text-muted text-[11px] sm:text-xs hidden sm:inline-flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-surface-dim hover:text-primary transition-colors"
+            title="Manage Administrator Profile & Credentials"
+          >
+            <UserCog className="w-3.5 h-3.5 text-accent" />
+            <span><strong className="text-primary font-semibold">{adminEmail}</strong> (Super Admin)</span>
+          </Link>
 
           <button
             type="button"

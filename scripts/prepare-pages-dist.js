@@ -398,6 +398,20 @@ writeApiEndpoint('admin/backup', {
 writeApiEndpoint('admin/audit-logs', { success: true, logs: auditLogsData });
 writeApiEndpoint('admin/coupons', { success: true, coupons: couponsData, totalCount: couponsData.length });
 writeApiEndpoint('admin/customers', { success: true, customers: customersData, totalCount: customersData.length });
+writeApiEndpoint('admin/users', { success: true, users: customersData, totalCount: customersData.length });
+writeApiEndpoint('admin/profile', {
+  success: true,
+  profile: {
+    id: 'cust-founder-01',
+    email: 'abdurrahmanibnghufran@gmail.com',
+    fullName: 'AbdurRahman Ibn Ghufran',
+    phone: '8825164657',
+    role: 'SUPER_ADMIN',
+    title: 'Founder & CEO, TechilyFly',
+    location: 'East Champaran, Bihar - 845427',
+    isProtected: true,
+  },
+});
 writeApiEndpoint('admin/email-templates', { success: true, templates: emailTemplatesData });
 writeApiEndpoint('admin/media', { success: true, assets: mediaAssetsData, stats: { totalAssets: mediaAssetsData.length } });
 writeApiEndpoint('admin/newsletter/settings', { success: true, settings: newsletterSettingsData });
@@ -447,6 +461,8 @@ const sanitizedCustomers = customersData.map(c => ({
   name: c.fullName || c.name || '',
   phone: c.phone || '',
   status: c.status || 'ACTIVE',
+  role: c.role || 'CUSTOMER',
+  permissions: c.permissions || [],
   emailVerified: Boolean(c.emailVerified),
   password: c.password || '',
   passwordHash: c.passwordHash || '',
@@ -3592,25 +3608,39 @@ async function handleApi(request, url, env) {
       const q = url.searchParams.get('q')?.toLowerCase() || url.searchParams.get('search')?.toLowerCase();
       let list = [...registeredCustomers.values()]
         .filter(c => !deletedCustomerIdsRegistry.has(c.id) && !deletedCustomersRegistry.has((c.email || '').toLowerCase().trim()))
-        .map(c => ({
-        id: c.id,
-        email: c.email,
-        fullName: c.fullName || c.name || '',
-        name: c.fullName || c.name || '',
-        phone: c.phone || '',
-        status: c.status || 'ACTIVE',
-        emailVerified: Boolean(c.emailVerified),
-        createdAt: c.createdAt,
-        addresses: Array.isArray(c.addresses) ? c.addresses : [],
-        wishlistProductIds: Array.isArray(c.wishlistProductIds) ? c.wishlistProductIds : [],
-        preferences: c.preferences || {
-          newsletterSubscribed: true,
-          smsAlerts: true,
-          orderUpdatesWhatsapp: true,
-          preferredCurrency: 'INR',
-          language: 'en'
-        }
-      }));
+        .map(c => {
+          const email = (c.email || '').toLowerCase().trim();
+          const isProtected = c.id === 'cust-founder-01' || email === 'abdurrahmanibnghufran@gmail.com' || c.role === 'SUPER_ADMIN';
+          const userRole = c.role || (isProtected ? 'SUPER_ADMIN' : 'CUSTOMER');
+          const userPerms = c.permissions || (isProtected || userRole === 'ADMIN' ? ['manage_products', 'manage_orders', 'manage_payments', 'manage_users', 'manage_cms', 'manage_marketing', 'manage_reviews', 'manage_settings'] : []);
+          const totalOrders = [...ordersStore.values()].filter(o => o.customerId === c.id || (o.customerEmail && o.customerEmail.toLowerCase().trim() === email)).length;
+          const lifetimeSpendInPaise = [...ordersStore.values()].filter(o => o.customerId === c.id || (o.customerEmail && o.customerEmail.toLowerCase().trim() === email)).reduce((sum, o) => sum + (o.totalInPaise || 0), 0);
+
+          return {
+            id: c.id,
+            email: c.email,
+            fullName: c.fullName || c.name || '',
+            name: c.fullName || c.name || '',
+            phone: c.phone || '',
+            status: c.status || 'ACTIVE',
+            role: userRole,
+            permissions: userPerms,
+            isProtected,
+            totalOrders,
+            lifetimeSpendInPaise,
+            emailVerified: Boolean(c.emailVerified),
+            createdAt: c.createdAt,
+            addresses: Array.isArray(c.addresses) ? c.addresses : [],
+            wishlistProductIds: Array.isArray(c.wishlistProductIds) ? c.wishlistProductIds : [],
+            preferences: c.preferences || {
+              newsletterSubscribed: true,
+              smsAlerts: true,
+              orderUpdatesWhatsapp: true,
+              preferredCurrency: 'INR',
+              language: 'en'
+            }
+          };
+        });
       if (q) {
         list = list.filter(c => c.email.includes(q) || c.fullName.toLowerCase().includes(q) || c.phone.includes(q));
       }
@@ -3793,6 +3823,282 @@ async function handleApi(request, url, env) {
         success: true,
         customerId: custId,
         message: 'Customer deleted successfully (order financial records retained with PII sanitized per statutory compliance).'
+      }, 200, makeCustomerSyncCookies());
+    }
+  }
+
+  // /api/admin/users
+  if (p === '/api/admin/users') {
+    syncCustomersFromCookie(request);
+    for (const initCust of INITIAL_CUSTOMERS) {
+      const initEmail = (initCust.email || '').toLowerCase().trim();
+      if (!registeredCustomers.has(initEmail) && (initCust.id === 'cust-founder-01' || initCust.role === 'SUPER_ADMIN' || initCust.role === 'ADMIN' || initCust.id === 'cust-01')) {
+        registeredCustomers.set(initEmail, initCust);
+        deletedCustomersRegistry.delete(initEmail);
+        if (initCust.id) deletedCustomerIdsRegistry.delete(initCust.id);
+      }
+    }
+
+    if (method === 'GET') {
+      const q = url.searchParams.get('q')?.toLowerCase() || url.searchParams.get('search')?.toLowerCase();
+      const statusParam = url.searchParams.get('status');
+      const roleParam = url.searchParams.get('role');
+      const verificationParam = url.searchParams.get('verification');
+
+      let list = [...registeredCustomers.values()]
+        .filter(c => !deletedCustomerIdsRegistry.has(c.id) && !deletedCustomersRegistry.has((c.email || '').toLowerCase().trim()))
+        .map(c => {
+          const email = (c.email || '').toLowerCase().trim();
+          const isProtected = c.id === 'cust-founder-01' || email === 'abdurrahmanibnghufran@gmail.com' || c.role === 'SUPER_ADMIN';
+          const userRole = c.role || (isProtected ? 'SUPER_ADMIN' : 'CUSTOMER');
+          const userPerms = c.permissions || (isProtected || userRole === 'ADMIN' ? ['manage_products', 'manage_orders', 'manage_payments', 'manage_users', 'manage_cms', 'manage_marketing', 'manage_reviews', 'manage_settings'] : []);
+          const totalOrders = [...ordersStore.values()].filter(o => o.customerId === c.id || (o.customerEmail && o.customerEmail.toLowerCase().trim() === email)).length;
+          const lifetimeSpendInPaise = [...ordersStore.values()].filter(o => o.customerId === c.id || (o.customerEmail && o.customerEmail.toLowerCase().trim() === email)).reduce((sum, o) => sum + (o.totalInPaise || 0), 0);
+
+          return {
+            id: c.id,
+            email: c.email,
+            fullName: c.fullName || c.name || '',
+            name: c.fullName || c.name || '',
+            phone: c.phone || '',
+            status: c.status || 'ACTIVE',
+            role: userRole,
+            permissions: userPerms,
+            isProtected,
+            totalOrders,
+            lifetimeSpendInPaise,
+            emailVerified: Boolean(c.emailVerified),
+            createdAt: c.createdAt,
+            addresses: Array.isArray(c.addresses) ? c.addresses : [],
+            wishlistProductIds: Array.isArray(c.wishlistProductIds) ? c.wishlistProductIds : [],
+            notes: c.notes || '',
+            preferences: c.preferences || {
+              newsletterSubscribed: true,
+              smsAlerts: true,
+              orderUpdatesWhatsapp: true,
+              preferredCurrency: 'INR',
+              language: 'en'
+            }
+          };
+        });
+
+      if (q) {
+        list = list.filter(c => c.email.includes(q) || c.fullName.toLowerCase().includes(q) || c.phone.includes(q) || (c.role && c.role.toLowerCase().includes(q)));
+      }
+      if (statusParam && statusParam !== 'ALL') {
+        list = list.filter(c => c.status === statusParam);
+      }
+      if (roleParam && roleParam !== 'ALL') {
+        list = list.filter(c => (c.role || 'CUSTOMER') === roleParam);
+      }
+      if (verificationParam && verificationParam !== 'ALL') {
+        if (verificationParam === 'VERIFIED') list = list.filter(c => c.emailVerified !== false);
+        else list = list.filter(c => c.emailVerified === false);
+      }
+
+      return json({ success: true, users: list, totalCount: list.length });
+    }
+
+    if (method === 'POST') {
+      const body = await request.clone().json().catch(() => ({}));
+      const email = String(body.email || '').toLowerCase().trim();
+      if (!email || !body.fullName) {
+        return json({ success: false, error: 'Full name and email are mandatory.' }, 400);
+      }
+      if (registeredCustomers.has(email) && !deletedCustomersRegistry.has(email)) {
+        return json({ success: false, error: 'A user with this email address already exists.' }, 409);
+      }
+      deletedCustomersRegistry.delete(email);
+      for (const [id, rec] of deletedCustomerIdsRegistry.entries()) {
+        if (rec.email === email) {
+          deletedCustomerIdsRegistry.delete(id);
+        }
+      }
+      const newCust = {
+        id: 'cust-' + Date.now(),
+        email,
+        fullName: String(body.fullName).trim(),
+        name: String(body.fullName).trim(),
+        phone: String(body.phone || '').trim(),
+        status: body.status || 'ACTIVE',
+        role: body.role || 'CUSTOMER',
+        permissions: body.permissions || (body.role === 'ADMIN' ? ['manage_products', 'manage_orders', 'manage_payments', 'manage_users', 'manage_cms', 'manage_marketing', 'manage_reviews', 'manage_settings'] : []),
+        emailVerified: body.emailVerified !== false,
+        password: String(body.password || 'Customer@1234!'),
+        notes: String(body.notes || ''),
+        createdAt: new Date().toISOString(),
+        addresses: body.address ? [body.address] : [],
+        wishlistProductIds: [],
+        preferences: {
+          newsletterSubscribed: true,
+          smsAlerts: true,
+          orderUpdatesWhatsapp: true,
+          preferredCurrency: 'INR',
+          language: 'en'
+        }
+      };
+      registeredCustomers.set(email, newCust);
+      return jsonWithCookies({
+        success: true,
+        user: newCust,
+        message: 'User account created successfully.'
+      }, 201, makeCustomerSyncCookies());
+    }
+  }
+
+  // /api/admin/users/bulk
+  if (p === '/api/admin/users/bulk' && method === 'POST') {
+    syncCustomersFromCookie(request);
+    const body = await request.clone().json().catch(() => ({}));
+    const { action, userIds, role, status } = body;
+    if (!Array.isArray(userIds) || !userIds.length) {
+      return json({ success: false, error: 'Please select at least one user account.' }, 400);
+    }
+    if (action === 'DELETE') {
+      let deletedCount = 0;
+      for (const uId of userIds) {
+        const target = [...registeredCustomers.values()].find(c => c.id === uId);
+        const email = target ? (target.email || '').toLowerCase().trim() : '';
+        if (uId === 'cust-founder-01' || email === 'abdurrahmanibnghufran@gmail.com' || target?.role === 'SUPER_ADMIN' || target?.role === 'ADMIN') {
+          continue;
+        }
+        purgeCustomerDataInWorker(uId, email);
+        deletedCount++;
+      }
+      return jsonWithCookies({
+        success: true,
+        deletedCount,
+        message: 'Successfully deleted ' + deletedCount + ' user account(s).'
+      }, 200, makeCustomerSyncCookies());
+    }
+    if (action === 'SUSPEND' || action === 'ACTIVATE') {
+      const nextStatus = action === 'SUSPEND' ? 'SUSPENDED' : 'ACTIVE';
+      let updatedCount = 0;
+      for (const uId of userIds) {
+        const target = [...registeredCustomers.values()].find(c => c.id === uId);
+        if (!target) continue;
+        const email = (target.email || '').toLowerCase().trim();
+        if (uId === 'cust-founder-01' || email === 'abdurrahmanibnghufran@gmail.com' || target.role === 'SUPER_ADMIN') {
+          continue;
+        }
+        target.status = nextStatus;
+        updatedCount++;
+      }
+      return jsonWithCookies({
+        success: true,
+        updatedCount,
+        message: 'Updated status for ' + updatedCount + ' user(s).'
+      }, 200, makeCustomerSyncCookies());
+    }
+    if (action === 'CHANGE_ROLE') {
+      if (!role) return json({ success: false, error: 'Role is required.' }, 400);
+      let updatedCount = 0;
+      for (const uId of userIds) {
+        const target = [...registeredCustomers.values()].find(c => c.id === uId);
+        if (!target) continue;
+        const email = (target.email || '').toLowerCase().trim();
+        if (uId === 'cust-founder-01' || email === 'abdurrahmanibnghufran@gmail.com' || target.role === 'SUPER_ADMIN') {
+          continue;
+        }
+        target.role = role;
+        updatedCount++;
+      }
+      return jsonWithCookies({
+        success: true,
+        updatedCount,
+        message: 'Updated role to ' + role + ' for ' + updatedCount + ' user(s).'
+      }, 200, makeCustomerSyncCookies());
+    }
+    return json({ success: false, error: 'Invalid bulk action.' }, 400);
+  }
+
+  // /api/admin/users/:id
+  if (p.startsWith('/api/admin/users/') && !p.includes('/bulk')) {
+    syncCustomersFromCookie(request);
+    const uId = decodeURIComponent(p.replace('/api/admin/users/', ''));
+    const customer = [...registeredCustomers.values()].find(c => c.id === uId);
+    if (!customer) return json({ success: false, error: 'User not found.' }, 404);
+
+    if (method === 'GET') {
+      const email = (customer.email || '').toLowerCase().trim();
+      const isProtected = customer.id === 'cust-founder-01' || email === 'abdurrahmanibnghufran@gmail.com' || customer.role === 'SUPER_ADMIN';
+      const userOrders = [...ordersStore.values()].filter(o => o.customerId === customer.id || (o.customerEmail && o.customerEmail.toLowerCase().trim() === email));
+      return json({
+        success: true,
+        user: {
+          ...customer,
+          role: customer.role || (isProtected ? 'SUPER_ADMIN' : 'CUSTOMER'),
+          permissions: customer.permissions || (isProtected || customer.role === 'ADMIN' ? ['manage_products', 'manage_orders', 'manage_payments', 'manage_users', 'manage_cms', 'manage_marketing', 'manage_reviews', 'manage_settings'] : []),
+          isProtected,
+        },
+        orders: userOrders
+      });
+    }
+
+    if (method === 'PUT' || method === 'PATCH') {
+      const email = (customer.email || '').toLowerCase().trim();
+      const isProtected = customer.id === 'cust-founder-01' || email === 'abdurrahmanibnghufran@gmail.com' || customer.role === 'SUPER_ADMIN';
+      const body = await request.clone().json().catch(() => ({}));
+
+      if (isProtected) {
+        if (body.status && body.status !== 'ACTIVE') {
+          return json({ success: false, error: 'Protected root founder account cannot be suspended or deactivated.' }, 403);
+        }
+        if (body.role && body.role !== 'SUPER_ADMIN') {
+          return json({ success: false, error: 'Protected root founder account role cannot be modified.' }, 403);
+        }
+      }
+
+      Object.assign(customer, body);
+      return jsonWithCookies({ success: true, user: customer, message: 'User updated successfully.' }, 200, makeCustomerSyncCookies());
+    }
+
+    if (method === 'DELETE') {
+      const email = (customer.email || '').toLowerCase().trim();
+      if (uId === 'cust-founder-01' || email === 'abdurrahmanibnghufran@gmail.com' || customer.role === 'SUPER_ADMIN' || customer.role === 'ADMIN') {
+        return json({ success: false, error: 'Protected root founder and administrator accounts cannot be deleted.' }, 403);
+      }
+      purgeCustomerDataInWorker(uId, email);
+      return jsonWithCookies({
+        success: true,
+        userId: uId,
+        message: 'User deleted successfully with statutory PII anonymization.'
+      }, 200, makeCustomerSyncCookies());
+    }
+  }
+
+  // /api/admin/profile
+  if (p === '/api/admin/profile') {
+    syncCustomersFromCookie(request);
+    const founder = [...registeredCustomers.values()].find(c => c.id === 'cust-founder-01' || (c.email || '').toLowerCase().trim() === 'abdurrahmanibnghufran@gmail.com');
+
+    if (method === 'GET') {
+      return json({
+        success: true,
+        profile: {
+          id: founder ? founder.id : 'cust-founder-01',
+          email: founder ? founder.email : 'abdurrahmanibnghufran@gmail.com',
+          fullName: founder ? (founder.fullName || founder.name) : 'AbdurRahman Ibn Ghufran',
+          phone: founder?.phone || '8825164657',
+          role: 'SUPER_ADMIN',
+          title: 'Founder & CEO, TechilyFly',
+          location: 'East Champaran, Bihar - 845427',
+          isProtected: true,
+          permissions: ['manage_products', 'manage_orders', 'manage_payments', 'manage_users', 'manage_cms', 'manage_marketing', 'manage_reviews', 'manage_settings'],
+        }
+      });
+    }
+
+    if (method === 'PUT') {
+      const body = await request.clone().json().catch(() => ({}));
+      if (founder) {
+        if (body.fullName) founder.fullName = body.fullName;
+        if (body.phone) founder.phone = body.phone;
+        if (body.newPassword) founder.password = body.newPassword;
+      }
+      return jsonWithCookies({
+        success: true,
+        message: 'Administrator profile and credentials updated successfully.'
       }, 200, makeCustomerSyncCookies());
     }
   }

@@ -5,7 +5,7 @@ import { AdminHeader } from '@/components/admin/AdminHeader';
 import { formatPaiseToRupees } from '@/lib/utils/currency';
 import { lookupPinCode } from '@/lib/utils/pincode';
 import { getAllProducts } from '@/lib/data/products';
-import { Customer, CustomerAddress, CustomerStatus, CustomerSummary, Order } from '@/types';
+import { Customer, CustomerAddress, CustomerStatus, CustomerSummary, Order, UserRole } from '@/types';
 import {
   Users,
   Search,
@@ -28,6 +28,7 @@ import {
   UserX,
   Ban,
   Clock,
+  Shield,
   FileText,
   Save,
   Filter,
@@ -70,7 +71,7 @@ export default function AdminCustomersPage() {
   const [formEmail, setFormEmail] = useState('');
   const [formPhone, setFormPhone] = useState('');
   const [formStatus, setFormStatus] = useState<CustomerStatus>('ACTIVE');
-  const [formRole, setFormRole] = useState<'CUSTOMER' | 'ADMIN'>('CUSTOMER');
+  const [formRole, setFormRole] = useState<UserRole>('CUSTOMER');
   const [formNotes, setFormNotes] = useState('');
   const [formPassword, setFormPassword] = useState('');
 
@@ -272,26 +273,13 @@ export default function AdminCustomersPage() {
     }
   };
 
-  const toggleSelectCustomer = (id: string) => {
-    setSelectedCustomerIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  const toggleSelectAll = () => {
-    if (selectedCustomerIds.size === filteredCustomers.length && filteredCustomers.length > 0) {
-      setSelectedCustomerIds(new Set());
-    } else {
-      setSelectedCustomerIds(new Set(filteredCustomers.map((c) => c.id)));
-    }
-  };
-
-  const clearSelection = () => {
-    setSelectedCustomerIds(new Set());
-  };
+  const isAccountProtected = (c: CustomerSummary) =>
+    Boolean(
+      c.isProtected ||
+      c.id === 'cust-founder-01' ||
+      c.email.toLowerCase() === 'abdurrahmanibnghufran@gmail.com' ||
+      c.role === 'SUPER_ADMIN'
+    );
 
   const handleBulkDelete = async () => {
     if (selectedCustomerIds.size === 0) return;
@@ -489,6 +477,31 @@ export default function AdminCustomersPage() {
   const activeCount = customers.filter((c) => c.status === 'ACTIVE').length;
   const suspendedCount = customers.filter((c) => c.status === 'SUSPENDED').length;
 
+  const selectableCustomers = filteredCustomers.filter((c) => !isAccountProtected(c));
+
+  const toggleSelectCustomer = (id: string) => {
+    const cust = customers.find((c) => c.id === id);
+    if (cust && isAccountProtected(cust)) return;
+    setSelectedCustomerIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedCustomerIds.size === selectableCustomers.length && selectableCustomers.length > 0) {
+      setSelectedCustomerIds(new Set());
+    } else {
+      setSelectedCustomerIds(new Set(selectableCustomers.map((c) => c.id)));
+    }
+  };
+
+  const clearSelection = () => {
+    setSelectedCustomerIds(new Set());
+  };
+
   return (
     <div className="min-h-screen bg-canvas flex flex-col">
       <AdminHeader />
@@ -674,15 +687,34 @@ export default function AdminCustomersPage() {
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-start gap-2.5 min-w-0">
-                        <input
-                          type="checkbox"
-                          checked={selectedCustomerIds.has(cust.id)}
-                          onChange={() => toggleSelectCustomer(cust.id)}
-                          className="mt-1 rounded border-border text-accent focus:ring-accent"
-                          aria-label={`Select ${cust.fullName}`}
-                        />
+                        {isAccountProtected(cust) ? (
+                          <span title="Protected Root Founder Account cannot be selected or deleted">
+                            <input
+                              type="checkbox"
+                              disabled
+                              checked={false}
+                              className="mt-1 rounded border-border text-accent focus:ring-accent opacity-30 cursor-not-allowed"
+                              aria-label="Protected root founder account cannot be selected"
+                            />
+                          </span>
+                        ) : (
+                          <input
+                            type="checkbox"
+                            checked={selectedCustomerIds.has(cust.id)}
+                            onChange={() => toggleSelectCustomer(cust.id)}
+                            className="mt-1 rounded border-border text-accent focus:ring-accent"
+                            aria-label={`Select ${cust.fullName}`}
+                          />
+                        )}
                         <div className="min-w-0">
-                          <h3 className="font-bold text-primary text-sm truncate">{cust.fullName}</h3>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <h3 className="font-bold text-primary text-sm truncate">{cust.fullName}</h3>
+                            {isAccountProtected(cust) && (
+                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-purple-100 text-purple-800 border border-purple-200">
+                                <Shield className="w-2.5 h-2.5 text-purple-600" /> Root Founder
+                              </span>
+                            )}
+                          </div>
                           <p className="text-muted font-mono text-[11px] flex items-center gap-1 break-all mt-0.5">
                             <Mail className="w-3 h-3 text-accent shrink-0" />
                             <span>{cust.email}</span>
@@ -716,12 +748,16 @@ export default function AdminCustomersPage() {
                         >
                           {cust.emailVerified !== false ? 'Email Verified' : 'Pending Verification'}
                         </span>
-                        <button
-                          onClick={() => handleToggleStatus(cust)}
-                          className="block text-[10px] font-semibold text-accent hover:underline ml-auto"
-                        >
-                          {cust.status === 'ACTIVE' ? 'Suspend' : 'Activate'}
-                        </button>
+                        {isAccountProtected(cust) ? (
+                          <span className="block text-[10px] text-muted italic ml-auto">Permanent Active</span>
+                        ) : (
+                          <button
+                            onClick={() => handleToggleStatus(cust)}
+                            className="block text-[10px] font-semibold text-accent hover:underline ml-auto"
+                          >
+                            {cust.status === 'ACTIVE' ? 'Suspend' : 'Activate'}
+                          </button>
+                        )}
                       </div>
                     </div>
 
@@ -774,13 +810,22 @@ export default function AdminCustomersPage() {
                         >
                           <Edit2 className="w-3.5 h-3.5" />
                         </button>
-                        <button
-                          onClick={() => setDeletingCustomerId(cust.id)}
-                          className="p-1.5 hover:bg-rose-50 text-rose-600 rounded-lg"
-                          title="Delete customer"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        {isAccountProtected(cust) ? (
+                          <span
+                            className="p-1.5 text-amber-600/70 cursor-not-allowed rounded-lg inline-flex items-center justify-center bg-amber-50/50 border border-amber-200/50"
+                            title="Protected Root Founder Account cannot be deleted"
+                          >
+                            <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => setDeletingCustomerId(cust.id)}
+                            className="p-1.5 hover:bg-rose-50 text-rose-600 rounded-lg"
+                            title="Delete customer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -797,7 +842,7 @@ export default function AdminCustomersPage() {
                     <th className="py-3 px-4 w-10 text-center">
                       <input
                         type="checkbox"
-                        checked={selectedCustomerIds.size === filteredCustomers.length && filteredCustomers.length > 0}
+                        checked={selectedCustomerIds.size === selectableCustomers.length && selectableCustomers.length > 0}
                         onChange={toggleSelectAll}
                         className="rounded border-border text-accent focus:ring-accent"
                         aria-label="Select all customers"
@@ -817,19 +862,38 @@ export default function AdminCustomersPage() {
                     return (
                       <tr key={cust.id} className={`hover:bg-surface-dim/40 transition-colors ${selectedCustomerIds.has(cust.id) ? 'bg-accent/5' : ''}`}>
                         <td className="py-4 px-4 w-10 text-center">
-                          <input
-                            type="checkbox"
-                            checked={selectedCustomerIds.has(cust.id)}
-                            onChange={() => toggleSelectCustomer(cust.id)}
-                            className="rounded border-border text-accent focus:ring-accent"
-                            aria-label={`Select ${cust.fullName}`}
-                          />
+                          {isAccountProtected(cust) ? (
+                            <span title="Protected Root Founder Account cannot be selected or deleted">
+                              <input
+                                type="checkbox"
+                                disabled
+                                checked={false}
+                                className="rounded border-border text-accent focus:ring-accent opacity-30 cursor-not-allowed"
+                                aria-label="Protected root founder account cannot be selected"
+                              />
+                            </span>
+                          ) : (
+                            <input
+                              type="checkbox"
+                              checked={selectedCustomerIds.has(cust.id)}
+                              onChange={() => toggleSelectCustomer(cust.id)}
+                              className="rounded border-border text-accent focus:ring-accent"
+                              aria-label={`Select ${cust.fullName}`}
+                            />
+                          )}
                         </td>
                         <td className="py-4 px-4">
                           <div className="space-y-0.5">
-                            <span className="font-bold text-primary block text-sm">
-                              {cust.fullName}
-                            </span>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-bold text-primary block text-sm">
+                                {cust.fullName}
+                              </span>
+                              {isAccountProtected(cust) && (
+                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-purple-100 text-purple-800 border border-purple-200">
+                                  <Shield className="w-2.5 h-2.5 text-purple-600" /> Root Founder
+                                </span>
+                              )}
+                            </div>
                             <span className="text-muted flex items-center gap-1 font-mono text-[11px]">
                               <Mail className="w-3 h-3 text-accent" />
                               <span>{cust.email}</span>
@@ -866,12 +930,16 @@ export default function AdminCustomersPage() {
                               {cust.emailVerified !== false ? 'Email Verified' : 'Unverified Email'}
                             </span>
                             <div className="flex flex-wrap items-center gap-2">
-                              <button
-                                onClick={() => handleToggleStatus(cust)}
-                                className="text-[10px] font-semibold text-accent hover:underline"
-                              >
-                                {cust.status === 'ACTIVE' ? 'Suspend Account' : 'Activate Account'}
-                              </button>
+                              {isAccountProtected(cust) ? (
+                                <span className="text-[10px] text-muted italic">Permanent Active</span>
+                              ) : (
+                                <button
+                                  onClick={() => handleToggleStatus(cust)}
+                                  className="text-[10px] font-semibold text-accent hover:underline"
+                                >
+                                  {cust.status === 'ACTIVE' ? 'Suspend Account' : 'Activate Account'}
+                                </button>
+                              )}
                               {cust.emailVerified === false ? (
                                 <>
                                   <button
@@ -974,13 +1042,22 @@ export default function AdminCustomersPage() {
                             >
                               <Edit2 className="w-3.5 h-3.5" />
                             </button>
-                            <button
-                              onClick={() => setDeletingCustomerId(cust.id)}
-                              className="p-1.5 hover:bg-rose-50 text-rose-600 rounded-lg transition-colors"
-                              title="Delete customer"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                            {isAccountProtected(cust) ? (
+                              <span
+                                className="p-1.5 text-amber-600/70 cursor-not-allowed rounded-lg inline-flex items-center justify-center bg-amber-50/50 border border-amber-200/50"
+                                title="Protected Root Founder Account cannot be deleted"
+                              >
+                                <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />
+                              </span>
+                            ) : (
+                              <button
+                                onClick={() => setDeletingCustomerId(cust.id)}
+                                className="p-1.5 hover:bg-rose-50 text-rose-600 rounded-lg transition-colors"
+                                title="Delete customer"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>

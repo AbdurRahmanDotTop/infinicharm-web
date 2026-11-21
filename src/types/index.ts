@@ -2,9 +2,20 @@ export type UserRole =
   | 'CUSTOMER'
   | 'ADMIN'
   | 'SUPER_ADMIN'
+  | 'VENDOR'
   | 'PRODUCT_MANAGER'
   | 'ORDER_MANAGER'
   | 'CONTENT_MANAGER';
+
+export type UserPermission =
+  | 'manage_products'
+  | 'manage_orders'
+  | 'manage_payments'
+  | 'manage_users'
+  | 'manage_cms'
+  | 'manage_marketing'
+  | 'manage_reviews'
+  | 'manage_settings';
 
 export interface Profile {
   id: string;
@@ -316,11 +327,12 @@ export interface Customer {
   fullName: string;
   phone: string;
   status: CustomerStatus;
-  role: 'CUSTOMER' | 'ADMIN';
+  role: UserRole;
+  permissions?: UserPermission[];
   emailVerified?: boolean;
   emailVerifiedAt?: string | null;
   verificationSentAt?: string | null;
-  registrationSource?: 'REGISTER_PAGE' | 'CHECKOUT' | 'ADMIN' | 'SEED';
+  registrationSource?: 'REGISTER_PAGE' | 'CHECKOUT' | 'ADMIN' | 'SEED' | 'INVITATION';
   sessionVersion?: number;
   avatarUrl?: string;
   notes?: string;
@@ -337,7 +349,11 @@ export interface CustomerSummary extends Omit<Customer, 'passwordHash'> {
   totalOrders: number;
   lifetimeSpendInPaise: number;
   lastOrderDate?: string;
+  isProtected?: boolean;
 }
+
+export type UserAccount = Customer;
+export type UserSummary = CustomerSummary;
 
 export interface AuthSettings {
   registrationEnabled: boolean;

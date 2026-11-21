@@ -511,55 +511,7 @@ export function getWebhookLogs(): WebhookLogItem[] {
   try {
     const stored = localStorage.getItem(STORAGE_KEY_WEBHOOK_LOGS);
     if (!stored) {
-      // Initial realistic webhook events for demonstration
-      const initialLogs: WebhookLogItem[] = [
-        {
-          id: 'wh-log-01',
-          gatewayId: 'RAZORPAY',
-          event: 'payment.authorized',
-          orderNumber: 'INF-202611-8842',
-          amountInPaise: 14900,
-          status: 'PROCESSED',
-          payloadSummary: 'HMAC signature valid • payment_id: pay_Nx9K2lM3 • amount: 14900 paise',
-          ipAddress: '52.66.195.12',
-          createdAt: new Date(Date.now() - 3600000).toISOString(),
-        },
-        {
-          id: 'wh-log-02',
-          gatewayId: 'RAZORPAY',
-          event: 'order.paid',
-          orderNumber: 'INF-202611-8842',
-          amountInPaise: 14900,
-          status: 'PROCESSED',
-          payloadSummary: 'Order status updated to CONFIRMED • Email notification triggered',
-          ipAddress: '52.66.195.12',
-          createdAt: new Date(Date.now() - 3590000).toISOString(),
-        },
-        {
-          id: 'wh-log-03',
-          gatewayId: 'PHONEPE',
-          event: 'checkout.session.completed',
-          orderNumber: 'INF-202611-4190',
-          amountInPaise: 44000,
-          status: 'PROCESSED',
-          payloadSummary: 'Checksum SHA256 verified • Transaction state: SUCCESS',
-          ipAddress: '13.235.18.91',
-          createdAt: new Date(Date.now() - 86400000).toISOString(),
-        },
-        {
-          id: 'wh-log-04',
-          gatewayId: 'PAYGLOCAL',
-          event: 'payment.captured',
-          orderNumber: 'INF-202611-5521',
-          amountInPaise: 249900,
-          status: 'PROCESSED',
-          payloadSummary: 'JWS Signature Verified • GID: gl_live_9a7bc21 • Currency: GBP • Status: CAPTURED',
-          ipAddress: '104.18.24.11',
-          createdAt: new Date(Date.now() - 172800000).toISOString(),
-        },
-      ];
-      localStorage.setItem(STORAGE_KEY_WEBHOOK_LOGS, JSON.stringify(initialLogs));
-      return initialLogs;
+      return [];
     }
     return JSON.parse(stored);
   } catch {
