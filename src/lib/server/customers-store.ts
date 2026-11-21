@@ -84,6 +84,20 @@ export function sanitizeCustomer(cust: Customer): Omit<Customer, 'passwordHash'>
 }
 
 /**
+ * Checks if an account is the authoritative Super Administrator system account
+ */
+export function isSuperAdminAccount(cust: { id?: string; email?: string; role?: string } | null | undefined): boolean {
+  if (!cust) return false;
+  const adminEmail = (process.env.ADMIN_EMAIL || 'admin@infinicharm.com').toLowerCase();
+  const email = (cust.email || '').toLowerCase().trim();
+  return (
+    cust.id === 'usr-admin-01' ||
+    email === adminEmail ||
+    cust.role === 'SUPER_ADMIN'
+  );
+}
+
+/**
  * Get all customers with dynamic spend and order aggregates from orders-store
  */
 export function getServerCustomers(search?: string, status?: string, role?: string): CustomerSummary[] {
@@ -133,10 +147,7 @@ export function getServerCustomers(search?: string, status?: string, role?: stri
       ? customerOrders.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0].createdAt
       : undefined;
 
-    const isProtected =
-      cust.id === 'cust-founder-01' ||
-      cust.email.toLowerCase() === 'abdurrahmanibnghufran@gmail.com' ||
-      cust.role === 'SUPER_ADMIN';
+    const isProtected = isSuperAdminAccount(cust);
 
     return {
       ...sanitizeCustomer(cust),
@@ -410,14 +421,19 @@ export function updateCustomer(
 
   const existing = raw[index];
 
-  // Protect system-critical founder account from status suspension or role demotion
-  if (existing.id === 'cust-founder-01' || existing.email.toLowerCase() === 'abdurrahmanibnghufran@gmail.com') {
+  // Protect system-critical Super Administrator account from status suspension or role demotion
+  if (isSuperAdminAccount(existing)) {
     if (updates.status && updates.status !== 'ACTIVE') {
-      throw new Error('Protected root founder account cannot be suspended or deactivated.');
+      throw new Error('Protected Super Administrator account cannot be suspended or deactivated.');
     }
     if (updates.role && updates.role !== 'SUPER_ADMIN') {
-      throw new Error('Protected root founder account role cannot be changed.');
+      throw new Error('Protected Super Administrator account role cannot be changed.');
     }
+  }
+
+  // Prevent unauthorized role escalation to SUPER_ADMIN
+  if (updates.role === 'SUPER_ADMIN' && !isSuperAdminAccount(existing)) {
+    throw new Error('SUPER_ADMIN role is reserved exclusively for the primary system administrator account.');
   }
 
   // If email is being changed, check for duplicates
@@ -470,14 +486,12 @@ export function deleteCustomer(id: string): boolean {
   const targetCust = raw.find((c) => c.id === id);
   if (!targetCust) return false;
 
-  // Protect system-critical founder and administrator accounts from deletion
+  // Protect system-critical Super Administrator and administrator accounts from deletion
   if (
-    targetCust.id === 'cust-founder-01' ||
-    targetCust.email.toLowerCase() === 'abdurrahmanibnghufran@gmail.com' ||
-    (targetCust as any).role === 'SUPER_ADMIN' ||
+    isSuperAdminAccount(targetCust) ||
     targetCust.role === 'ADMIN'
   ) {
-    throw new Error('Protected root founder and administrator accounts cannot be deleted.');
+    throw new Error('Protected Super Administrator and administrator accounts cannot be deleted.');
   }
 
   // 1. Remove customer record from customers.json
@@ -649,13 +663,11 @@ export function bulkDeleteCustomers(ids: string[]): {
         continue;
       }
       if (
-        cust.id === 'cust-founder-01' ||
-        cust.email.toLowerCase() === 'abdurrahmanibnghufran@gmail.com' ||
-        (cust as any).role === 'SUPER_ADMIN' ||
+        isSuperAdminAccount(cust) ||
         cust.role === 'ADMIN'
       ) {
         failedCount++;
-        errors.push(`Customer ${cust.email} is a protected administrator and cannot be bulk deleted.`);
+        errors.push(`Account ${cust.email} is a protected administrator and cannot be bulk deleted.`);
         continue;
       }
       const ok = deleteCustomer(id);
@@ -700,13 +712,13 @@ export function bulkUpdateCustomers(
       errors.push(`User ${id} not found.`);
       continue;
     }
-    // Prevent modifying protected root founder status or role
-    if (
-      cust.id === 'cust-founder-01' ||
-      cust.email.toLowerCase() === 'abdurrahmanibnghufran@gmail.com' ||
-      cust.role === 'SUPER_ADMIN'
-    ) {
-      errors.push(`Protected root founder account ${cust.email} cannot be bulk modified.`);
+    // Prevent modifying protected Super Administrator status or role
+    if (isSuperAdminAccount(cust)) {
+      errors.push(`Protected Super Administrator account ${cust.email} cannot be bulk modified.`);
+      continue;
+    }
+    if (updates.role === 'SUPER_ADMIN') {
+      errors.push(`SUPER_ADMIN role cannot be assigned via bulk updates.`);
       continue;
     }
     if (updates.status) cust.status = updates.status;

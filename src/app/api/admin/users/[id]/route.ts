@@ -4,6 +4,7 @@ import {
   updateCustomer,
   deleteCustomer,
   adminResetCustomerPassword,
+  isSuperAdminAccount,
 } from '@/lib/server/customers-store';
 import { getServerOrders } from '@/lib/server/orders-store';
 import { verifyAdminSession, getAdminActorEmail } from '@/lib/server/admin-auth';
@@ -33,10 +34,7 @@ export async function GET(
         (o.customerPhone && o.customerPhone === user.phone)
     );
 
-    const isProtected =
-      user.id === 'cust-founder-01' ||
-      user.email.toLowerCase() === 'abdurrahmanibnghufran@gmail.com' ||
-      user.role === 'SUPER_ADMIN';
+    const isProtected = isSuperAdminAccount(user);
 
     const { passwordHash, ...safe } = user;
 
@@ -66,20 +64,28 @@ export async function PUT(
       return NextResponse.json({ success: false, error: 'User not found.' }, { status: 404 });
     }
 
-    // Protect root founder from suspension or role demotion
-    if (existing.id === 'cust-founder-01' || existing.email.toLowerCase() === 'abdurrahmanibnghufran@gmail.com') {
+    // Protect Super Administrator from suspension or role demotion
+    if (isSuperAdminAccount(existing)) {
       if (body.status && body.status !== 'ACTIVE') {
         return NextResponse.json(
-          { success: false, error: 'Protected root founder account cannot be suspended or deactivated.' },
+          { success: false, error: 'Protected Super Administrator account cannot be suspended or deactivated.' },
           { status: 403 }
         );
       }
       if (body.role && body.role !== 'SUPER_ADMIN') {
         return NextResponse.json(
-          { success: false, error: 'Protected root founder account role cannot be modified.' },
+          { success: false, error: 'Protected Super Administrator account role cannot be modified.' },
           { status: 403 }
         );
       }
+    }
+
+    // Prevent unauthorized escalation to SUPER_ADMIN
+    if (body.role === 'SUPER_ADMIN' && !isSuperAdminAccount(existing)) {
+      return NextResponse.json(
+        { success: false, error: 'SUPER_ADMIN role is reserved exclusively for the primary system administrator account.' },
+        { status: 403 }
+      );
     }
 
     // Direct password reset if provided
@@ -123,10 +129,7 @@ export async function PUT(
       }
     } catch {}
 
-    const isProtected =
-      updated.id === 'cust-founder-01' ||
-      updated.email.toLowerCase() === 'abdurrahmanibnghufran@gmail.com' ||
-      updated.role === 'SUPER_ADMIN';
+    const isProtected = isSuperAdminAccount(updated);
 
     const { passwordHash, ...safe } = updated;
     return NextResponse.json({
@@ -155,13 +158,11 @@ export async function DELETE(
     }
 
     if (
-      targetCust.id === 'cust-founder-01' ||
-      targetCust.email.toLowerCase() === 'abdurrahmanibnghufran@gmail.com' ||
-      targetCust.role === 'SUPER_ADMIN' ||
+      isSuperAdminAccount(targetCust) ||
       targetCust.role === 'ADMIN'
     ) {
       return NextResponse.json(
-        { success: false, error: 'Protected root founder and administrator accounts cannot be deleted.' },
+        { success: false, error: 'Protected Super Administrator and administrator accounts cannot be deleted.' },
         { status: 403 }
       );
     }

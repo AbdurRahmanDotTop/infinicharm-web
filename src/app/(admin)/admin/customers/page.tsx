@@ -276,8 +276,8 @@ export default function AdminCustomersPage() {
   const isAccountProtected = (c: CustomerSummary) =>
     Boolean(
       c.isProtected ||
-      c.id === 'cust-founder-01' ||
-      c.email.toLowerCase() === 'abdurrahmanibnghufran@gmail.com' ||
+      c.id === 'usr-admin-01' ||
+      c.email.toLowerCase() === 'admin@infinicharm.com' ||
       c.role === 'SUPER_ADMIN'
     );
 
@@ -688,13 +688,13 @@ export default function AdminCustomersPage() {
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-start gap-2.5 min-w-0">
                         {isAccountProtected(cust) ? (
-                          <span title="Protected Root Founder Account cannot be selected or deleted">
+                          <span title="Protected Administrator Account cannot be selected or deleted">
                             <input
                               type="checkbox"
                               disabled
                               checked={false}
                               className="mt-1 rounded border-border text-accent focus:ring-accent opacity-30 cursor-not-allowed"
-                              aria-label="Protected root founder account cannot be selected"
+                              aria-label="Protected administrator account cannot be selected"
                             />
                           </span>
                         ) : (
@@ -711,7 +711,7 @@ export default function AdminCustomersPage() {
                             <h3 className="font-bold text-primary text-sm truncate">{cust.fullName}</h3>
                             {isAccountProtected(cust) && (
                               <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-purple-100 text-purple-800 border border-purple-200">
-                                <Shield className="w-2.5 h-2.5 text-purple-600" /> Root Founder
+                                <Shield className="w-2.5 h-2.5 text-purple-600" /> Super Admin
                               </span>
                             )}
                           </div>
@@ -813,7 +813,7 @@ export default function AdminCustomersPage() {
                         {isAccountProtected(cust) ? (
                           <span
                             className="p-1.5 text-amber-600/70 cursor-not-allowed rounded-lg inline-flex items-center justify-center bg-amber-50/50 border border-amber-200/50"
-                            title="Protected Root Founder Account cannot be deleted"
+                            title="Protected Administrator Account cannot be deleted"
                           >
                             <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />
                           </span>
@@ -863,13 +863,13 @@ export default function AdminCustomersPage() {
                       <tr key={cust.id} className={`hover:bg-surface-dim/40 transition-colors ${selectedCustomerIds.has(cust.id) ? 'bg-accent/5' : ''}`}>
                         <td className="py-4 px-4 w-10 text-center">
                           {isAccountProtected(cust) ? (
-                            <span title="Protected Root Founder Account cannot be selected or deleted">
+                            <span title="Protected Administrator Account cannot be selected or deleted">
                               <input
                                 type="checkbox"
                                 disabled
                                 checked={false}
                                 className="rounded border-border text-accent focus:ring-accent opacity-30 cursor-not-allowed"
-                                aria-label="Protected root founder account cannot be selected"
+                                aria-label="Protected administrator account cannot be selected"
                               />
                             </span>
                           ) : (
@@ -890,7 +890,7 @@ export default function AdminCustomersPage() {
                               </span>
                               {isAccountProtected(cust) && (
                                 <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-purple-100 text-purple-800 border border-purple-200">
-                                  <Shield className="w-2.5 h-2.5 text-purple-600" /> Root Founder
+                                  <Shield className="w-2.5 h-2.5 text-purple-600" /> Super Admin
                                 </span>
                               )}
                             </div>
@@ -1045,7 +1045,7 @@ export default function AdminCustomersPage() {
                             {isAccountProtected(cust) ? (
                               <span
                                 className="p-1.5 text-amber-600/70 cursor-not-allowed rounded-lg inline-flex items-center justify-center bg-amber-50/50 border border-amber-200/50"
-                                title="Protected Root Founder Account cannot be deleted"
+                                title="Protected Administrator Account cannot be deleted"
                               >
                                 <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />
                               </span>

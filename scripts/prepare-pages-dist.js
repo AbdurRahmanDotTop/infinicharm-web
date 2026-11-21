@@ -402,14 +402,24 @@ writeApiEndpoint('admin/users', { success: true, users: customersData, totalCoun
 writeApiEndpoint('admin/profile', {
   success: true,
   profile: {
-    id: 'cust-founder-01',
-    email: 'abdurrahmanibnghufran@gmail.com',
-    fullName: 'AbdurRahman Ibn Ghufran',
+    id: 'usr-admin-01',
+    email: 'admin@infinicharm.com',
+    fullName: 'Operations Administrator',
     phone: '8825164657',
     role: 'SUPER_ADMIN',
-    title: 'Founder & CEO, TechilyFly',
+    title: 'Super Administrator, Operations Hub',
     location: 'East Champaran, Bihar - 845427',
     isProtected: true,
+    permissions: [
+      'manage_products',
+      'manage_orders',
+      'manage_payments',
+      'manage_users',
+      'manage_cms',
+      'manage_marketing',
+      'manage_reviews',
+      'manage_settings',
+    ],
   },
 });
 writeApiEndpoint('admin/email-templates', { success: true, templates: emailTemplatesData });
@@ -710,8 +720,8 @@ function anonymizeCustomerOrdersInWorker(custId, email) {
 // Completely purge customer account, credentials, reviews, inquiries, newsletter, and anonymize orders
 function purgeCustomerDataInWorker(custId, email) {
   const normEmail = (email || '').toLowerCase().trim();
-  // Protect root founder and system administrator accounts from deletion
-  if (normEmail === 'abdurrahmanibnghufran@gmail.com' || custId === 'cust-founder-01') {
+  // Protect Super Administrator and system authority accounts from deletion
+  if (normEmail === 'admin@infinicharm.com' || custId === 'usr-admin-01') {
     return;
   }
 
@@ -765,7 +775,7 @@ function syncCustomersFromCookie(request) {
         for (const item of parsed) {
           if (item && (item.id || item.email)) {
             const e = (item.email || '').toLowerCase().trim();
-            if (item.id === 'cust-founder-01' || e === 'abdurrahmanibnghufran@gmail.com') {
+            if (item.id === 'usr-admin-01' || e === 'admin@infinicharm.com') {
               continue;
             }
             purgeCustomerDataInWorker(item.id || '', item.email || '');
@@ -796,7 +806,7 @@ function syncCustomersFromCookie(request) {
 
 function makeCustomerSyncCookies() {
   const deletedList = Array.from(deletedCustomersRegistry.values())
-    .filter(d => d.id !== 'cust-founder-01' && (d.email || '').toLowerCase().trim() !== 'abdurrahmanibnghufran@gmail.com')
+    .filter(d => d.id !== 'usr-admin-01' && (d.email || '').toLowerCase().trim() !== 'admin@infinicharm.com')
     .map(d => ({
       id: d.id,
       email: d.email,
@@ -3597,7 +3607,7 @@ async function handleApi(request, url, env) {
     // Guarantee baseline authentic accounts are always preserved in memory
     for (const initCust of INITIAL_CUSTOMERS) {
       const initEmail = (initCust.email || '').toLowerCase().trim();
-      if (!registeredCustomers.has(initEmail) && (initCust.id === 'cust-founder-01' || initCust.role === 'SUPER_ADMIN' || initCust.role === 'ADMIN' || initCust.id === 'cust-01')) {
+      if (!registeredCustomers.has(initEmail) && (initCust.id === 'usr-admin-01' || initCust.role === 'SUPER_ADMIN' || initCust.role === 'ADMIN' || initCust.id === 'cust-01' || initCust.id === 'cust-founder-01')) {
         registeredCustomers.set(initEmail, initCust);
         deletedCustomersRegistry.delete(initEmail);
         if (initCust.id) deletedCustomerIdsRegistry.delete(initCust.id);
@@ -3610,9 +3620,9 @@ async function handleApi(request, url, env) {
         .filter(c => !deletedCustomerIdsRegistry.has(c.id) && !deletedCustomersRegistry.has((c.email || '').toLowerCase().trim()))
         .map(c => {
           const email = (c.email || '').toLowerCase().trim();
-          const isProtected = c.id === 'cust-founder-01' || email === 'abdurrahmanibnghufran@gmail.com' || c.role === 'SUPER_ADMIN';
-          const userRole = c.role || (isProtected ? 'SUPER_ADMIN' : 'CUSTOMER');
-          const userPerms = c.permissions || (isProtected || userRole === 'ADMIN' ? ['manage_products', 'manage_orders', 'manage_payments', 'manage_users', 'manage_cms', 'manage_marketing', 'manage_reviews', 'manage_settings'] : []);
+          const isProtected = c.id === 'usr-admin-01' || email === 'admin@infinicharm.com' || c.role === 'SUPER_ADMIN';
+          const userRole = isProtected ? 'SUPER_ADMIN' : (c.role || 'CUSTOMER');
+          const userPerms = isProtected || userRole === 'ADMIN' ? ['manage_products', 'manage_orders', 'manage_payments', 'manage_users', 'manage_cms', 'manage_marketing', 'manage_reviews', 'manage_settings'] : (c.permissions || []);
           const totalOrders = [...ordersStore.values()].filter(o => o.customerId === c.id || (o.customerEmail && o.customerEmail.toLowerCase().trim() === email)).length;
           const lifetimeSpendInPaise = [...ordersStore.values()].filter(o => o.customerId === c.id || (o.customerEmail && o.customerEmail.toLowerCase().trim() === email)).reduce((sum, o) => sum + (o.totalInPaise || 0), 0);
 
@@ -3764,7 +3774,7 @@ async function handleApi(request, url, env) {
     for (const custId of customerIds) {
       const customer = [...registeredCustomers.values()].find(c => c.id === custId);
       const email = customer ? customer.email.toLowerCase().trim() : '';
-      if (custId === 'cust-founder-01' || email === 'abdurrahmanibnghufran@gmail.com' || customer?.role === 'SUPER_ADMIN' || customer?.role === 'ADMIN') {
+      if (custId === 'usr-admin-01' || email === 'admin@infinicharm.com' || customer?.role === 'SUPER_ADMIN' || customer?.role === 'ADMIN') {
         continue;
       }
       purgeCustomerDataInWorker(custId, email);
@@ -3804,8 +3814,8 @@ async function handleApi(request, url, env) {
     }
     if (method === 'DELETE') {
       const email = customer.email.toLowerCase().trim();
-      if (custId === 'cust-founder-01' || email === 'abdurrahmanibnghufran@gmail.com' || customer.role === 'SUPER_ADMIN' || customer.role === 'ADMIN') {
-        return json({ success: false, error: 'Protected root founder and administrator accounts cannot be deleted.' }, 403);
+      if (custId === 'usr-admin-01' || email === 'admin@infinicharm.com' || customer.role === 'SUPER_ADMIN' || customer.role === 'ADMIN') {
+        return json({ success: false, error: 'Protected Super Administrator and administrator accounts cannot be deleted.' }, 403);
       }
       purgeCustomerDataInWorker(custId, email);
 
@@ -3832,7 +3842,7 @@ async function handleApi(request, url, env) {
     syncCustomersFromCookie(request);
     for (const initCust of INITIAL_CUSTOMERS) {
       const initEmail = (initCust.email || '').toLowerCase().trim();
-      if (!registeredCustomers.has(initEmail) && (initCust.id === 'cust-founder-01' || initCust.role === 'SUPER_ADMIN' || initCust.role === 'ADMIN' || initCust.id === 'cust-01')) {
+      if (!registeredCustomers.has(initEmail) && (initCust.id === 'usr-admin-01' || initCust.role === 'SUPER_ADMIN' || initCust.role === 'ADMIN' || initCust.id === 'cust-01' || initCust.id === 'cust-founder-01')) {
         registeredCustomers.set(initEmail, initCust);
         deletedCustomersRegistry.delete(initEmail);
         if (initCust.id) deletedCustomerIdsRegistry.delete(initCust.id);
@@ -3849,9 +3859,9 @@ async function handleApi(request, url, env) {
         .filter(c => !deletedCustomerIdsRegistry.has(c.id) && !deletedCustomersRegistry.has((c.email || '').toLowerCase().trim()))
         .map(c => {
           const email = (c.email || '').toLowerCase().trim();
-          const isProtected = c.id === 'cust-founder-01' || email === 'abdurrahmanibnghufran@gmail.com' || c.role === 'SUPER_ADMIN';
-          const userRole = c.role || (isProtected ? 'SUPER_ADMIN' : 'CUSTOMER');
-          const userPerms = c.permissions || (isProtected || userRole === 'ADMIN' ? ['manage_products', 'manage_orders', 'manage_payments', 'manage_users', 'manage_cms', 'manage_marketing', 'manage_reviews', 'manage_settings'] : []);
+          const isProtected = c.id === 'usr-admin-01' || email === 'admin@infinicharm.com' || c.role === 'SUPER_ADMIN';
+          const userRole = isProtected ? 'SUPER_ADMIN' : (c.role || 'CUSTOMER');
+          const userPerms = isProtected || userRole === 'ADMIN' ? ['manage_products', 'manage_orders', 'manage_payments', 'manage_users', 'manage_cms', 'manage_marketing', 'manage_reviews', 'manage_settings'] : (c.permissions || []);
           const totalOrders = [...ordersStore.values()].filter(o => o.customerId === c.id || (o.customerEmail && o.customerEmail.toLowerCase().trim() === email)).length;
           const lifetimeSpendInPaise = [...ordersStore.values()].filter(o => o.customerId === c.id || (o.customerEmail && o.customerEmail.toLowerCase().trim() === email)).reduce((sum, o) => sum + (o.totalInPaise || 0), 0);
 
@@ -3959,7 +3969,7 @@ async function handleApi(request, url, env) {
       for (const uId of userIds) {
         const target = [...registeredCustomers.values()].find(c => c.id === uId);
         const email = target ? (target.email || '').toLowerCase().trim() : '';
-        if (uId === 'cust-founder-01' || email === 'abdurrahmanibnghufran@gmail.com' || target?.role === 'SUPER_ADMIN' || target?.role === 'ADMIN') {
+        if (uId === 'usr-admin-01' || email === 'admin@infinicharm.com' || target?.role === 'SUPER_ADMIN' || target?.role === 'ADMIN') {
           continue;
         }
         purgeCustomerDataInWorker(uId, email);
@@ -3978,7 +3988,7 @@ async function handleApi(request, url, env) {
         const target = [...registeredCustomers.values()].find(c => c.id === uId);
         if (!target) continue;
         const email = (target.email || '').toLowerCase().trim();
-        if (uId === 'cust-founder-01' || email === 'abdurrahmanibnghufran@gmail.com' || target.role === 'SUPER_ADMIN') {
+        if (uId === 'usr-admin-01' || email === 'admin@infinicharm.com' || target.role === 'SUPER_ADMIN') {
           continue;
         }
         target.status = nextStatus;
@@ -3997,7 +4007,7 @@ async function handleApi(request, url, env) {
         const target = [...registeredCustomers.values()].find(c => c.id === uId);
         if (!target) continue;
         const email = (target.email || '').toLowerCase().trim();
-        if (uId === 'cust-founder-01' || email === 'abdurrahmanibnghufran@gmail.com' || target.role === 'SUPER_ADMIN') {
+        if (uId === 'usr-admin-01' || email === 'admin@infinicharm.com' || target.role === 'SUPER_ADMIN') {
           continue;
         }
         target.role = role;
@@ -4021,14 +4031,14 @@ async function handleApi(request, url, env) {
 
     if (method === 'GET') {
       const email = (customer.email || '').toLowerCase().trim();
-      const isProtected = customer.id === 'cust-founder-01' || email === 'abdurrahmanibnghufran@gmail.com' || customer.role === 'SUPER_ADMIN';
+      const isProtected = customer.id === 'usr-admin-01' || email === 'admin@infinicharm.com' || customer.role === 'SUPER_ADMIN';
       const userOrders = [...ordersStore.values()].filter(o => o.customerId === customer.id || (o.customerEmail && o.customerEmail.toLowerCase().trim() === email));
       return json({
         success: true,
         user: {
           ...customer,
-          role: customer.role || (isProtected ? 'SUPER_ADMIN' : 'CUSTOMER'),
-          permissions: customer.permissions || (isProtected || customer.role === 'ADMIN' ? ['manage_products', 'manage_orders', 'manage_payments', 'manage_users', 'manage_cms', 'manage_marketing', 'manage_reviews', 'manage_settings'] : []),
+          role: isProtected ? 'SUPER_ADMIN' : (customer.role || 'CUSTOMER'),
+          permissions: isProtected || customer.role === 'ADMIN' ? ['manage_products', 'manage_orders', 'manage_payments', 'manage_users', 'manage_cms', 'manage_marketing', 'manage_reviews', 'manage_settings'] : (customer.permissions || []),
           isProtected,
         },
         orders: userOrders
@@ -4037,16 +4047,19 @@ async function handleApi(request, url, env) {
 
     if (method === 'PUT' || method === 'PATCH') {
       const email = (customer.email || '').toLowerCase().trim();
-      const isProtected = customer.id === 'cust-founder-01' || email === 'abdurrahmanibnghufran@gmail.com' || customer.role === 'SUPER_ADMIN';
+      const isProtected = customer.id === 'usr-admin-01' || email === 'admin@infinicharm.com' || customer.role === 'SUPER_ADMIN';
       const body = await request.clone().json().catch(() => ({}));
 
       if (isProtected) {
         if (body.status && body.status !== 'ACTIVE') {
-          return json({ success: false, error: 'Protected root founder account cannot be suspended or deactivated.' }, 403);
+          return json({ success: false, error: 'Protected Super Administrator account cannot be suspended or deactivated.' }, 403);
         }
         if (body.role && body.role !== 'SUPER_ADMIN') {
-          return json({ success: false, error: 'Protected root founder account role cannot be modified.' }, 403);
+          return json({ success: false, error: 'Protected Super Administrator account role cannot be modified.' }, 403);
         }
+      }
+      if (body.role === 'SUPER_ADMIN' && !isProtected) {
+        return json({ success: false, error: 'SUPER_ADMIN role is reserved exclusively for the primary system administrator account.' }, 403);
       }
 
       Object.assign(customer, body);
@@ -4055,8 +4068,8 @@ async function handleApi(request, url, env) {
 
     if (method === 'DELETE') {
       const email = (customer.email || '').toLowerCase().trim();
-      if (uId === 'cust-founder-01' || email === 'abdurrahmanibnghufran@gmail.com' || customer.role === 'SUPER_ADMIN' || customer.role === 'ADMIN') {
-        return json({ success: false, error: 'Protected root founder and administrator accounts cannot be deleted.' }, 403);
+      if (uId === 'usr-admin-01' || email === 'admin@infinicharm.com' || customer.role === 'SUPER_ADMIN' || customer.role === 'ADMIN') {
+        return json({ success: false, error: 'Protected Super Administrator and administrator accounts cannot be deleted.' }, 403);
       }
       purgeCustomerDataInWorker(uId, email);
       return jsonWithCookies({
@@ -4070,18 +4083,18 @@ async function handleApi(request, url, env) {
   // /api/admin/profile
   if (p === '/api/admin/profile') {
     syncCustomersFromCookie(request);
-    const founder = [...registeredCustomers.values()].find(c => c.id === 'cust-founder-01' || (c.email || '').toLowerCase().trim() === 'abdurrahmanibnghufran@gmail.com');
+    const adminUser = [...registeredCustomers.values()].find(c => c.id === 'usr-admin-01' || (c.email || '').toLowerCase().trim() === 'admin@infinicharm.com');
 
     if (method === 'GET') {
       return json({
         success: true,
         profile: {
-          id: founder ? founder.id : 'cust-founder-01',
-          email: founder ? founder.email : 'abdurrahmanibnghufran@gmail.com',
-          fullName: founder ? (founder.fullName || founder.name) : 'AbdurRahman Ibn Ghufran',
-          phone: founder?.phone || '8825164657',
+          id: adminUser ? adminUser.id : 'usr-admin-01',
+          email: adminUser ? adminUser.email : 'admin@infinicharm.com',
+          fullName: adminUser ? (adminUser.fullName || adminUser.name) : 'Operations Administrator',
+          phone: adminUser?.phone || '8825164657',
           role: 'SUPER_ADMIN',
-          title: 'Founder & CEO, TechilyFly',
+          title: 'Super Administrator, Operations Hub',
           location: 'East Champaran, Bihar - 845427',
           isProtected: true,
           permissions: ['manage_products', 'manage_orders', 'manage_payments', 'manage_users', 'manage_cms', 'manage_marketing', 'manage_reviews', 'manage_settings'],
@@ -4091,10 +4104,10 @@ async function handleApi(request, url, env) {
 
     if (method === 'PUT') {
       const body = await request.clone().json().catch(() => ({}));
-      if (founder) {
-        if (body.fullName) founder.fullName = body.fullName;
-        if (body.phone) founder.phone = body.phone;
-        if (body.newPassword) founder.password = body.newPassword;
+      if (adminUser) {
+        if (body.fullName) adminUser.fullName = body.fullName;
+        if (body.phone) adminUser.phone = body.phone;
+        if (body.newPassword) adminUser.password = body.newPassword;
       }
       return jsonWithCookies({
         success: true,

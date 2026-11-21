@@ -199,7 +199,7 @@ export default function AdminProfilePage() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
             <div className="flex items-center gap-2 text-muted">
               <Mail className="w-4 h-4 text-accent shrink-0" />
-              <span className="font-mono text-primary truncate">{profile?.email || 'abdurrahmanibnghufran@gmail.com'}</span>
+              <span className="font-mono text-primary truncate">{profile?.email || 'admin@infinicharm.com'}</span>
             </div>
             <div className="flex items-center gap-2 text-muted">
               <Phone className="w-4 h-4 text-accent shrink-0" />
@@ -329,7 +329,7 @@ export default function AdminProfilePage() {
         <div className="bg-surface rounded-2xl border border-border p-5 shadow-sm space-y-3 text-xs">
           <div className="border-b border-border/60 pb-3">
             <h3 className="font-display font-bold text-base text-primary">Active Executive Authorities</h3>
-            <p className="text-muted">As Root Founder and Super Administrator, all 8 platform permissions are permanently active.</p>
+            <p className="text-muted">As Super Administrator (Operations Authority), all 8 platform permissions are permanently active.</p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">

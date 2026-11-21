@@ -1,17 +1,68 @@
 [
   {
+    "id": "usr-admin-01",
+    "email": "admin@infinicharm.com",
+    "passwordHash": "scrypt:504562505b093546eb9812b7c56730a0:e01e432a337bfa084890be6508ff7c7d426e0a5acd80d5e0786512e6e0248043fa8895a8d1527f3ab2fdc63c7b28f6bbefe906a94813e08a697a10f8d18a32d4",
+    "fullName": "Operations Administrator",
+    "phone": "8825164657",
+    "status": "ACTIVE",
+    "role": "SUPER_ADMIN",
+    "emailVerified": true,
+    "emailVerifiedAt": "2026-11-01T08:00:00.000Z",
+    "registrationSource": "ADMIN",
+    "sessionVersion": 1,
+    "notes": "Primary Super Administrator System Account.",
+    "permissions": [
+      "manage_products",
+      "manage_orders",
+      "manage_payments",
+      "manage_users",
+      "manage_cms",
+      "manage_marketing",
+      "manage_reviews",
+      "manage_settings"
+    ],
+    "preferences": {
+      "newsletterSubscribed": false,
+      "smsAlerts": true,
+      "orderUpdatesWhatsapp": false,
+      "preferredCurrency": "INR",
+      "language": "en"
+    },
+    "addresses": [
+      {
+        "id": "addr-admin-hq",
+        "customerId": "usr-admin-01",
+        "fullName": "InfiniCharm Operations Hub",
+        "phone": "8825164657",
+        "addressLine1": "Ward No. 07, Lahsaniya, Khoripakar",
+        "addressLine2": "Dewapur, Pachpakari, Patahi, Dhaka",
+        "city": "Motihari",
+        "state": "Bihar",
+        "postalCode": "845427",
+        "country": "India",
+        "isDefaultShipping": true,
+        "isDefaultBilling": true
+      }
+    ],
+    "wishlistProductIds": [],
+    "createdAt": "2026-11-01T08:00:00.000Z",
+    "updatedAt": "2026-11-21T16:00:00.000Z"
+  },
+  {
     "id": "cust-founder-01",
     "email": "abdurrahmanibnghufran@gmail.com",
     "passwordHash": "scrypt:504562505b093546eb9812b7c56730a0:e01e432a337bfa084890be6508ff7c7d426e0a5acd80d5e0786512e6e0248043fa8895a8d1527f3ab2fdc63c7b28f6bbefe906a94813e08a697a10f8d18a32d4",
     "fullName": "AbdurRahman Ibn Ghufran",
     "phone": "8825164657",
     "status": "ACTIVE",
-    "role": "SUPER_ADMIN",
+    "role": "CUSTOMER",
     "emailVerified": true,
     "emailVerifiedAt": "2026-11-14T08:00:00.000Z",
     "registrationSource": "ORGANIC",
     "sessionVersion": 1,
-    "notes": "Verified founder VIP account.",
+    "notes": "Verified VIP founder & storefront patron.",
+    "permissions": [],
     "preferences": {
       "newsletterSubscribed": true,
       "smsAlerts": true,
@@ -39,7 +90,7 @@
       "S-01-P-03"
     ],
     "createdAt": "2026-11-14T08:00:00.000Z",
-    "updatedAt": "2026-11-14T08:00:00.000Z"
+    "updatedAt": "2026-11-21T16:00:00.000Z"
   },
   {
     "id": "cust-01",
@@ -81,7 +132,7 @@
       "S-01-P-01"
     ],
     "createdAt": "2026-11-01T08:00:00.000Z",
-    "updatedAt": "2026-11-21T15:43:36.437Z",
-    "lastLoginAt": "2026-11-21T15:43:36.284Z"
+    "updatedAt": "2026-11-21T17:47:59.211Z",
+    "lastLoginAt": "2026-11-21T17:47:59.057Z"
   }
 ]

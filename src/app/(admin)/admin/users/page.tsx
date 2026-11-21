@@ -127,8 +127,8 @@ export default function AdminAllUsersPage() {
   const isAccountProtected = (u: CustomerSummary) =>
     Boolean(
       u.isProtected ||
-      u.id === 'cust-founder-01' ||
-      u.email.toLowerCase() === 'abdurrahmanibnghufran@gmail.com' ||
+      u.id === 'usr-admin-01' ||
+      u.email.toLowerCase() === 'admin@infinicharm.com' ||
       u.role === 'SUPER_ADMIN'
     );
 
@@ -773,7 +773,7 @@ export default function AdminAllUsersPage() {
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-start gap-2.5 min-w-0">
                         {isProt ? (
-                          <span title="Protected Root Founder Account cannot be selected or deleted">
+                          <span title="Protected Super Administrator Account cannot be selected or deleted">
                             <input
                               type="checkbox"
                               disabled
@@ -794,7 +794,7 @@ export default function AdminAllUsersPage() {
                             <h3 className="font-bold text-primary text-sm truncate">{u.fullName}</h3>
                             {isProt && (
                               <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-purple-100 text-purple-800 border border-purple-200">
-                                <Shield className="w-2.5 h-2.5 text-purple-600" /> Root Founder
+                                <Shield className="w-2.5 h-2.5 text-purple-600" /> Super Admin
                               </span>
                             )}
                           </div>
@@ -877,7 +877,7 @@ export default function AdminAllUsersPage() {
                         {isProt ? (
                           <span
                             className="p-1.5 text-amber-600/70 cursor-not-allowed rounded-lg inline-flex items-center justify-center bg-amber-50/50 border border-amber-200/50"
-                            title="Protected Root Founder Account cannot be deleted"
+                            title="Protected Super Administrator Account cannot be deleted"
                           >
                             <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />
                           </span>
@@ -927,7 +927,7 @@ export default function AdminAllUsersPage() {
                         <tr key={u.id} className={`hover:bg-surface-dim/40 transition-colors ${selectedUserIds.has(u.id) ? 'bg-accent/5' : ''}`}>
                           <td className="py-4 px-4 w-10 text-center">
                             {isProt ? (
-                              <span title="Protected Root Founder Account cannot be selected or deleted">
+                              <span title="Protected Super Administrator Account cannot be selected or deleted">
                                 <input
                                   type="checkbox"
                                   disabled
@@ -953,7 +953,7 @@ export default function AdminAllUsersPage() {
                                 </span>
                                 {isProt && (
                                   <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold bg-purple-100 text-purple-800 border border-purple-200">
-                                    <Shield className="w-2.5 h-2.5 text-purple-600" /> Root Founder
+                                    <Shield className="w-2.5 h-2.5 text-purple-600" /> Super Admin
                                   </span>
                                 )}
                               </div>
@@ -1053,7 +1053,7 @@ export default function AdminAllUsersPage() {
                               {isProt ? (
                                 <span
                                   className="p-1.5 text-amber-600/70 cursor-not-allowed rounded-lg inline-flex items-center justify-center bg-amber-50/50 border border-amber-200/50"
-                                  title="Protected Root Founder Account cannot be deleted"
+                                  title="Protected Super Administrator Account cannot be deleted"
                                 >
                                   <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />
                                 </span>
@@ -1386,7 +1386,7 @@ export default function AdminAllUsersPage() {
                 </label>
                 {isAccountProtected(roleEditingUser) ? (
                   <div className="p-3 bg-purple-50 border border-purple-200 rounded-xl text-purple-900 font-semibold">
-                    Permanent Super Administrator (Root Founder Account). Role cannot be modified.
+                    Permanent Super Administrator Account. Role cannot be modified.
                   </div>
                 ) : (
                   <select
@@ -1394,13 +1394,13 @@ export default function AdminAllUsersPage() {
                     onChange={(e) => {
                       const newRole = e.target.value as UserRole;
                       setFormRole(newRole);
-                      if (newRole === 'ADMIN' || newRole === 'SUPER_ADMIN') {
+                      if (newRole === 'ADMIN') {
                         setFormPermissions(ALL_PERMISSIONS.map(p => p.key));
                       }
                     }}
                     className="w-full px-3 py-2 bg-surface-dim border border-border rounded-xl text-primary font-semibold focus:outline-none focus:border-accent"
                   >
-                    {ALL_ROLES.map((r) => (
+                    {ALL_ROLES.filter(r => r.key !== 'SUPER_ADMIN').map((r) => (
                       <option key={r.key} value={r.key}>
                         {r.label} ({r.key})
                       </option>

@@ -92,6 +92,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (role === 'SUPER_ADMIN') {
+      return NextResponse.json(
+        { success: false, error: 'SUPER_ADMIN role is reserved exclusively for the primary system administrator account.' },
+        { status: 403 }
+      );
+    }
+
     const initialAddresses = address ? [address] : [];
 
     const newUser = createCustomer({

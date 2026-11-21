@@ -3,6 +3,7 @@ import {
   getServerCustomerById,
   updateCustomer,
   deleteCustomer,
+  isSuperAdminAccount,
 } from '@/lib/server/customers-store';
 import { getServerOrders } from '@/lib/server/orders-store';
 import { dispatchNotificationEvent } from '@/lib/server/notification-dispatcher';
@@ -125,13 +126,11 @@ export async function DELETE(
     }
 
     if (
-      targetCustomer.id === 'cust-founder-01' ||
-      targetCustomer.email.toLowerCase() === 'abdurrahmanibnghufran@gmail.com' ||
-      (targetCustomer as any).role === 'SUPER_ADMIN' ||
+      isSuperAdminAccount(targetCustomer) ||
       targetCustomer.role === 'ADMIN'
     ) {
       return NextResponse.json(
-        { success: false, error: 'Protected root founder and administrator accounts cannot be deleted.' },
+        { success: false, error: 'Protected Super Administrator and administrator accounts cannot be deleted.' },
         { status: 403 }
       );
     }

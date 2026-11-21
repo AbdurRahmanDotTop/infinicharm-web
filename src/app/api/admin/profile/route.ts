@@ -9,24 +9,24 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Unauthorized.' }, { status: 401 });
     }
 
-    const actorEmail = getAdminActorEmail(req);
-    // Find founder / admin customer record if present
+    const actorEmail = getAdminActorEmail(req) || 'admin@infinicharm.com';
+    // Find authoritative Super Admin account record
     const all = getServerCustomers();
-    const founder = all.find(
+    const adminUser = all.find(
       (c) =>
-        c.id === 'cust-founder-01' ||
+        c.id === 'usr-admin-01' ||
         c.email.toLowerCase() === actorEmail.toLowerCase() ||
-        c.email.toLowerCase() === 'abdurrahmanibnghufran@gmail.com'
+        c.email.toLowerCase() === 'admin@infinicharm.com'
     );
 
     const profile = {
-      id: founder ? founder.id : 'usr-admin-01',
-      email: founder ? founder.email : actorEmail,
-      fullName: founder ? founder.fullName : 'AbdurRahman Ibn Ghufran',
-      name: founder ? founder.fullName : 'AbdurRahman Ibn Ghufran',
-      phone: founder?.phone || '8825164657',
+      id: adminUser ? adminUser.id : 'usr-admin-01',
+      email: adminUser ? adminUser.email : actorEmail,
+      fullName: adminUser ? adminUser.fullName : 'Operations Administrator',
+      name: adminUser ? adminUser.fullName : 'Operations Administrator',
+      phone: adminUser?.phone || '8825164657',
       role: 'SUPER_ADMIN',
-      title: 'Founder & CEO, TechilyFly',
+      title: 'Super Administrator, Operations Hub',
       location: 'East Champaran, Bihar - 845427',
       isProtected: true,
       permissions: [
@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
         'manage_reviews',
         'manage_settings',
       ],
-      lastLoginAt: new Date().toISOString(),
+      lastLoginAt: adminUser?.lastLoginAt || new Date().toISOString(),
     };
 
     return NextResponse.json({
@@ -78,33 +78,33 @@ export async function PUT(req: NextRequest) {
       }
     }
 
-    // Update founder customer record if present
+    // Update authoritative Super Admin account record
     const all = getServerCustomers();
-    const founder = all.find(
+    const adminUser = all.find(
       (c) =>
-        c.id === 'cust-founder-01' ||
+        c.id === 'usr-admin-01' ||
         c.email.toLowerCase() === actorEmail.toLowerCase() ||
-        c.email.toLowerCase() === 'abdurrahmanibnghufran@gmail.com'
+        c.email.toLowerCase() === 'admin@infinicharm.com'
     );
 
-    if (founder) {
-      updateCustomer(founder.id, {
-        fullName: fullName || founder.fullName,
-        phone: phone !== undefined ? phone : founder.phone,
+    if (adminUser) {
+      updateCustomer(adminUser.id, {
+        fullName: fullName || adminUser.fullName,
+        phone: phone !== undefined ? phone : adminUser.phone,
       });
 
       if (newPassword) {
-        adminResetCustomerPassword(founder.id, newPassword);
+        adminResetCustomerPassword(adminUser.id, newPassword);
       }
     }
 
     const ipAddress = req.headers.get('x-forwarded-for') || '127.0.0.1';
     appendServerAuditLog({
-      actorId: founder ? founder.id : 'usr-admin-01',
+      actorId: adminUser ? adminUser.id : 'usr-admin-01',
       actorEmail,
       action: 'ADMIN_PROFILE_UPDATED',
       resourceType: 'admin_account',
-      resourceId: founder ? founder.id : 'usr-admin-01',
+      resourceId: adminUser ? adminUser.id : 'usr-admin-01',
       ipAddress,
       diff: { fullName, phone, passwordChanged: Boolean(newPassword) },
     });
