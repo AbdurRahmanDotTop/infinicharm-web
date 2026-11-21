@@ -122,8 +122,40 @@ export default function OrderDetailClient({ orderId: initialOrderId }: OrderDeta
 
     loadOrder();
 
+    let channel: BroadcastChannel | null = null;
+    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+      try {
+        channel = new BroadcastChannel('infinicharm_orders_channel');
+        channel.onmessage = (event) => {
+          if (
+            event.data?.type === 'ORDER_UPDATED' ||
+            event.data?.type === 'ORDER_CREATED' ||
+            event.data?.type === 'ORDER_DELETED'
+          ) {
+            loadOrder();
+          }
+        };
+      } catch {}
+    }
+
+    const handleSync = () => loadOrder();
+    window.addEventListener('infinicharm_orders_updated', handleSync);
+    window.addEventListener('storage', handleSync);
+
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        loadOrder();
+      }
+    }, 4000);
+
     return () => {
       isMounted = false;
+      clearInterval(interval);
+      try {
+        channel?.close();
+      } catch {}
+      window.removeEventListener('infinicharm_orders_updated', handleSync);
+      window.removeEventListener('storage', handleSync);
     };
   }, [orderIdentifier]);
 

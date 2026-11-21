@@ -6,6 +6,8 @@ import {
   approveServerOrderUtr,
   rejectServerOrderUtr,
   addServerOrderTimelineEvent,
+  updateAdminOrder,
+  deleteServerOrder,
 } from '@/lib/server/orders-store';
 import { resolveAuthenticatedCustomer } from '@/lib/server/customers-store';
 import {
@@ -241,6 +243,16 @@ export async function PATCH(
       return NextResponse.json({ success: true, order: result.order });
     }
 
+    // 6. Edit Order Details (Admin)
+    if (action === 'EDIT_ORDER') {
+      const actor = body.actor || 'Operations Admin';
+      const result = updateAdminOrder(id, body.updates || body, actor);
+      if (!result.success) {
+        return NextResponse.json({ success: false, error: result.error }, { status: 400 });
+      }
+      return NextResponse.json({ success: true, order: result.order });
+    }
+
     return NextResponse.json(
       { success: false, error: `Unrecognized action: ${action}` },
       { status: 400 }
@@ -249,6 +261,73 @@ export async function PATCH(
     console.error('Error updating order:', error);
     return NextResponse.json(
       { success: false, error: 'Internal Server Error updating order' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    if (request.cookies.get('infinicharm_admin_session')?.value !== 'active') {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized. Admin privileges required.' },
+        { status: 401 }
+      );
+    }
+    const { id } = await params;
+    const body = await request.json();
+    const actor = body.actor || 'Operations Admin';
+
+    const result = updateAdminOrder(id, body, actor);
+    if (!result.success) {
+      return NextResponse.json({ success: false, error: result.error }, { status: 400 });
+    }
+
+    return NextResponse.json({ success: true, order: result.order });
+  } catch (error: any) {
+    console.error('Error in PUT /api/orders/[id]:', error);
+    return NextResponse.json(
+      { success: false, error: 'Internal Server Error' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    if (request.cookies.get('infinicharm_admin_session')?.value !== 'active') {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized. Admin privileges required.' },
+        { status: 401 }
+      );
+    }
+    const { id } = await params;
+    const { searchParams } = new URL(request.url);
+    const permanent = searchParams.get('permanent') === 'true';
+    const actor = searchParams.get('actor') || 'Operations Admin';
+
+    const result = deleteServerOrder(id, actor, permanent);
+    if (!result.success) {
+      return NextResponse.json({ success: false, error: result.error }, { status: 400 });
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: permanent
+        ? `Order ${result.orderNumber || id} permanently removed.`
+        : `Order ${result.orderNumber || id} marked as cancelled.`,
+      orderNumber: result.orderNumber,
+    });
+  } catch (error: any) {
+    console.error('Error in DELETE /api/orders/[id]:', error);
+    return NextResponse.json(
+      { success: false, error: 'Internal Server Error' },
       { status: 500 }
     );
   }

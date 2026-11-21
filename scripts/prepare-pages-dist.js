@@ -504,6 +504,102 @@ INITIAL_ORDERS.forEach(o => {
   if (o.id) ordersStore.set(o.id, o);
   if (o.orderNumber) ordersStore.set(o.orderNumber, o);
 });
+const deletedOrderIds = new Set();
+
+function syncOrdersFromCookie(request) {
+  // 1. Sync deleted order tombstones across edge isolates
+  const deletedCookie = getCookie(request, 'infinicharm_deleted_orders');
+  if (deletedCookie) {
+    try {
+      const parsed = JSON.parse(decodeURIComponent(deletedCookie));
+      if (Array.isArray(parsed)) {
+        for (const id of parsed) {
+          if (id) {
+            deletedOrderIds.add(id);
+            ordersStore.delete(id);
+            for (const [k, v] of ordersStore.entries()) {
+              if (v.id === id || v.orderNumber === id) {
+                ordersStore.delete(k);
+              }
+            }
+          }
+        }
+      }
+    } catch {}
+  }
+
+  // 2. Sync dynamically added or updated orders across edge isolates
+  const ordersCookie = getCookie(request, 'infinicharm_orders_cache');
+  if (ordersCookie) {
+    try {
+      const parsed = JSON.parse(decodeURIComponent(ordersCookie));
+      if (Array.isArray(parsed)) {
+        for (const co of parsed) {
+          if (co && (co.id || co.orderNumber)) {
+            const id = co.id;
+            const ordNum = co.orderNumber;
+            if (deletedOrderIds.has(id) || deletedOrderIds.has(ordNum)) {
+              continue;
+            }
+            const existing = ordersStore.get(id) || ordersStore.get(ordNum);
+            const merged = existing ? { ...existing, ...co } : co;
+            if (id) ordersStore.set(id, merged);
+            if (ordNum) ordersStore.set(ordNum, merged);
+          }
+        }
+      }
+    } catch {}
+  }
+}
+
+function makeOrdersSyncCookies() {
+  const uniqueOrders = Array.from(new Map([...ordersStore.values()].map(o => [o.orderNumber || o.id, o])).values());
+  const activeOrders = uniqueOrders.filter(o => !deletedOrderIds.has(o.id) && !deletedOrderIds.has(o.orderNumber));
+  const compactOrders = activeOrders.slice(0, 30).map(o => ({
+    id: o.id,
+    orderNumber: o.orderNumber,
+    customerId: o.customerId,
+    customerEmail: o.customerEmail,
+    customerPhone: o.customerPhone,
+    status: o.status,
+    subtotalInPaise: o.subtotalInPaise,
+    discountInPaise: o.discountInPaise,
+    shippingInPaise: o.shippingInPaise,
+    taxInPaise: o.taxInPaise,
+    totalInPaise: o.totalInPaise,
+    paymentMethod: o.paymentMethod,
+    paymentStatus: o.paymentStatus,
+    utrNumber: o.utrNumber,
+    customUpiUtrNumber: o.customUpiUtrNumber,
+    manualApprovalStatus: o.manualApprovalStatus,
+    courierName: o.courierName,
+    trackingNumber: o.trackingNumber,
+    estimatedDeliveryDate: o.estimatedDeliveryDate,
+    shippingAddress: o.shippingAddress,
+    billingAddress: o.billingAddress,
+    items: (o.items || []).map(it => ({
+      id: it.id,
+      productId: it.productId,
+      variantId: it.variantId,
+      productTitle: it.productTitle,
+      variantTitle: it.variantTitle,
+      sku: it.sku,
+      priceInPaise: it.priceInPaise,
+      quantity: it.quantity,
+      totalInPaise: it.totalInPaise
+    })),
+    timeline: (o.timeline || []).slice(-10),
+    createdAt: o.createdAt,
+    updatedAt: o.updatedAt,
+    adminNotes: o.adminNotes
+  }));
+
+  return 'infinicharm_orders_cache=' + encodeURIComponent(JSON.stringify(compactOrders)) + '; Path=/; Max-Age=2592000; SameSite=Lax; Secure';
+}
+
+function makeDeletedOrdersCookie() {
+  return 'infinicharm_deleted_orders=' + encodeURIComponent(JSON.stringify([...deletedOrderIds])) + '; Path=/; Max-Age=2592000; SameSite=Lax; Secure';
+}
 const couponsStore = [...COUPONS];
 const emailTemplatesStore = [...EMAIL_TEMPLATES];
 const mediaAssetsStore = [...MEDIA_ASSETS];
@@ -2040,6 +2136,7 @@ async function handleApi(request, url, env) {
       return json({ success: false, error: 'Account suspended.' }, 403);
     }
 
+    syncOrdersFromCookie(request);
     if (method === 'GET') {
       const uniqueOrders = Array.from(new Map([...ordersStore.values()].map(o => [o.orderNumber || o.id, o])).values());
       const customerOrders = uniqueOrders.filter(o => isOrderOwnedByCustomerEdge(o, customer));
@@ -2359,6 +2456,7 @@ async function handleApi(request, url, env) {
 
   // Orders
   if (p === '/api/orders') {
+    syncOrdersFromCookie(request);
     if (method === 'POST') {
       const body = await request.clone().json().catch(() => null);
       if (!body || !body.items || !body.shippingAddress) {
@@ -2439,9 +2537,12 @@ async function handleApi(request, url, env) {
             ? 'PENDING_REVIEW'
             : existingOrder.manualApprovalStatus,
         };
+        deletedOrderIds.delete(existingOrder.id);
+        if (existingOrder.orderNumber) deletedOrderIds.delete(existingOrder.orderNumber);
         ordersStore.set(existingOrder.id, mergedOrder);
         if (existingOrder.orderNumber) ordersStore.set(existingOrder.orderNumber, mergedOrder);
-        return json({ success: true, order: mergedOrder, isIdempotent: true }, 200);
+        cookiesToSet.push(makeOrdersSyncCookies());
+        return jsonWithCookies({ success: true, order: mergedOrder, isIdempotent: true }, 200, cookiesToSet);
       }
 
       const newOrder = {
@@ -2456,6 +2557,8 @@ async function handleApi(request, url, env) {
         discountInPaise: orderDiscountInPaise,
         couponCode: normalizedCouponCode || undefined,
       };
+      deletedOrderIds.delete(orderId);
+      if (newOrder.orderNumber) deletedOrderIds.delete(newOrder.orderNumber);
       ordersStore.set(orderId, newOrder);
       if (newOrder.orderNumber) ordersStore.set(newOrder.orderNumber, newOrder);
 
@@ -2486,10 +2589,8 @@ async function handleApi(request, url, env) {
         }
       }
 
-      if (cookiesToSet.length > 0) {
-        return jsonWithCookies({ success: true, order: newOrder }, 201, cookiesToSet);
-      }
-      return json({ success: true, order: newOrder }, 201);
+      cookiesToSet.push(makeOrdersSyncCookies());
+      return jsonWithCookies({ success: true, order: newOrder }, 201, cookiesToSet);
     }
 
     const q = url.searchParams.get('q')?.toLowerCase();
@@ -2503,6 +2604,7 @@ async function handleApi(request, url, env) {
     }
 
     let list = Array.from(new Map([...ordersStore.values()].map(o => [o.orderNumber || o.id, o])).values());
+    list = list.filter(o => !deletedOrderIds.has(o.id) && !deletedOrderIds.has(o.orderNumber));
 
     if (!isAdmin && authCustomer) {
       list = list.filter(o => isOrderOwnedByCustomerEdge(o, authCustomer));
@@ -2524,8 +2626,175 @@ async function handleApi(request, url, env) {
     }
     return json({ success: true, count: list.length, orders: list });
   }
-  if (p.startsWith('/api/orders/')) {
-    const rest = decodeURIComponent(p.replace('/api/orders/', ''));
+
+  // Admin and Generic Orders Bulk Operations
+  if (p === '/api/orders/bulk-update' || p === '/api/admin/orders/bulk-update') {
+    syncOrdersFromCookie(request);
+    const isAdmin = getCookie(request, 'infinicharm_admin_session') === 'active';
+    if (!isAdmin) return json({ success: false, error: 'Unauthorized. Admin session required.' }, 401);
+    const body = await request.clone().json().catch(() => ({}));
+    const orderIds = Array.isArray(body?.orderIds) ? body.orderIds : [];
+    const updates = body?.updates || {};
+    const actor = body?.actor || 'Operations Admin';
+    let updatedCount = 0;
+    for (const id of orderIds) {
+      const order = ordersStore.get(id) || [...ordersStore.values()].find(o => o.orderNumber === id || o.id === id);
+      if (order && !deletedOrderIds.has(order.id) && !deletedOrderIds.has(order.orderNumber)) {
+        if (updates.status) order.status = updates.status;
+        if (updates.paymentStatus) order.paymentStatus = updates.paymentStatus;
+        if (updates.adminNotes) order.adminNotes = updates.adminNotes;
+        order.updatedAt = new Date().toISOString();
+        if (!order.timeline) order.timeline = [];
+        order.timeline.push({
+          id: 'evt-' + Date.now() + '-bulk',
+          status: order.status,
+          title: 'Bulk Order Status Update',
+          description: 'Status updated by ' + actor + '.',
+          location: 'Operations Hub',
+          timestamp: new Date().toISOString(),
+          actor,
+          isCustomerVisible: false,
+          type: 'STATUS_CHANGE',
+        });
+        ordersStore.set(order.id, order);
+        if (order.orderNumber) ordersStore.set(order.orderNumber, order);
+        updatedCount++;
+      }
+    }
+    return jsonWithCookies({ success: true, updatedCount }, 200, [makeOrdersSyncCookies()]);
+  }
+
+  if (p === '/api/orders/bulk-delete' || p === '/api/admin/orders/bulk-delete') {
+    syncOrdersFromCookie(request);
+    const isAdmin = getCookie(request, 'infinicharm_admin_session') === 'active';
+    if (!isAdmin) return json({ success: false, error: 'Unauthorized. Admin session required.' }, 401);
+    const body = await request.clone().json().catch(() => ({}));
+    const orderIds = Array.isArray(body?.orderIds) ? body.orderIds : [];
+    let deletedCount = 0;
+    for (const id of orderIds) {
+      deletedOrderIds.add(id);
+      ordersStore.delete(id);
+      for (const [k, v] of ordersStore.entries()) {
+        if (v.id === id || v.orderNumber === id) {
+          deletedOrderIds.add(v.id);
+          if (v.orderNumber) deletedOrderIds.add(v.orderNumber);
+          ordersStore.delete(k);
+        }
+      }
+      deletedCount++;
+    }
+    return jsonWithCookies({ success: true, deletedCount }, 200, [makeDeletedOrdersCookie(), makeOrdersSyncCookies()]);
+  }
+
+  // Admin Single & List Order Routes
+  if (p === '/api/admin/orders') {
+    syncOrdersFromCookie(request);
+    const isAdmin = getCookie(request, 'infinicharm_admin_session') === 'active';
+    if (!isAdmin) {
+      return json({ success: false, error: 'Unauthorized. Admin session required.' }, 401);
+    }
+    if (method === 'GET') {
+      const q = url.searchParams.get('q')?.toLowerCase() || url.searchParams.get('search')?.toLowerCase();
+      const statusParam = url.searchParams.get('status');
+      const paymentParam = url.searchParams.get('paymentStatus');
+      let list = Array.from(new Map([...ordersStore.values()].map(o => [o.orderNumber || o.id, o])).values());
+      list = list.filter(o => !deletedOrderIds.has(o.id) && !deletedOrderIds.has(o.orderNumber));
+      if (statusParam && statusParam !== 'ALL') list = list.filter(o => o.status === statusParam);
+      if (paymentParam && paymentParam !== 'ALL') {
+        if (paymentParam === 'REVIEW') {
+          list = list.filter(o => o.manualApprovalStatus === 'PENDING_REVIEW');
+        } else {
+          list = list.filter(o => o.paymentStatus === paymentParam);
+        }
+      }
+      if (q) {
+        list = list.filter(o =>
+          o.orderNumber?.toLowerCase().includes(q) ||
+          o.id?.toLowerCase().includes(q) ||
+          o.customerPhone?.includes(q) ||
+          o.shippingAddress?.fullName?.toLowerCase().includes(q) ||
+          o.shippingAddress?.phone?.includes(q) ||
+          o.customerEmail?.toLowerCase().includes(q) ||
+          o.utrNumber?.toLowerCase().includes(q)
+        );
+      }
+      return json({ success: true, count: list.length, orders: list });
+    }
+    if (method === 'POST') {
+      const body = await request.clone().json().catch(() => ({}));
+      const actor = body.actor || 'Operations Admin';
+      const orderId = body.id || ('INF-' + new Date().toISOString().slice(0, 7).replace('-', '') + '-' + Math.floor(1000 + Math.random() * 9000));
+      const orderNum = body.orderNumber || orderId;
+      const now = new Date().toISOString();
+      const items = Array.isArray(body.items) ? body.items : [];
+      const subtotalInPaise = items.reduce((acc, it) => acc + (Number(it.priceInPaise || 0) * Number(it.quantity || 1)), 0);
+      const shippingInPaise = Number(body.shippingInPaise || 0);
+      const taxInPaise = Number(body.taxInPaise || 0);
+      const discountInPaise = Number(body.discountInPaise || 0);
+      const totalInPaise = Math.max(0, subtotalInPaise + shippingInPaise + taxInPaise - discountInPaise);
+
+      const newOrder = {
+        id: orderId,
+        orderNumber: orderNum,
+        customerId: body.customerId || 'manual-customer',
+        customerEmail: body.customerEmail || body.shippingAddress?.email || '',
+        customerPhone: body.customerPhone || body.shippingAddress?.phone || '',
+        customerName: body.customerName || body.shippingAddress?.fullName || 'Customer',
+        status: body.status || 'CONFIRMED',
+        subtotalInPaise,
+        discountInPaise,
+        shippingInPaise,
+        taxInPaise,
+        totalInPaise,
+        paymentMethod: body.paymentMethod || 'CUSTOM_UPI',
+        paymentStatus: body.paymentStatus || 'PAID',
+        shippingAddress: body.shippingAddress || {
+          fullName: body.customerName || 'Customer',
+          phone: body.customerPhone || '',
+          addressLine1: 'Main Market Road',
+          city: 'East Champaran',
+          state: 'Bihar',
+          postalCode: '845427',
+          country: 'India',
+        },
+        billingAddress: body.billingAddress || body.shippingAddress,
+        items,
+        timeline: [
+          {
+            id: 'evt-' + Date.now() + '-created',
+            status: body.status || 'CONFIRMED',
+            title: 'Order Created via Admin Hub',
+            description: 'Manual order created by ' + actor + '.',
+            location: 'East Champaran Merchant Desk',
+            timestamp: now,
+            actor,
+            isCustomerVisible: true,
+            type: 'FULFILLMENT',
+          }
+        ],
+        createdAt: now,
+        updatedAt: now,
+        adminNotes: body.adminNotes || ''
+      };
+
+      deletedOrderIds.delete(orderId);
+      deletedOrderIds.delete(orderNum);
+      ordersStore.set(orderId, newOrder);
+      ordersStore.set(orderNum, newOrder);
+
+      return jsonWithCookies({
+        success: true,
+        order: newOrder,
+        message: 'Order ' + orderNum + ' created successfully.'
+      }, 201, [makeOrdersSyncCookies()]);
+    }
+  }
+
+  // Handle /api/orders/:id and /api/admin/orders/:id
+  if (p.startsWith('/api/orders/') || p.startsWith('/api/admin/orders/')) {
+    syncOrdersFromCookie(request);
+    const prefix = p.startsWith('/api/admin/orders/') ? '/api/admin/orders/' : '/api/orders/';
+    const rest = decodeURIComponent(p.replace(prefix, ''));
     if (rest.endsWith('/utr')) {
       const idOrNum = rest.slice(0, -4);
       let order = ordersStore.get(idOrNum) || [...ordersStore.values()].find(o => o.orderNumber === idOrNum || o.id === idOrNum);
@@ -2539,7 +2808,9 @@ async function handleApi(request, url, env) {
           if (order.orderNumber) ordersStore.set(order.orderNumber, order);
         }
       }
-      if (!order) return json({ success: false, error: 'Order not found.' }, 404);
+      if (!order || deletedOrderIds.has(order.id) || deletedOrderIds.has(order.orderNumber)) {
+        return json({ success: false, error: 'Order not found.' }, 404);
+      }
 
       if (method === 'POST') {
         const utr = body?.utr || body?.utrNumber || body?.customUpiUtrNumber;
@@ -2570,11 +2841,14 @@ async function handleApi(request, url, env) {
         });
         ordersStore.set(order.id, order);
         if (order.orderNumber) ordersStore.set(order.orderNumber, order);
-        return json({ success: true, order });
+        return jsonWithCookies({ success: true, order }, 200, [makeOrdersSyncCookies()]);
       }
     }
 
     const idOrNum = rest;
+    if (deletedOrderIds.has(idOrNum)) {
+      return json({ success: false, error: 'Order not found.' }, 404);
+    }
     let order = ordersStore.get(idOrNum) || [...ordersStore.values()].find(o => o.orderNumber === idOrNum || o.id === idOrNum);
     if (!order) {
       const tok = url.searchParams.get('token') || (idOrNum.includes('.') ? idOrNum : null);
@@ -2587,7 +2861,9 @@ async function handleApi(request, url, env) {
         }
       }
     }
-    if (!order) return json({ success: false, error: 'Order not found.' }, 404);
+    if (!order || deletedOrderIds.has(order.id) || deletedOrderIds.has(order.orderNumber)) {
+      return json({ success: false, error: 'Order not found.' }, 404);
+    }
 
     if (method === 'PATCH') {
       const body = await request.clone().json().catch(() => ({}));
@@ -2620,7 +2896,7 @@ async function handleApi(request, url, env) {
         });
         ordersStore.set(order.id, order);
         if (order.orderNumber) ordersStore.set(order.orderNumber, order);
-        return json({ success: true, order });
+        return jsonWithCookies({ success: true, order }, 200, [makeOrdersSyncCookies()]);
       }
 
       const isAdmin = getCookie(request, 'infinicharm_admin_session') === 'active';
@@ -2649,7 +2925,7 @@ async function handleApi(request, url, env) {
         });
         ordersStore.set(order.id, order);
         if (order.orderNumber) ordersStore.set(order.orderNumber, order);
-        return json({ success: true, order });
+        return jsonWithCookies({ success: true, order }, 200, [makeOrdersSyncCookies()]);
       }
 
       if (action === 'REJECT_UTR') {
@@ -2673,20 +2949,20 @@ async function handleApi(request, url, env) {
         });
         ordersStore.set(order.id, order);
         if (order.orderNumber) ordersStore.set(order.orderNumber, order);
-        return json({ success: true, order });
+        return jsonWithCookies({ success: true, order }, 200, [makeOrdersSyncCookies()]);
       }
 
       if (action === 'UPDATE_STATUS') {
         const newStatus = body.status;
         const adminNotes = body.adminNotes;
-        const actor = body.actor || 'Store Admin';
+        const actor = body.actor || 'Operations Admin';
         if (!newStatus) return json({ success: false, error: 'Target status is required.' }, 400);
 
         order.status = newStatus;
         if (newStatus === 'PAYMENT_NOT_RECEIVED') {
           order.paymentStatus = 'FAILED';
           order.manualApprovalStatus = 'REJECTED';
-        } else if (newStatus === 'CONFIRMED') {
+        } else if (newStatus === 'CONFIRMED' || newStatus === 'PROCESSING' || newStatus === 'PACKED' || newStatus === 'SHIPPED' || newStatus === 'DELIVERED') {
           if (order.paymentStatus !== 'PAID') order.paymentStatus = 'PAID';
           if (order.manualApprovalStatus === 'PENDING_REVIEW') order.manualApprovalStatus = 'APPROVED';
         }
@@ -2705,7 +2981,7 @@ async function handleApi(request, url, env) {
         });
         ordersStore.set(order.id, order);
         if (order.orderNumber) ordersStore.set(order.orderNumber, order);
-        return json({ success: true, order });
+        return jsonWithCookies({ success: true, order }, 200, [makeOrdersSyncCookies()]);
       }
 
       if (action === 'UPDATE_TRACKING') {
@@ -2734,7 +3010,7 @@ async function handleApi(request, url, env) {
         });
         ordersStore.set(order.id, order);
         if (order.orderNumber) ordersStore.set(order.orderNumber, order);
-        return json({ success: true, order });
+        return jsonWithCookies({ success: true, order }, 200, [makeOrdersSyncCookies()]);
       }
 
       if (action === 'ADD_TIMELINE_EVENT') {
@@ -2754,10 +3030,108 @@ async function handleApi(request, url, env) {
         order.updatedAt = new Date().toISOString();
         ordersStore.set(order.id, order);
         if (order.orderNumber) ordersStore.set(order.orderNumber, order);
-        return json({ success: true, order });
+        return jsonWithCookies({ success: true, order }, 200, [makeOrdersSyncCookies()]);
+      }
+
+      if (action === 'EDIT_ORDER') {
+        const updates = body.updates || body;
+        const actor = body.actor || 'Operations Admin';
+        const now = new Date().toISOString();
+        if (updates.customerName) order.customerName = updates.customerName;
+        if (updates.customerEmail) order.customerEmail = updates.customerEmail;
+        if (updates.customerPhone) order.customerPhone = updates.customerPhone;
+        if (updates.shippingAddress) order.shippingAddress = { ...(order.shippingAddress || {}), ...updates.shippingAddress };
+        if (updates.billingAddress) order.billingAddress = { ...(order.billingAddress || {}), ...updates.billingAddress };
+        if (updates.paymentStatus) order.paymentStatus = updates.paymentStatus;
+        if (updates.status) order.status = updates.status;
+        if (updates.adminNotes) order.adminNotes = updates.adminNotes;
+        if (Array.isArray(updates.items)) {
+          order.items = updates.items;
+          const subtotal = updates.items.reduce((acc, it) => acc + (Number(it.priceInPaise || 0) * Number(it.quantity || 1)), 0);
+          order.subtotalInPaise = subtotal;
+          order.totalInPaise = Math.max(0, subtotal + (order.shippingInPaise || 0) + (order.taxInPaise || 0) - (order.discountInPaise || 0));
+        }
+        order.updatedAt = now;
+        if (!order.timeline) order.timeline = [];
+        order.timeline.push({
+          id: 'evt-' + Date.now() + '-edit',
+          status: order.status,
+          title: 'Order Details Updated',
+          description: 'Order updated by ' + actor + '.',
+          location: 'Operations Hub',
+          timestamp: now,
+          actor,
+          isCustomerVisible: false,
+          type: 'EXCEPTION',
+        });
+        ordersStore.set(order.id, order);
+        if (order.orderNumber) ordersStore.set(order.orderNumber, order);
+        return jsonWithCookies({ success: true, order }, 200, [makeOrdersSyncCookies()]);
       }
 
       return json({ success: false, error: 'Unrecognized action: ' + action }, 400);
+    }
+
+    if (method === 'PUT') {
+      const isAdmin = getCookie(request, 'infinicharm_admin_session') === 'active';
+      if (!isAdmin) {
+        return json({ success: false, error: 'Unauthorized. Admin privileges required.' }, 401);
+      }
+      const body = await request.clone().json().catch(() => ({}));
+      const actor = body.actor || 'Operations Admin';
+      const now = new Date().toISOString();
+      if (body.customerName) order.customerName = body.customerName;
+      if (body.customerEmail) order.customerEmail = body.customerEmail;
+      if (body.customerPhone) order.customerPhone = body.customerPhone;
+      if (body.shippingAddress) order.shippingAddress = { ...(order.shippingAddress || {}), ...body.shippingAddress };
+      if (body.billingAddress) order.billingAddress = { ...(order.billingAddress || {}), ...body.billingAddress };
+      if (body.paymentStatus) order.paymentStatus = body.paymentStatus;
+      if (body.status) order.status = body.status;
+      if (body.adminNotes) order.adminNotes = body.adminNotes;
+      if (Array.isArray(body.items)) {
+        order.items = body.items;
+        const subtotal = body.items.reduce((acc, it) => acc + (Number(it.priceInPaise || 0) * Number(it.quantity || 1)), 0);
+        order.subtotalInPaise = subtotal;
+        order.totalInPaise = Math.max(0, subtotal + (order.shippingInPaise || 0) + (order.taxInPaise || 0) - (order.discountInPaise || 0));
+      }
+      order.updatedAt = now;
+      if (!order.timeline) order.timeline = [];
+      order.timeline.push({
+        id: 'evt-' + Date.now() + '-edit',
+        status: order.status,
+        title: 'Order Details Updated',
+        description: 'Order updated by ' + actor + '.',
+        location: 'Operations Hub',
+        timestamp: now,
+        actor,
+        isCustomerVisible: false,
+        type: 'EXCEPTION',
+      });
+      ordersStore.set(order.id, order);
+      if (order.orderNumber) ordersStore.set(order.orderNumber, order);
+      return jsonWithCookies({ success: true, order }, 200, [makeOrdersSyncCookies()]);
+    }
+
+    if (method === 'DELETE') {
+      const isAdmin = getCookie(request, 'infinicharm_admin_session') === 'active';
+      if (!isAdmin) {
+        return json({ success: false, error: 'Unauthorized. Admin privileges required.' }, 401);
+      }
+      const permanent = url.searchParams.get('permanent') === 'true';
+      deletedOrderIds.add(order.id);
+      if (order.orderNumber) deletedOrderIds.add(order.orderNumber);
+      ordersStore.delete(order.id);
+      if (order.orderNumber) ordersStore.delete(order.orderNumber);
+      for (const [k, v] of ordersStore.entries()) {
+        if (v.id === order.id || v.orderNumber === order.orderNumber) {
+          ordersStore.delete(k);
+        }
+      }
+      return jsonWithCookies({
+        success: true,
+        message: permanent ? ('Order ' + (order.orderNumber || order.id) + ' permanently removed.') : ('Order ' + (order.orderNumber || order.id) + ' deleted.'),
+        orderNumber: order.orderNumber
+      }, 200, [makeDeletedOrdersCookie(), makeOrdersSyncCookies()]);
     }
 
     // method === 'GET'

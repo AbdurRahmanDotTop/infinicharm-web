@@ -386,8 +386,27 @@ function TrackOrderContent() {
     loadAuthenticatedRecentOrders();
   }, [loadAuthenticatedRecentOrders]);
 
-  // Listen to cross-tab order or account session changes
+  // Listen to real-time BroadcastChannel, cross-tab order, or account session changes
   useEffect(() => {
+    let channel: BroadcastChannel | null = null;
+    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+      try {
+        channel = new BroadcastChannel('infinicharm_orders_channel');
+        channel.onmessage = (event) => {
+          if (
+            event.data?.type === 'ORDER_UPDATED' ||
+            event.data?.type === 'ORDER_CREATED' ||
+            event.data?.type === 'ORDER_DELETED'
+          ) {
+            loadAuthenticatedRecentOrders();
+            if (queryInput) {
+              performLookup(queryInput);
+            }
+          }
+        };
+      } catch {}
+    }
+
     const handleOrderSync = () => {
       if (queryInput) {
         performLookup(queryInput);
@@ -402,7 +421,19 @@ function TrackOrderContent() {
     window.addEventListener('infinicharm_orders_updated', handleOrderSync);
     window.addEventListener('infinicharm_customer_updated', handleAuthSync);
     window.addEventListener('storage', handleAuthSync);
+
+    // Active polling if looking at an active order
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible' && queryInput) {
+        performLookup(queryInput);
+      }
+    }, 4000);
+
     return () => {
+      clearInterval(interval);
+      try {
+        channel?.close();
+      } catch {}
       window.removeEventListener('infinicharm_orders_updated', handleOrderSync);
       window.removeEventListener('infinicharm_customer_updated', handleAuthSync);
       window.removeEventListener('storage', handleAuthSync);

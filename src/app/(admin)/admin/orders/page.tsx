@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { AdminHeader } from '@/components/admin/AdminHeader';
 import { formatPaiseToRupees } from '@/lib/utils/currency';
 import { logAdminAction } from '@/lib/services/audit';
@@ -27,8 +27,13 @@ import {
   PlusCircle,
   ArrowRight,
   Eye,
+  Plus,
+  Pencil,
+  Trash2,
+  CheckSquare,
+  Square,
 } from 'lucide-react';
-import { Order, OrderStatus, PaymentStatus } from '@/types';
+import { Order, OrderStatus, PaymentStatus, OrderItem } from '@/types';
 import {
   SUPPORTED_COURIERS,
   ORDER_STATUS_LABELS,
@@ -45,6 +50,66 @@ export default function AdminOrdersPage() {
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+  // Bulk Selection State
+  const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
+  const [isBulkUpdating, setIsBulkUpdating] = useState(false);
+
+  // Create Order Modal State
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createForm, setCreateForm] = useState({
+    customerName: '',
+    customerEmail: '',
+    customerPhone: '',
+    addressLine1: '',
+    addressLine2: '',
+    city: 'East Champaran',
+    state: 'Bihar',
+    postalCode: '845427',
+    paymentMethod: 'CUSTOM_UPI' as Order['paymentMethod'],
+    paymentStatus: 'PAID' as Order['paymentStatus'],
+    status: 'CONFIRMED' as OrderStatus,
+    shippingInPaise: 0,
+    discountInPaise: 0,
+    adminNotes: '',
+    items: [
+      {
+        id: 'item-1',
+        productId: 'S-01-P-03',
+        variantId: 'var-S-01-P-03-01',
+        productTitle: 'Takmeeli Talbeena – Traditional Barley Breakfast',
+        variantTitle: 'Standard Pack',
+        sku: 'S-01-P-03',
+        priceInPaise: 30000,
+        quantity: 1,
+        totalInPaise: 30000,
+      },
+    ],
+  });
+
+  // Edit Order Modal State
+  const [editOrderTarget, setEditOrderTarget] = useState<Order | null>(null);
+  const [editForm, setEditForm] = useState({
+    customerName: '',
+    customerEmail: '',
+    customerPhone: '',
+    addressLine1: '',
+    addressLine2: '',
+    city: '',
+    state: '',
+    postalCode: '',
+    status: 'PENDING' as OrderStatus,
+    paymentStatus: 'PENDING' as Order['paymentStatus'],
+    adminNotes: '',
+  });
+
+  // Delete Order Confirmation Modal State
+  const [deleteOrderTarget, setDeleteOrderTarget] = useState<Order | null>(null);
+  const [isPermanentDelete, setIsPermanentDelete] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Real-time broadcast channel reference
+  const channelRef = useRef<BroadcastChannel | null>(null);
 
   // Modals
   const [reviewUtrOrder, setReviewUtrOrder] = useState<Order | null>(null);
@@ -72,20 +137,33 @@ export default function AdminOrdersPage() {
     setTimeout(() => setCopiedKey(null), 2000);
   };
 
-  // Fetch orders from server API with localStorage fallback
-  const fetchOrders = useCallback(async () => {
-    setIsLoading(true);
+  const broadcastOrderChange = useCallback((type: string, payload?: Record<string, any>) => {
     try {
-      const res = await fetch('/api/orders', { cache: 'no-store' });
+      channelRef.current?.postMessage({ type, timestamp: Date.now(), ...payload });
+    } catch {}
+    try {
+      localStorage.setItem('infinicharm_orders_sync', Date.now().toString());
+      window.dispatchEvent(new Event('infinicharm_orders_updated'));
+    } catch {}
+  }, []);
+
+  // Fetch orders from server API with localStorage fallback
+  const fetchOrders = useCallback(async (showLoading = true) => {
+    if (showLoading) setIsLoading(true);
+    try {
+      const res = await fetch('/api/admin/orders', { cache: 'no-store' });
+      if (res.status === 401) {
+        window.location.href = `/admin/login?redirect=${encodeURIComponent(window.location.pathname)}`;
+        return;
+      }
       if (res.ok) {
         const data = await res.json();
         if (data.success && Array.isArray(data.orders)) {
           setOrders(data.orders);
-          // Sync to localStorage
           try {
             localStorage.setItem('infinicharm_orders', JSON.stringify(data.orders));
           } catch {}
-          setIsLoading(false);
+          if (showLoading) setIsLoading(false);
           return;
         }
       }
@@ -104,30 +182,76 @@ export default function AdminOrdersPage() {
     } catch {
       setOrders([]);
     }
-    setIsLoading(false);
+    if (showLoading) setIsLoading(false);
   }, []);
 
+  // Real-time listener: BroadcastChannel + Visibility Polling
   useEffect(() => {
-    fetchOrders();
+    fetchOrders(true);
 
-    const handleSync = () => fetchOrders();
+    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+      try {
+        channelRef.current = new BroadcastChannel('infinicharm_orders_channel');
+        channelRef.current.onmessage = (event) => {
+          if (
+            event.data?.type === 'ORDER_UPDATED' ||
+            event.data?.type === 'ORDER_CREATED' ||
+            event.data?.type === 'ORDER_DELETED'
+          ) {
+            fetchOrders(false);
+          }
+        };
+      } catch (e) {
+        console.warn('BroadcastChannel error:', e);
+      }
+    }
+
+    const handleSync = () => fetchOrders(false);
     window.addEventListener('infinicharm_orders_updated', handleSync);
     window.addEventListener('storage', handleSync);
+
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        fetchOrders(false);
+      }
+    }, 4000);
+
     return () => {
+      clearInterval(interval);
       window.removeEventListener('infinicharm_orders_updated', handleSync);
       window.removeEventListener('storage', handleSync);
+      try {
+        channelRef.current?.close();
+      } catch {}
     };
   }, [fetchOrders]);
 
-  // Update Status Action
+  // Update Status Action with real-time sync & optimistic update
   const handleUpdateStatus = async (orderId: string, newStatus: OrderStatus) => {
     const targetOrder = orders.find((o) => o.id === orderId || o.orderNumber === orderId);
     if (!targetOrder) return;
 
-    if (!isValidOrderTransition(targetOrder.status, newStatus)) {
-      alert(`Invalid Transition: Orders cannot be moved directly from ${targetOrder.status} to ${newStatus}.`);
-      return;
-    }
+    // Optimistic local state update
+    const updated = orders.map((o) =>
+      o.id === orderId || o.orderNumber === orderId
+        ? {
+            ...o,
+            status: newStatus,
+            paymentStatus:
+              ['CONFIRMED', 'PROCESSING', 'PACKED', 'READY_FOR_DISPATCH', 'SHIPPED', 'DELIVERED'].includes(newStatus) &&
+              o.paymentStatus === 'PENDING'
+                ? 'PAID'
+                : newStatus === 'PAYMENT_NOT_RECEIVED'
+                ? 'FAILED'
+                : o.paymentStatus,
+            updatedAt: new Date().toISOString(),
+          }
+        : o
+    );
+    setOrders(updated);
+    try {
+      localStorage.setItem('infinicharm_orders', JSON.stringify(updated));
+    } catch {}
 
     try {
       const res = await fetch(`/api/orders/${encodeURIComponent(orderId)}`, {
@@ -143,13 +267,17 @@ export default function AdminOrdersPage() {
       if (res.ok) {
         const data = await res.json();
         if (data.success && data.order) {
-          const updated = orders.map((o) => (o.id === orderId || o.orderNumber === orderId ? data.order : o));
-          setOrders(updated);
-          localStorage.setItem('infinicharm_orders', JSON.stringify(updated));
-          window.dispatchEvent(new Event('infinicharm_orders_updated'));
+          const finalOrders = orders.map((o) =>
+            o.id === orderId || o.orderNumber === orderId ? data.order : o
+          );
+          setOrders(finalOrders);
+          try {
+            localStorage.setItem('infinicharm_orders', JSON.stringify(finalOrders));
+          } catch {}
           if (inspectorOrder && (inspectorOrder.id === orderId || inspectorOrder.orderNumber === orderId)) {
             setInspectorOrder(data.order);
           }
+          broadcastOrderChange('ORDER_UPDATED', { orderId, order: data.order });
           logAdminAction('UPDATE_ORDER_STATUS', 'orders', orderId, {
             previousStatus: targetOrder.status,
             newStatus,
@@ -160,14 +288,248 @@ export default function AdminOrdersPage() {
     } catch (err) {
       console.error('Failed to update status on server:', err);
     }
+    broadcastOrderChange('ORDER_UPDATED', { orderId, newStatus });
+  };
 
-    // Optimistic fallback
-    const updated = orders.map((o) =>
-      o.id === orderId || o.orderNumber === orderId ? { ...o, status: newStatus } : o
+  // Bulk Selection Handlers
+  const toggleSelectOrder = (id: string) => {
+    setSelectedOrderIds((prev) =>
+      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
     );
-    setOrders(updated);
-    localStorage.setItem('infinicharm_orders', JSON.stringify(updated));
-    window.dispatchEvent(new Event('infinicharm_orders_updated'));
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedOrderIds.length === orders.length) {
+      setSelectedOrderIds([]);
+    } else {
+      setSelectedOrderIds(orders.map((o) => o.id));
+    }
+  };
+
+  // Bulk Status Change Handler
+  const handleBulkStatusChange = async (targetStatus: OrderStatus) => {
+    if (selectedOrderIds.length === 0) return;
+    setIsBulkUpdating(true);
+    try {
+      const res = await fetch('/api/admin/orders/bulk-update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderIds: selectedOrderIds,
+          updates: { status: targetStatus },
+          actor: 'Operations Admin',
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
+        setOrders((prev) =>
+          prev.map((o) =>
+            selectedOrderIds.includes(o.id) || selectedOrderIds.includes(o.orderNumber)
+              ? { ...o, status: targetStatus, updatedAt: new Date().toISOString() }
+              : o
+          )
+        );
+        setSelectedOrderIds([]);
+        broadcastOrderChange('ORDER_UPDATED', { bulk: true, targetStatus });
+        return;
+      }
+      alert(data.error || 'Failed to update selected orders.');
+    } catch (err: any) {
+      alert(err.message || 'Bulk update error.');
+    } finally {
+      setIsBulkUpdating(false);
+    }
+  };
+
+  // Bulk Delete Handler
+  const handleBulkDelete = async () => {
+    if (selectedOrderIds.length === 0) return;
+    if (!confirm(`Are you sure you want to permanently delete ${selectedOrderIds.length} orders?`)) return;
+    setIsBulkUpdating(true);
+    try {
+      const res = await fetch('/api/admin/orders/bulk-delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderIds: selectedOrderIds,
+          permanent: true,
+          actor: 'Operations Admin',
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
+        setOrders((prev) =>
+          prev.filter(
+            (o) => !selectedOrderIds.includes(o.id) && !selectedOrderIds.includes(o.orderNumber)
+          )
+        );
+        setSelectedOrderIds([]);
+        broadcastOrderChange('ORDER_DELETED', { bulk: true });
+        return;
+      }
+      alert(data.error || 'Failed to delete selected orders.');
+    } catch (err: any) {
+      alert(err.message || 'Bulk delete error.');
+    } finally {
+      setIsBulkUpdating(false);
+    }
+  };
+
+  // Create Manual Order Handler
+  const handleCreateOrderSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!createForm.customerName.trim()) {
+      alert('Please enter customer full name.');
+      return;
+    }
+    if (createForm.items.length === 0) {
+      alert('Please add at least one item to the order.');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const payload = {
+        customerName: createForm.customerName.trim(),
+        customerEmail: createForm.customerEmail.trim(),
+        customerPhone: createForm.customerPhone.trim(),
+        shippingAddress: {
+          fullName: createForm.customerName.trim(),
+          phone: createForm.customerPhone.trim(),
+          addressLine1: createForm.addressLine1.trim() || 'Storefront Fulfillment Desk',
+          addressLine2: createForm.addressLine2.trim() || '',
+          city: createForm.city.trim() || 'East Champaran',
+          state: createForm.state.trim() || 'Bihar',
+          postalCode: createForm.postalCode.trim() || '845427',
+          country: 'India',
+        },
+        paymentMethod: createForm.paymentMethod,
+        paymentStatus: createForm.paymentStatus,
+        status: createForm.status,
+        shippingInPaise: Number(createForm.shippingInPaise) || 0,
+        discountInPaise: Number(createForm.discountInPaise) || 0,
+        adminNotes: createForm.adminNotes.trim(),
+        items: createForm.items,
+        actor: 'Operations Admin',
+      };
+
+      const res = await fetch('/api/admin/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success && data.order) {
+        setOrders((prev) => [data.order, ...prev.filter((o) => o.id !== data.order.id && o.orderNumber !== data.order.orderNumber)]);
+        setShowCreateModal(false);
+        broadcastOrderChange('ORDER_CREATED', { order: data.order });
+        logAdminAction('CREATE_ORDER', 'orders', data.order.orderNumber, {
+          totalInPaise: data.order.totalInPaise,
+          customer: createForm.customerName,
+        });
+        return;
+      }
+      alert(data.error || 'Failed to create manual order.');
+    } catch (err: any) {
+      alert(err.message || 'Error creating order.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Edit Order Handler
+  const handleEditOrderSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editOrderTarget) return;
+
+    setIsLoading(true);
+    try {
+      const updates = {
+        customerName: editForm.customerName.trim(),
+        customerEmail: editForm.customerEmail.trim(),
+        customerPhone: editForm.customerPhone.trim(),
+        shippingAddress: {
+          ...(editOrderTarget.shippingAddress || {}),
+          fullName: editForm.customerName.trim(),
+          phone: editForm.customerPhone.trim(),
+          addressLine1: editForm.addressLine1.trim(),
+          addressLine2: editForm.addressLine2.trim(),
+          city: editForm.city.trim(),
+          state: editForm.state.trim(),
+          postalCode: editForm.postalCode.trim(),
+        },
+        status: editForm.status,
+        paymentStatus: editForm.paymentStatus,
+        adminNotes: editForm.adminNotes.trim(),
+        actor: 'Operations Admin',
+      };
+
+      const res = await fetch(`/api/orders/${encodeURIComponent(editOrderTarget.id)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success && data.order) {
+        setOrders((prev) =>
+          prev.map((o) =>
+            o.id === editOrderTarget.id || o.orderNumber === editOrderTarget.orderNumber ? data.order : o
+          )
+        );
+        setEditOrderTarget(null);
+        broadcastOrderChange('ORDER_UPDATED', { order: data.order });
+        logAdminAction('EDIT_ORDER', 'orders', editOrderTarget.orderNumber, updates);
+        return;
+      }
+      alert(data.error || 'Failed to save order changes.');
+    } catch (err: any) {
+      alert(err.message || 'Error updating order.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Delete Order Execution Handler
+  const handleDeleteOrderExecute = async () => {
+    if (!deleteOrderTarget) return;
+    setIsDeleting(true);
+    try {
+      const res = await fetch(
+        `/api/orders/${encodeURIComponent(deleteOrderTarget.id)}?permanent=${isPermanentDelete}&actor=Operations+Admin`,
+        { method: 'DELETE' }
+      );
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
+        if (isPermanentDelete) {
+          setOrders((prev) =>
+            prev.filter(
+              (o) => o.id !== deleteOrderTarget.id && o.orderNumber !== deleteOrderTarget.orderNumber
+            )
+          );
+        } else {
+          setOrders((prev) =>
+            prev.map((o) =>
+              o.id === deleteOrderTarget.id || o.orderNumber === deleteOrderTarget.orderNumber
+                ? { ...o, status: 'CANCELLED' as OrderStatus }
+                : o
+            )
+          );
+        }
+        broadcastOrderChange('ORDER_DELETED', { orderId: deleteOrderTarget.id });
+        setDeleteOrderTarget(null);
+        logAdminAction('DELETE_ORDER', 'orders', deleteOrderTarget.orderNumber, {
+          permanent: isPermanentDelete,
+        });
+        return;
+      }
+      alert(data.error || 'Failed to delete order.');
+    } catch (err: any) {
+      alert(err.message || 'Error deleting order.');
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   // Approve Custom UPI Payment
@@ -427,11 +789,50 @@ export default function AdminOrdersPage() {
             </span>
 
             <button
-              onClick={() => fetchOrders()}
+              onClick={() => fetchOrders(true)}
               className="p-2 text-muted hover:text-primary rounded-xl hover:bg-surface border border-border"
               title="Refresh Orders"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+            </button>
+
+            <button
+              onClick={() => {
+                setCreateForm({
+                  customerName: '',
+                  customerEmail: '',
+                  customerPhone: '',
+                  addressLine1: '',
+                  addressLine2: '',
+                  city: 'East Champaran',
+                  state: 'Bihar',
+                  postalCode: '845427',
+                  paymentMethod: 'CUSTOM_UPI',
+                  paymentStatus: 'PAID',
+                  status: 'CONFIRMED',
+                  shippingInPaise: 0,
+                  discountInPaise: 0,
+                  adminNotes: '',
+                  items: [
+                    {
+                      id: `item-${Date.now()}`,
+                      productId: 'S-01-P-03',
+                      variantId: 'var-S-01-P-03-01',
+                      productTitle: 'Takmeeli Talbeena – Traditional Barley Breakfast',
+                      variantTitle: 'Standard Pack',
+                      sku: 'S-01-P-03',
+                      priceInPaise: 30000,
+                      quantity: 1,
+                      totalInPaise: 30000,
+                    },
+                  ],
+                });
+                setShowCreateModal(true);
+              }}
+              className="text-xs font-bold bg-accent text-accent-fg hover:opacity-95 px-3.5 py-2 rounded-xl flex items-center gap-1.5 shadow-sm transition-opacity"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>+ Create Order</span>
             </button>
           </div>
         </div>
@@ -484,6 +885,56 @@ export default function AdminOrdersPage() {
           </select>
         </div>
 
+        {/* Bulk Action Floating Bar */}
+        {selectedOrderIds.length > 0 && (
+          <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 rounded-xl bg-accent/10 border border-accent/30 text-primary">
+            <div className="flex items-center gap-2">
+              <CheckSquare className="w-4 h-4 text-accent" />
+              <span className="text-xs font-bold">
+                {selectedOrderIds.length} {selectedOrderIds.length === 1 ? 'order' : 'orders'} selected
+              </span>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs text-muted">Bulk Status:</span>
+              <select
+                disabled={isBulkUpdating}
+                onChange={(e) => {
+                  if (e.target.value) {
+                    handleBulkStatusChange(e.target.value as OrderStatus);
+                    e.target.value = '';
+                  }
+                }}
+                className="text-xs px-2.5 py-1.5 rounded-lg border border-border bg-surface text-primary font-semibold"
+                defaultValue=""
+              >
+                <option value="" disabled>Change Status To...</option>
+                <option value="CONFIRMED">CONFIRMED</option>
+                <option value="PROCESSING">PROCESSING</option>
+                <option value="PACKED">PACKED</option>
+                <option value="READY_FOR_DISPATCH">READY_FOR_DISPATCH</option>
+                <option value="SHIPPED">SHIPPED</option>
+                <option value="OUT_FOR_DELIVERY">OUT_FOR_DELIVERY</option>
+                <option value="DELIVERED">DELIVERED</option>
+                <option value="CANCELLED">CANCELLED</option>
+              </select>
+              <button
+                onClick={handleBulkDelete}
+                disabled={isBulkUpdating}
+                className="text-xs font-bold px-3 py-1.5 rounded-lg bg-rose-500 hover:bg-rose-600 text-white flex items-center gap-1 transition-colors"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Delete Selected</span>
+              </button>
+              <button
+                onClick={() => setSelectedOrderIds([])}
+                className="text-xs px-2.5 py-1.5 rounded-lg border border-border bg-surface hover:bg-surface-dim text-muted hover:text-primary transition-colors"
+              >
+                Deselect All
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Orders Table */}
         {filteredOrders.length === 0 ? (
           <div className="bg-surface border border-border rounded-2xl p-12 text-center max-w-xl mx-auto space-y-4 shadow-sm">
@@ -518,22 +969,30 @@ export default function AdminOrdersPage() {
                     className="bg-surface rounded-2xl border border-border p-4 shadow-sm space-y-3 text-xs"
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <button
-                          onClick={() => setInspectorOrder(ord)}
-                          className="font-mono font-bold text-sm text-primary hover:text-accent flex items-center gap-1.5 text-left"
-                        >
-                          <span>{ord.orderNumber}</span>
-                          <Eye className="w-3.5 h-3.5 text-muted" />
-                        </button>
-                        <span className="text-[11px] text-muted flex items-center gap-1 mt-0.5">
-                          <Calendar className="w-3 h-3 text-accent" />
-                          {new Date(ord.createdAt).toLocaleDateString('en-IN', {
-                            day: 'numeric',
-                            month: 'short',
-                            year: 'numeric',
-                          })}
-                        </span>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={selectedOrderIds.includes(ord.id)}
+                          onChange={() => toggleSelectOrder(ord.id)}
+                          className="rounded border-border text-accent focus:ring-accent mt-0.5"
+                        />
+                        <div>
+                          <button
+                            onClick={() => setInspectorOrder(ord)}
+                            className="font-mono font-bold text-sm text-primary hover:text-accent flex items-center gap-1.5 text-left"
+                          >
+                            <span>{ord.orderNumber}</span>
+                            <Eye className="w-3.5 h-3.5 text-muted" />
+                          </button>
+                          <span className="text-[11px] text-muted flex items-center gap-1 mt-0.5">
+                            <Calendar className="w-3 h-3 text-accent" />
+                            {new Date(ord.createdAt).toLocaleDateString('en-IN', {
+                              day: 'numeric',
+                              month: 'short',
+                              year: 'numeric',
+                            })}
+                          </span>
+                        </div>
                       </div>
                       <div className="text-right">
                         <span className="font-bold text-accent text-sm block">
@@ -681,6 +1140,40 @@ export default function AdminOrdersPage() {
                             <FileText className="w-3.5 h-3.5" />
                             <span>Invoice</span>
                           </button>
+
+                          <button
+                            onClick={() => {
+                              setEditOrderTarget(ord);
+                              setEditForm({
+                                customerName: ord.shippingAddress?.fullName || ord.customerName || '',
+                                customerEmail: ord.customerEmail || '',
+                                customerPhone: ord.shippingAddress?.phone || ord.customerPhone || '',
+                                addressLine1: ord.shippingAddress?.addressLine1 || '',
+                                addressLine2: ord.shippingAddress?.addressLine2 || '',
+                                city: ord.shippingAddress?.city || '',
+                                state: ord.shippingAddress?.state || '',
+                                postalCode: ord.shippingAddress?.postalCode || '',
+                                status: ord.status,
+                                paymentStatus: ord.paymentStatus,
+                                adminNotes: ord.adminNotes || '',
+                              });
+                            }}
+                            className="p-1.5 bg-surface-dim hover:bg-border rounded-lg text-primary"
+                            title="Edit Order"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+
+                          <button
+                            onClick={() => {
+                              setDeleteOrderTarget(ord);
+                              setIsPermanentDelete(false);
+                            }}
+                            className="p-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 rounded-lg"
+                            title="Delete Order"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -695,12 +1188,21 @@ export default function AdminOrdersPage() {
                 <table className="w-full text-xs text-left">
                 <thead>
                   <tr className="border-b border-border bg-surface-dim/40 text-muted uppercase text-[10px] tracking-wider">
+                    <th className="py-3.5 px-3 w-10 text-center">
+                      <input
+                        type="checkbox"
+                        checked={orders.length > 0 && selectedOrderIds.length === orders.length}
+                        onChange={toggleSelectAll}
+                        className="rounded border-border text-accent focus:ring-accent"
+                        title="Select All"
+                      />
+                    </th>
                     <th className="py-3.5 px-4">Order Reference</th>
                     <th className="py-3.5 px-4">Customer Details</th>
                     <th className="py-3.5 px-4">Items / Total</th>
                     <th className="py-3.5 px-4">Payment Method & UTR</th>
                     <th className="py-3.5 px-4">Status & Action</th>
-                    <th className="py-3.5 px-4 text-right">Logistics & Invoice</th>
+                    <th className="py-3.5 px-4 text-right">Actions & Logistics</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/60">
@@ -711,6 +1213,16 @@ export default function AdminOrdersPage() {
 
                     return (
                       <tr key={ord.id} className="hover:bg-surface-dim/30 transition-colors">
+                        {/* Checkbox */}
+                        <td className="py-3.5 px-3 text-center">
+                          <input
+                            type="checkbox"
+                            checked={selectedOrderIds.includes(ord.id)}
+                            onChange={() => toggleSelectOrder(ord.id)}
+                            className="rounded border-border text-accent focus:ring-accent"
+                          />
+                        </td>
+
                         {/* Reference */}
                         <td className="py-3.5 px-4">
                           <button
@@ -903,6 +1415,40 @@ export default function AdminOrdersPage() {
                               title="Generate GST Tax Invoice"
                             >
                               <FileText className="w-4 h-4" />
+                            </button>
+
+                            <button
+                              onClick={() => {
+                                setEditOrderTarget(ord);
+                                setEditForm({
+                                  customerName: ord.shippingAddress?.fullName || ord.customerName || '',
+                                  customerEmail: ord.customerEmail || '',
+                                  customerPhone: ord.shippingAddress?.phone || ord.customerPhone || '',
+                                  addressLine1: ord.shippingAddress?.addressLine1 || '',
+                                  addressLine2: ord.shippingAddress?.addressLine2 || '',
+                                  city: ord.shippingAddress?.city || '',
+                                  state: ord.shippingAddress?.state || '',
+                                  postalCode: ord.shippingAddress?.postalCode || '',
+                                  status: ord.status,
+                                  paymentStatus: ord.paymentStatus,
+                                  adminNotes: ord.adminNotes || '',
+                                });
+                              }}
+                              className="p-1.5 hover:bg-surface-dim rounded-lg text-muted hover:text-accent transition-colors"
+                              title="Edit Order Details"
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </button>
+
+                            <button
+                              onClick={() => {
+                                setDeleteOrderTarget(ord);
+                                setIsPermanentDelete(false);
+                              }}
+                              className="p-1.5 hover:bg-rose-500/10 rounded-lg text-muted hover:text-rose-600 transition-colors"
+                              title="Delete / Cancel Order"
+                            >
+                              <Trash2 className="w-4 h-4" />
                             </button>
                           </div>
                         </td>
@@ -1439,6 +1985,566 @@ export default function AdminOrdersPage() {
               <div className="text-[10px] text-muted text-center pt-3 border-t border-border space-y-0.5">
                 <p>This is a computer-generated tax invoice and requires no physical signature.</p>
                 <p>Customer Support: support@infinicharm.com • East Champaran, Bihar - 845427</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* CREATE MANUAL ORDER MODAL */}
+        {showCreateModal && (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+            <div className="bg-surface border border-border rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-5 my-8 animate-in fade-in zoom-in-95 max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between border-b border-border pb-4">
+                <div>
+                  <h3 className="font-display text-lg font-bold text-primary flex items-center gap-2">
+                    <PlusCircle className="w-5 h-5 text-accent" />
+                    <span>Create Manual Order (Admin Hub)</span>
+                  </h3>
+                  <p className="text-xs text-muted mt-0.5">
+                    Generate an official order with integer paise authority, automated taxes, and state tracking.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowCreateModal(false)}
+                  className="p-1.5 text-muted hover:text-primary rounded-lg hover:bg-surface-dim transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleCreateOrderSubmit} className="space-y-4 text-xs">
+                {/* Customer Information */}
+                <div className="space-y-2">
+                  <h4 className="font-bold uppercase tracking-wider text-[11px] text-accent">1. Customer Information</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="font-semibold text-primary block mb-1">Full Name *</label>
+                      <input
+                        type="text"
+                        required
+                        value={createForm.customerName}
+                        onChange={(e) => setCreateForm({ ...createForm, customerName: e.target.value })}
+                        placeholder="e.g. Rahul Sharma"
+                        className="w-full px-3 py-2 bg-surface-dim border border-border rounded-xl text-primary focus:outline-none focus:border-accent"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-semibold text-primary block mb-1">Email Address</label>
+                      <input
+                        type="email"
+                        value={createForm.customerEmail}
+                        onChange={(e) => setCreateForm({ ...createForm, customerEmail: e.target.value })}
+                        placeholder="rahul@example.com"
+                        className="w-full px-3 py-2 bg-surface-dim border border-border rounded-xl text-primary focus:outline-none focus:border-accent"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-semibold text-primary block mb-1">Phone Number *</label>
+                      <input
+                        type="tel"
+                        required
+                        value={createForm.customerPhone}
+                        onChange={(e) => setCreateForm({ ...createForm, customerPhone: e.target.value })}
+                        placeholder="9876543210"
+                        className="w-full px-3 py-2 bg-surface-dim border border-border rounded-xl text-primary focus:outline-none focus:border-accent"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Delivery Address */}
+                <div className="space-y-2 pt-2 border-t border-border/60">
+                  <h4 className="font-bold uppercase tracking-wider text-[11px] text-accent">2. Shipping Address</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="font-semibold text-primary block mb-1">Address Line 1</label>
+                      <input
+                        type="text"
+                        value={createForm.addressLine1}
+                        onChange={(e) => setCreateForm({ ...createForm, addressLine1: e.target.value })}
+                        placeholder="Street / Building / Landmark"
+                        className="w-full px-3 py-2 bg-surface-dim border border-border rounded-xl text-primary focus:outline-none focus:border-accent"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-semibold text-primary block mb-1">Address Line 2 (Optional)</label>
+                      <input
+                        type="text"
+                        value={createForm.addressLine2}
+                        onChange={(e) => setCreateForm({ ...createForm, addressLine2: e.target.value })}
+                        placeholder="Apartment / Suite / Area"
+                        className="w-full px-3 py-2 bg-surface-dim border border-border rounded-xl text-primary focus:outline-none focus:border-accent"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="font-semibold text-primary block mb-1">City</label>
+                      <input
+                        type="text"
+                        value={createForm.city}
+                        onChange={(e) => setCreateForm({ ...createForm, city: e.target.value })}
+                        className="w-full px-3 py-2 bg-surface-dim border border-border rounded-xl text-primary focus:outline-none focus:border-accent"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-semibold text-primary block mb-1">State</label>
+                      <input
+                        type="text"
+                        value={createForm.state}
+                        onChange={(e) => setCreateForm({ ...createForm, state: e.target.value })}
+                        className="w-full px-3 py-2 bg-surface-dim border border-border rounded-xl text-primary focus:outline-none focus:border-accent"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-semibold text-primary block mb-1">PIN Code</label>
+                      <input
+                        type="text"
+                        value={createForm.postalCode}
+                        onChange={(e) => setCreateForm({ ...createForm, postalCode: e.target.value })}
+                        placeholder="845427"
+                        className="w-full px-3 py-2 bg-surface-dim border border-border rounded-xl text-primary focus:outline-none focus:border-accent"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Items Selection */}
+                <div className="space-y-2 pt-2 border-t border-border/60">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-bold uppercase tracking-wider text-[11px] text-accent">3. Consignment Items</h4>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCreateForm({
+                          ...createForm,
+                          items: [
+                            ...createForm.items,
+                            {
+                              id: `item-${Date.now()}-${Math.floor(Math.random() * 100)}`,
+                              productId: 'S-01-P-01',
+                              variantId: 'var-S-01-P-01-01',
+                              productTitle: '100% Kashmiri Honey – Pure Taste & Natural Sweetness',
+                              variantTitle: 'Standard Pack',
+                              sku: 'S-01-P-01',
+                              priceInPaise: 240000,
+                              quantity: 1,
+                              totalInPaise: 240000,
+                            },
+                          ],
+                        });
+                      }}
+                      className="text-xs font-semibold text-accent hover:underline flex items-center gap-1"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Add Another Item</span>
+                    </button>
+                  </div>
+
+                  <div className="space-y-2">
+                    {createForm.items.map((it, idx) => (
+                      <div key={it.id || idx} className="p-3 rounded-xl bg-surface-dim border border-border/60 grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
+                        <div className="sm:col-span-5">
+                          <label className="text-[10px] text-muted block mb-0.5">Item Description</label>
+                          <input
+                            type="text"
+                            required
+                            value={it.productTitle}
+                            onChange={(e) => {
+                              const updated = [...createForm.items];
+                              updated[idx].productTitle = e.target.value;
+                              setCreateForm({ ...createForm, items: updated });
+                            }}
+                            className="w-full px-2.5 py-1.5 bg-surface border border-border rounded-lg text-primary focus:outline-none focus:border-accent"
+                          />
+                        </div>
+                        <div className="sm:col-span-3">
+                          <label className="text-[10px] text-muted block mb-0.5">Variant / SKU</label>
+                          <input
+                            type="text"
+                            value={it.variantTitle}
+                            onChange={(e) => {
+                              const updated = [...createForm.items];
+                              updated[idx].variantTitle = e.target.value;
+                              setCreateForm({ ...createForm, items: updated });
+                            }}
+                            className="w-full px-2.5 py-1.5 bg-surface border border-border rounded-lg text-primary focus:outline-none focus:border-accent"
+                          />
+                        </div>
+                        <div className="sm:col-span-2">
+                          <label className="text-[10px] text-muted block mb-0.5">Price (₹)</label>
+                          <input
+                            type="number"
+                            min="1"
+                            value={it.priceInPaise / 100}
+                            onChange={(e) => {
+                              const updated = [...createForm.items];
+                              const newPrice = Math.max(0, Math.round(Number(e.target.value) * 100));
+                              updated[idx].priceInPaise = newPrice;
+                              updated[idx].totalInPaise = newPrice * updated[idx].quantity;
+                              setCreateForm({ ...createForm, items: updated });
+                            }}
+                            className="w-full px-2.5 py-1.5 bg-surface border border-border rounded-lg text-primary focus:outline-none focus:border-accent"
+                          />
+                        </div>
+                        <div className="sm:col-span-1">
+                          <label className="text-[10px] text-muted block mb-0.5">Qty</label>
+                          <input
+                            type="number"
+                            min="1"
+                            value={it.quantity}
+                            onChange={(e) => {
+                              const updated = [...createForm.items];
+                              const q = Math.max(1, parseInt(e.target.value) || 1);
+                              updated[idx].quantity = q;
+                              updated[idx].totalInPaise = updated[idx].priceInPaise * q;
+                              setCreateForm({ ...createForm, items: updated });
+                            }}
+                            className="w-full px-2.5 py-1.5 bg-surface border border-border rounded-lg text-primary focus:outline-none focus:border-accent"
+                          />
+                        </div>
+                        <div className="sm:col-span-1 text-right">
+                          {createForm.items.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setCreateForm({
+                                  ...createForm,
+                                  items: createForm.items.filter((_, i) => i !== idx),
+                                });
+                              }}
+                              className="p-1.5 text-muted hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors"
+                              title="Remove Item"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Financial & Status Options */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-border/60">
+                  <div>
+                    <label className="font-semibold text-primary block mb-1">Payment Method</label>
+                    <select
+                      value={createForm.paymentMethod}
+                      onChange={(e) => setCreateForm({ ...createForm, paymentMethod: e.target.value as any })}
+                      className="w-full px-3 py-2 bg-surface-dim border border-border rounded-xl text-primary font-medium focus:outline-none focus:border-accent"
+                    >
+                      <option value="CUSTOM_UPI">Custom UPI Direct</option>
+                      <option value="COD">Cash on Delivery (COD)</option>
+                      <option value="RAZORPAY">Razorpay Gateway</option>
+                      <option value="CASH">Offline Cash / Retail</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="font-semibold text-primary block mb-1">Payment Status</label>
+                    <select
+                      value={createForm.paymentStatus}
+                      onChange={(e) => setCreateForm({ ...createForm, paymentStatus: e.target.value as any })}
+                      className="w-full px-3 py-2 bg-surface-dim border border-border rounded-xl text-primary font-medium focus:outline-none focus:border-accent"
+                    >
+                      <option value="PAID">PAID / Verified</option>
+                      <option value="PENDING">PENDING</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="font-semibold text-primary block mb-1">Initial Order Status</label>
+                    <select
+                      value={createForm.status}
+                      onChange={(e) => setCreateForm({ ...createForm, status: e.target.value as any })}
+                      className="w-full px-3 py-2 bg-surface-dim border border-border rounded-xl text-primary font-medium focus:outline-none focus:border-accent"
+                    >
+                      <option value="CONFIRMED">CONFIRMED</option>
+                      <option value="PROCESSING">PROCESSING</option>
+                      <option value="PENDING">PENDING</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Notes */}
+                <div>
+                  <label className="font-semibold text-primary block mb-1">Internal Admin Notes (Optional)</label>
+                  <input
+                    type="text"
+                    value={createForm.adminNotes}
+                    onChange={(e) => setCreateForm({ ...createForm, adminNotes: e.target.value })}
+                    placeholder="e.g. Concierge phone order verified via banking desk."
+                    className="w-full px-3 py-2 bg-surface-dim border border-border rounded-xl text-primary focus:outline-none focus:border-accent"
+                  />
+                </div>
+
+                {/* Live Totals Bar */}
+                <div className="p-3 bg-surface-dim rounded-xl border border-border/80 flex items-center justify-between text-xs">
+                  <span className="text-muted">Total Payable Amount:</span>
+                  <span className="text-base font-bold text-accent">
+                    {formatPaiseToRupees(
+                      createForm.items.reduce((s, it) => s + it.totalInPaise, 0) +
+                        createForm.shippingInPaise -
+                        createForm.discountInPaise
+                    )}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-3 border-t border-border">
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateModal(false)}
+                    className="px-4 py-2 border border-border rounded-xl text-primary hover:bg-surface-dim font-semibold transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    className="px-5 py-2 bg-accent hover:opacity-95 text-accent-fg font-bold rounded-xl shadow-md transition-opacity"
+                  >
+                    {isLoading ? 'Creating...' : 'Create Order'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* EDIT ORDER MODAL */}
+        {editOrderTarget && (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+            <div className="bg-surface border border-border rounded-2xl max-w-xl w-full p-6 shadow-2xl space-y-5 my-8 animate-in fade-in zoom-in-95">
+              <div className="flex items-center justify-between border-b border-border pb-4">
+                <div>
+                  <h3 className="font-display text-lg font-bold text-primary flex items-center gap-2">
+                    <Pencil className="w-5 h-5 text-accent" />
+                    <span>Edit Order {editOrderTarget.orderNumber}</span>
+                  </h3>
+                  <p className="text-xs text-muted mt-0.5">
+                    Modify shipping address, customer contact, fulfillment status, and notes.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setEditOrderTarget(null)}
+                  className="p-1.5 text-muted hover:text-primary rounded-lg hover:bg-surface-dim transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleEditOrderSubmit} className="space-y-4 text-xs">
+                {/* Customer Details */}
+                <div className="space-y-2">
+                  <label className="font-semibold text-primary block">Customer Full Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={editForm.customerName}
+                    onChange={(e) => setEditForm({ ...editForm, customerName: e.target.value })}
+                    className="w-full px-3 py-2 bg-surface-dim border border-border rounded-xl text-primary focus:outline-none focus:border-accent"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="font-semibold text-primary block mb-1">Email Address</label>
+                    <input
+                      type="email"
+                      value={editForm.customerEmail}
+                      onChange={(e) => setEditForm({ ...editForm, customerEmail: e.target.value })}
+                      className="w-full px-3 py-2 bg-surface-dim border border-border rounded-xl text-primary focus:outline-none focus:border-accent"
+                    />
+                  </div>
+                  <div>
+                    <label className="font-semibold text-primary block mb-1">Phone Number</label>
+                    <input
+                      type="tel"
+                      value={editForm.customerPhone}
+                      onChange={(e) => setEditForm({ ...editForm, customerPhone: e.target.value })}
+                      className="w-full px-3 py-2 bg-surface-dim border border-border rounded-xl text-primary focus:outline-none focus:border-accent"
+                    />
+                  </div>
+                </div>
+
+                {/* Delivery Address */}
+                <div className="space-y-2">
+                  <label className="font-semibold text-primary block">Address Line 1</label>
+                  <input
+                    type="text"
+                    value={editForm.addressLine1}
+                    onChange={(e) => setEditForm({ ...editForm, addressLine1: e.target.value })}
+                    className="w-full px-3 py-2 bg-surface-dim border border-border rounded-xl text-primary focus:outline-none focus:border-accent"
+                  />
+                </div>
+
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="font-semibold text-primary block mb-1">City</label>
+                    <input
+                      type="text"
+                      value={editForm.city}
+                      onChange={(e) => setEditForm({ ...editForm, city: e.target.value })}
+                      className="w-full px-3 py-2 bg-surface-dim border border-border rounded-xl text-primary focus:outline-none focus:border-accent"
+                    />
+                  </div>
+                  <div>
+                    <label className="font-semibold text-primary block mb-1">State</label>
+                    <input
+                      type="text"
+                      value={editForm.state}
+                      onChange={(e) => setEditForm({ ...editForm, state: e.target.value })}
+                      className="w-full px-3 py-2 bg-surface-dim border border-border rounded-xl text-primary focus:outline-none focus:border-accent"
+                    />
+                  </div>
+                  <div>
+                    <label className="font-semibold text-primary block mb-1">PIN Code</label>
+                    <input
+                      type="text"
+                      value={editForm.postalCode}
+                      onChange={(e) => setEditForm({ ...editForm, postalCode: e.target.value })}
+                      className="w-full px-3 py-2 bg-surface-dim border border-border rounded-xl text-primary focus:outline-none focus:border-accent"
+                    />
+                  </div>
+                </div>
+
+                {/* Statuses */}
+                <div className="grid grid-cols-2 gap-3 pt-2 border-t border-border/60">
+                  <div>
+                    <label className="font-semibold text-primary block mb-1">Order Status</label>
+                    <select
+                      value={editForm.status}
+                      onChange={(e) => setEditForm({ ...editForm, status: e.target.value as OrderStatus })}
+                      className="w-full px-3 py-2 bg-surface-dim border border-border rounded-xl text-primary font-semibold uppercase focus:outline-none focus:border-accent"
+                    >
+                      <option value="PENDING">PENDING</option>
+                      <option value="PAYMENT_RECEIVED">PAYMENT_RECEIVED</option>
+                      <option value="PAYMENT_NOT_RECEIVED">PAYMENT_NOT_RECEIVED</option>
+                      <option value="CONFIRMED">CONFIRMED</option>
+                      <option value="PROCESSING">PROCESSING</option>
+                      <option value="PACKED">PACKED</option>
+                      <option value="READY_FOR_DISPATCH">READY_FOR_DISPATCH</option>
+                      <option value="SHIPPED">SHIPPED</option>
+                      <option value="OUT_FOR_DELIVERY">OUT_FOR_DELIVERY</option>
+                      <option value="DELIVERED">DELIVERED</option>
+                      <option value="CANCELLED">CANCELLED</option>
+                      <option value="RETURNED">RETURNED</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="font-semibold text-primary block mb-1">Payment Status</label>
+                    <select
+                      value={editForm.paymentStatus}
+                      onChange={(e) => setEditForm({ ...editForm, paymentStatus: e.target.value as any })}
+                      className="w-full px-3 py-2 bg-surface-dim border border-border rounded-xl text-primary font-semibold uppercase focus:outline-none focus:border-accent"
+                    >
+                      <option value="PAID">PAID</option>
+                      <option value="PENDING">PENDING</option>
+                      <option value="FAILED">FAILED</option>
+                      <option value="REFUNDED">REFUNDED</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="font-semibold text-primary block mb-1">Admin Internal Notes</label>
+                  <textarea
+                    rows={2}
+                    value={editForm.adminNotes}
+                    onChange={(e) => setEditForm({ ...editForm, adminNotes: e.target.value })}
+                    placeholder="Add operational notes or customer verification history..."
+                    className="w-full px-3 py-2 bg-surface-dim border border-border rounded-xl text-primary focus:outline-none focus:border-accent"
+                  />
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-3 border-t border-border">
+                  <button
+                    type="button"
+                    onClick={() => setEditOrderTarget(null)}
+                    className="px-4 py-2 border border-border rounded-xl text-primary hover:bg-surface-dim font-semibold transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    className="px-5 py-2 bg-accent hover:opacity-95 text-accent-fg font-bold rounded-xl shadow-md transition-opacity"
+                  >
+                    {isLoading ? 'Saving...' : 'Save Order Changes'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* DELETE ORDER CONFIRMATION MODAL */}
+        {deleteOrderTarget && (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-surface border border-border rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95">
+              <div className="flex items-center gap-3 text-rose-600">
+                <div className="p-2.5 rounded-full bg-rose-500/10">
+                  <Trash2 className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="font-display text-base font-bold text-primary">
+                    Delete Order {deleteOrderTarget.orderNumber}
+                  </h3>
+                  <p className="text-xs text-muted">
+                    Total: {formatPaiseToRupees(deleteOrderTarget.totalInPaise)} • {deleteOrderTarget.shippingAddress?.fullName}
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-3 py-2 border-y border-border/80 text-xs text-muted">
+                <label className="flex items-start gap-2.5 cursor-pointer p-2.5 rounded-xl border border-border hover:bg-surface-dim">
+                  <input
+                    type="radio"
+                    name="deleteType"
+                    checked={!isPermanentDelete}
+                    onChange={() => setIsPermanentDelete(false)}
+                    className="mt-0.5 text-accent focus:ring-accent"
+                  />
+                  <div>
+                    <span className="font-bold text-primary block">Cancel Order (Statutory Safeguard)</span>
+                    <span className="text-[11px] text-muted block mt-0.5">
+                      Recommended. Retains tax and audit history while marking status as CANCELLED and restocking items.
+                    </span>
+                  </div>
+                </label>
+
+                <label className="flex items-start gap-2.5 cursor-pointer p-2.5 rounded-xl border border-rose-300 dark:border-rose-900/40 bg-rose-50/50 dark:bg-rose-950/20 hover:bg-rose-100/50">
+                  <input
+                    type="radio"
+                    name="deleteType"
+                    checked={isPermanentDelete}
+                    onChange={() => setIsPermanentDelete(true)}
+                    className="mt-0.5 text-rose-600 focus:ring-rose-500"
+                  />
+                  <div>
+                    <span className="font-bold text-rose-700 dark:text-rose-400 block">Permanently Purge Record</span>
+                    <span className="text-[11px] text-rose-600/80 dark:text-rose-400/80 block mt-0.5">
+                      Completely removes this order record from the production store. Use only for test or erroneous data.
+                    </span>
+                  </div>
+                </label>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setDeleteOrderTarget(null)}
+                  className="px-4 py-2 border border-border rounded-xl text-primary hover:bg-surface-dim font-semibold transition-colors text-xs"
+                >
+                  Keep Order
+                </button>
+                <button
+                  type="button"
+                  disabled={isDeleting}
+                  onClick={handleDeleteOrderExecute}
+                  className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl shadow-md transition-colors text-xs"
+                >
+                  {isDeleting ? 'Deleting...' : isPermanentDelete ? 'Permanently Delete' : 'Cancel Order'}
+                </button>
               </div>
             </div>
           </div>

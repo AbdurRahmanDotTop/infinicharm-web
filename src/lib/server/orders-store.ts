@@ -632,3 +632,237 @@ export function createOrUpdateDraftOrder(
   return { success: true, order: newOrder };
 }
 
+/**
+ * Creates an authoritative order through Admin workflows
+ */
+export function createAdminOrder(
+  data: Partial<Order> & {
+    items: Order['items'];
+    shippingAddress: Order['shippingAddress'];
+  },
+  actor = 'Operations Admin'
+): { success: boolean; order?: Order; error?: string } {
+  if (!Array.isArray(data.items) || data.items.length === 0) {
+    return { success: false, error: 'At least one order item is required.' };
+  }
+  if (!data.shippingAddress || !data.shippingAddress.addressLine1 || !data.shippingAddress.postalCode) {
+    return { success: false, error: 'Complete delivery address and postal code are required.' };
+  }
+
+  const now = new Date();
+  const nowIso = now.toISOString();
+  const yearMonth = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+  const orderNumber = data.orderNumber || `INF-${yearMonth}-${randomSuffix}`;
+  const orderId = data.id || `ord-${Date.now()}-${randomSuffix}`;
+
+  // Recalculate financial breakdown in integer paise
+  const subtotalInPaise = data.items.reduce((sum, item) => sum + (item.priceInPaise * item.quantity), 0);
+  const shippingInPaise = data.shippingInPaise ?? (subtotalInPaise >= 499900 ? 0 : 6000);
+  const discountInPaise = data.discountInPaise || 0;
+  const taxInPaise = data.taxInPaise || 0;
+  const totalInPaise = data.totalInPaise || Math.max(0, subtotalInPaise + shippingInPaise + taxInPaise - discountInPaise);
+
+  const newOrder: Order = {
+    id: orderId,
+    orderNumber,
+    customerId: data.customerId || 'guest',
+    customerEmail: data.customerEmail || data.shippingAddress.phone + '@infinicharm.com',
+    customerPhone: data.customerPhone || data.shippingAddress.phone,
+    customerName: data.customerName || data.shippingAddress.fullName,
+    status: data.status || 'PENDING',
+    paymentStatus: data.paymentStatus || 'PENDING',
+    paymentMethod: data.paymentMethod || 'CUSTOM_UPI',
+    items: data.items,
+    subtotalInPaise,
+    shippingInPaise,
+    discountInPaise,
+    taxInPaise,
+    totalInPaise,
+    shippingAddress: data.shippingAddress,
+    billingAddress: data.billingAddress || data.shippingAddress,
+    utrNumber: data.utrNumber,
+    adminNotes: data.adminNotes,
+    courierName: data.courierName,
+    trackingNumber: data.trackingNumber,
+    createdAt: nowIso,
+    updatedAt: nowIso,
+    timeline: [
+      {
+        id: `evt-${Date.now()}-admin-created`,
+        status: data.status || 'PENDING',
+        title: 'Order Created by Administrator',
+        description: `Order ${orderNumber} created manually by ${actor}.`,
+        location: 'East Champaran Admin Operations',
+        timestamp: nowIso,
+        actor,
+        isCustomerVisible: true,
+        type: 'FULFILLMENT',
+      },
+    ],
+  };
+
+  const orders = getServerOrders();
+  orders.unshift(newOrder);
+  writeOrdersToFile(orders);
+
+  return { success: true, order: newOrder };
+}
+
+/**
+ * Updates full details of an existing order through Admin workflows
+ */
+export function updateAdminOrder(
+  idOrNumber: string,
+  updates: Partial<Order>,
+  actor = 'Operations Admin'
+): { success: boolean; order?: Order; error?: string } {
+  const orders = getServerOrders();
+  const idx = orders.findIndex(o => o.id === idOrNumber || o.orderNumber === idOrNumber);
+  if (idx === -1) {
+    return { success: false, error: `Order ${idOrNumber} not found.` };
+  }
+
+  const existing = orders[idx];
+  const now = new Date().toISOString();
+
+  // If status is being changed, check transition validity
+  if (updates.status && updates.status !== existing.status) {
+    const transitionResult = updateServerOrderStatus(idOrNumber, updates.status, updates.adminNotes, actor);
+    if (!transitionResult.success) {
+      return transitionResult;
+    }
+  }
+
+  // Reload current orders after potential status transition
+  const currentOrders = getServerOrders();
+  const currentIdx = currentOrders.findIndex(o => o.id === idOrNumber || o.orderNumber === idOrNumber);
+  const current = currentOrders[currentIdx] || existing;
+
+  const mergedItems = updates.items || current.items;
+  let subtotalInPaise = current.subtotalInPaise;
+  let totalInPaise = current.totalInPaise;
+
+  if (updates.items) {
+    subtotalInPaise = mergedItems.reduce((acc, it) => acc + (it.priceInPaise * it.quantity), 0);
+    const shipping = updates.shippingInPaise ?? current.shippingInPaise;
+    const tax = updates.taxInPaise ?? current.taxInPaise;
+    const discount = updates.discountInPaise ?? current.discountInPaise;
+    totalInPaise = Math.max(0, subtotalInPaise + shipping + tax - discount);
+  }
+
+  const updatedOrder: Order = {
+    ...current,
+    ...updates,
+    id: current.id,
+    orderNumber: current.orderNumber,
+    items: mergedItems,
+    subtotalInPaise,
+    totalInPaise: updates.totalInPaise ?? totalInPaise,
+    updatedAt: now,
+    timeline: [
+      ...(current.timeline || []),
+      {
+        id: `evt-${Date.now()}-admin-edit`,
+        status: updates.status || current.status,
+        title: 'Order Details Updated',
+        description: `Order information modified by ${actor}.`,
+        location: 'Admin Operations Hub',
+        timestamp: now,
+        actor,
+        isCustomerVisible: false,
+        type: 'EXCEPTION',
+      },
+    ],
+  };
+
+  currentOrders[currentIdx] = updatedOrder;
+  writeOrdersToFile(currentOrders);
+
+  return { success: true, order: updatedOrder };
+}
+
+/**
+ * Delete an order with statutory safeguards
+ */
+export function deleteServerOrder(
+  idOrNumber: string,
+  actor = 'Operations Admin',
+  permanent = false
+): { success: boolean; error?: string; orderNumber?: string } {
+  const orders = getServerOrders();
+  const idx = orders.findIndex(o => o.id === idOrNumber || o.orderNumber === idOrNumber);
+  if (idx === -1) {
+    return { success: false, error: `Order ${idOrNumber} not found.` };
+  }
+
+  const target = orders[idx];
+
+  if (permanent) {
+    // Permanent purge (for test/draft records or direct admin deletion request)
+    orders.splice(idx, 1);
+    writeOrdersToFile(orders);
+    return { success: true, orderNumber: target.orderNumber };
+  }
+
+  // Statutory retention workflow: transition to CANCELLED and add audit log
+  const cancelResult = updateServerOrderStatus(idOrNumber, 'CANCELLED', `Order cancelled by ${actor}`, actor);
+  return { success: cancelResult.success, error: cancelResult.error, orderNumber: target.orderNumber };
+}
+
+/**
+ * Bulk update multiple orders
+ */
+export function bulkUpdateServerOrders(
+  orderIds: string[],
+  updates: { status?: OrderStatus; paymentStatus?: Order['paymentStatus']; adminNotes?: string },
+  actor = 'Operations Admin'
+): { success: boolean; updatedCount: number; errors: string[] } {
+  let updatedCount = 0;
+  const errors: string[] = [];
+
+  for (const id of orderIds) {
+    try {
+      if (updates.status) {
+        const res = updateServerOrderStatus(id, updates.status, updates.adminNotes, actor);
+        if (res.success) {
+          updatedCount++;
+        } else {
+          errors.push(res.error || `Failed to update ${id}`);
+        }
+      } else {
+        const res = updateAdminOrder(id, updates, actor);
+        if (res.success) updatedCount++;
+        else errors.push(res.error || `Failed to update ${id}`);
+      }
+    } catch (e: any) {
+      errors.push(e?.message || `Error on ${id}`);
+    }
+  }
+
+  return { success: updatedCount > 0, updatedCount, errors };
+}
+
+/**
+ * Bulk delete / cancel multiple orders
+ */
+export function bulkDeleteServerOrders(
+  orderIds: string[],
+  actor = 'Operations Admin',
+  permanent = false
+): { success: boolean; deletedCount: number; errors: string[] } {
+  let deletedCount = 0;
+  const errors: string[] = [];
+
+  for (const id of orderIds) {
+    const res = deleteServerOrder(id, actor, permanent);
+    if (res.success) {
+      deletedCount++;
+    } else {
+      errors.push(res.error || `Failed to delete ${id}`);
+    }
+  }
+
+  return { success: deletedCount > 0, deletedCount, errors };
+}
+

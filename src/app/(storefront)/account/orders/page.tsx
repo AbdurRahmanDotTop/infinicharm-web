@@ -28,15 +28,15 @@ export default function AccountOrdersPage() {
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
 
   useEffect(() => {
-    async function loadOrders() {
-      setIsLoading(true);
+    async function loadOrders(showLoading = true) {
+      if (showLoading) setIsLoading(true);
       try {
         const res = await fetch('/api/customers/me', { cache: 'no-store' });
         if (res.ok) {
           const data = await res.json();
           if (data.success && Array.isArray(data.orders)) {
             setOrders(data.orders);
-            setIsLoading(false);
+            if (showLoading) setIsLoading(false);
             return;
           }
         }
@@ -45,15 +45,42 @@ export default function AccountOrdersPage() {
       }
 
       setOrders([]);
-      setIsLoading(false);
+      if (showLoading) setIsLoading(false);
     }
 
-    loadOrders();
+    loadOrders(true);
 
-    const handleSync = () => loadOrders();
+    let channel: BroadcastChannel | null = null;
+    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+      try {
+        channel = new BroadcastChannel('infinicharm_orders_channel');
+        channel.onmessage = (event) => {
+          if (
+            event.data?.type === 'ORDER_UPDATED' ||
+            event.data?.type === 'ORDER_CREATED' ||
+            event.data?.type === 'ORDER_DELETED'
+          ) {
+            loadOrders(false);
+          }
+        };
+      } catch {}
+    }
+
+    const handleSync = () => loadOrders(false);
     window.addEventListener('infinicharm_orders_updated', handleSync);
     window.addEventListener('storage', handleSync);
+
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        loadOrders(false);
+      }
+    }, 4000);
+
     return () => {
+      clearInterval(interval);
+      try {
+        channel?.close();
+      } catch {}
       window.removeEventListener('infinicharm_orders_updated', handleSync);
       window.removeEventListener('storage', handleSync);
     };
