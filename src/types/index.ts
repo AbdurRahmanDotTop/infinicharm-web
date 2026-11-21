@@ -440,6 +440,8 @@ export interface OrderPrivacyMeta {
   accessState: 'AUTHORIZED' | 'UNAUTHENTICATED' | 'WRONG_ACCOUNT';
 }
 
+export type ManualApprovalStatus = 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED';
+
 export interface Order {
   id: string;
   orderNumber: string;

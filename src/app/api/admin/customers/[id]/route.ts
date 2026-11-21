@@ -120,6 +120,22 @@ export async function DELETE(
 
     const { id } = await params;
     const targetCustomer = getServerCustomerById(id);
+    if (!targetCustomer) {
+      return NextResponse.json({ success: false, error: 'Customer not found or already deleted.' }, { status: 404 });
+    }
+
+    if (
+      targetCustomer.id === 'cust-founder-01' ||
+      targetCustomer.email.toLowerCase() === 'abdurrahmanibnghufran@gmail.com' ||
+      (targetCustomer as any).role === 'SUPER_ADMIN' ||
+      targetCustomer.role === 'ADMIN'
+    ) {
+      return NextResponse.json(
+        { success: false, error: 'Protected root founder and administrator accounts cannot be deleted.' },
+        { status: 403 }
+      );
+    }
+
     const success = deleteCustomer(id);
     if (!success) {
       return NextResponse.json({ success: false, error: 'Customer not found or already deleted.' }, { status: 404 });

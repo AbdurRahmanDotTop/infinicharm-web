@@ -127,6 +127,37 @@ export default function AdminPaymentsPage() {
 
   useEffect(() => {
     loadAllData();
+
+    const handleSync = () => loadAllData();
+    window.addEventListener('infinicharm_orders_updated', handleSync);
+    window.addEventListener('storage', handleSync);
+
+    let channel: BroadcastChannel | null = null;
+    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+      try {
+        channel = new BroadcastChannel('infinicharm_orders_channel');
+        channel.onmessage = () => {
+          loadAllData();
+        };
+      } catch {}
+    }
+
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        loadAllData();
+      }
+    }, 4000);
+
+    return () => {
+      window.removeEventListener('infinicharm_orders_updated', handleSync);
+      window.removeEventListener('storage', handleSync);
+      clearInterval(interval);
+      if (channel) {
+        try {
+          channel.close();
+        } catch {}
+      }
+    };
   }, []);
 
   const loadAllData = async () => {
@@ -148,6 +179,16 @@ export default function AdminPaymentsPage() {
     } catch {
       // ignore
     }
+
+    try {
+      const res = await fetch('/api/orders');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && Array.isArray(data.orders)) {
+          setOrders(data.orders);
+        }
+      }
+    } catch {}
 
     // 2. Fresh server API sync
     try {

@@ -240,8 +240,9 @@ export function isValidOrderTransition(
  */
 export function isOrderEligibleForPaymentRetry(order: Order | null | undefined): boolean {
   if (!order) return false;
-  if (order.paymentStatus === 'PAID') return false;
+  if (order.paymentStatus === 'PAID' || order.status === 'PAYMENT_RECEIVED') return false;
   const terminalOrDispatched: OrderStatus[] = [
+    'PAYMENT_RECEIVED',
     'CONFIRMED',
     'PROCESSING',
     'PACKED',

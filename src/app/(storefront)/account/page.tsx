@@ -80,9 +80,32 @@ export default function AccountPage() {
     const handleSync = () => fetchCustomerData();
     window.addEventListener('infinicharm_customer_updated', handleSync);
     window.addEventListener('infinicharm_orders_updated', handleSync);
+
+    let channel: BroadcastChannel | null = null;
+    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+      try {
+        channel = new BroadcastChannel('infinicharm_orders_channel');
+        channel.onmessage = () => {
+          fetchCustomerData();
+        };
+      } catch {}
+    }
+
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        fetchCustomerData();
+      }
+    }, 4000);
+
     return () => {
       window.removeEventListener('infinicharm_customer_updated', handleSync);
       window.removeEventListener('infinicharm_orders_updated', handleSync);
+      clearInterval(interval);
+      if (channel) {
+        try {
+          channel.close();
+        } catch {}
+      }
     };
   }, []);
 

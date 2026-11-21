@@ -165,21 +165,12 @@ export function updateServerOrderStatus(
   };
 
   // Synchronize payment status for verified/confirmed fulfillments
-  if (newStatus === 'PAYMENT_RECEIVED') {
+  if (['PAYMENT_RECEIVED', 'CONFIRMED', 'PROCESSING', 'PACKED', 'READY_FOR_DISPATCH', 'SHIPPED', 'OUT_FOR_DELIVERY', 'DELIVERED'].includes(newStatus)) {
     updated.paymentStatus = 'PAID';
-    if (existing.paymentMethod === 'CUSTOM_UPI') {
-      updated.manualApprovalStatus = 'APPROVED';
-    }
+    updated.manualApprovalStatus = 'APPROVED';
   } else if (newStatus === 'PAYMENT_NOT_RECEIVED') {
     updated.paymentStatus = 'FAILED';
-    if (existing.paymentMethod === 'CUSTOM_UPI') {
-      updated.manualApprovalStatus = 'REJECTED';
-    }
-  } else if (['CONFIRMED', 'PROCESSING', 'PACKED', 'READY_FOR_DISPATCH', 'SHIPPED', 'OUT_FOR_DELIVERY', 'DELIVERED'].includes(newStatus)) {
-    if (existing.paymentMethod === 'CUSTOM_UPI') {
-      updated.paymentStatus = 'PAID';
-      updated.manualApprovalStatus = 'APPROVED';
-    }
+    updated.manualApprovalStatus = 'REJECTED';
   }
 
   // If status moved to DELIVERED, set actualDeliveryDate
@@ -738,6 +729,27 @@ export function updateAdminOrder(
   const currentOrders = getServerOrders();
   const currentIdx = currentOrders.findIndex(o => o.id === idOrNumber || o.orderNumber === idOrNumber);
   const current = currentOrders[currentIdx] || existing;
+
+  // Bidirectional payment & status synchronization
+  if (updates.status) {
+    if (['PAYMENT_RECEIVED', 'CONFIRMED', 'PROCESSING', 'PACKED', 'READY_FOR_DISPATCH', 'SHIPPED', 'OUT_FOR_DELIVERY', 'DELIVERED'].includes(updates.status)) {
+      updates.paymentStatus = 'PAID';
+      updates.manualApprovalStatus = 'APPROVED';
+    } else if (updates.status === 'PAYMENT_NOT_RECEIVED') {
+      updates.paymentStatus = 'FAILED';
+      updates.manualApprovalStatus = 'REJECTED';
+    }
+  } else if (updates.paymentStatus) {
+    if (updates.paymentStatus === 'PAID') {
+      if (current.status === 'PENDING' || current.status === 'PAYMENT_NOT_RECEIVED') {
+        updates.status = 'PAYMENT_RECEIVED';
+      }
+      updates.manualApprovalStatus = 'APPROVED';
+    } else if (updates.paymentStatus === 'FAILED') {
+      updates.status = 'PAYMENT_NOT_RECEIVED';
+      updates.manualApprovalStatus = 'REJECTED';
+    }
+  }
 
   const mergedItems = updates.items || current.items;
   let subtotalInPaise = current.subtotalInPaise;

@@ -33,7 +33,7 @@ import {
   CheckSquare,
   Square,
 } from 'lucide-react';
-import { Order, OrderStatus, PaymentStatus, OrderItem } from '@/types';
+import { Order, OrderStatus, PaymentStatus, OrderItem, ManualApprovalStatus } from '@/types';
 import {
   SUPPORTED_COURIERS,
   ORDER_STATUS_LABELS,
@@ -231,19 +231,17 @@ export default function AdminOrdersPage() {
     const targetOrder = orders.find((o) => o.id === orderId || o.orderNumber === orderId);
     if (!targetOrder) return;
 
+    const isPaidStatus = ['PAYMENT_RECEIVED', 'CONFIRMED', 'PROCESSING', 'PACKED', 'READY_FOR_DISPATCH', 'SHIPPED', 'OUT_FOR_DELIVERY', 'DELIVERED'].includes(newStatus);
+    const isFailedStatus = newStatus === 'PAYMENT_NOT_RECEIVED';
+
     // Optimistic local state update
     const updated = orders.map((o) =>
       o.id === orderId || o.orderNumber === orderId
         ? {
             ...o,
             status: newStatus,
-            paymentStatus:
-              ['CONFIRMED', 'PROCESSING', 'PACKED', 'READY_FOR_DISPATCH', 'SHIPPED', 'DELIVERED'].includes(newStatus) &&
-              o.paymentStatus === 'PENDING'
-                ? 'PAID'
-                : newStatus === 'PAYMENT_NOT_RECEIVED'
-                ? 'FAILED'
-                : o.paymentStatus,
+            paymentStatus: isPaidStatus ? ('PAID' as PaymentStatus) : isFailedStatus ? ('FAILED' as PaymentStatus) : o.paymentStatus,
+            manualApprovalStatus: isPaidStatus ? ('APPROVED' as ManualApprovalStatus) : isFailedStatus ? ('REJECTED' as ManualApprovalStatus) : o.manualApprovalStatus,
             updatedAt: new Date().toISOString(),
           }
         : o
@@ -322,10 +320,19 @@ export default function AdminOrdersPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok && data.success) {
+        const isPaidStatus = ['PAYMENT_RECEIVED', 'CONFIRMED', 'PROCESSING', 'PACKED', 'READY_FOR_DISPATCH', 'SHIPPED', 'OUT_FOR_DELIVERY', 'DELIVERED'].includes(targetStatus);
+        const isFailedStatus = targetStatus === 'PAYMENT_NOT_RECEIVED';
+
         setOrders((prev) =>
           prev.map((o) =>
             selectedOrderIds.includes(o.id) || selectedOrderIds.includes(o.orderNumber)
-              ? { ...o, status: targetStatus, updatedAt: new Date().toISOString() }
+              ? {
+                  ...o,
+                  status: targetStatus,
+                  paymentStatus: isPaidStatus ? ('PAID' as PaymentStatus) : isFailedStatus ? ('FAILED' as PaymentStatus) : o.paymentStatus,
+                  manualApprovalStatus: isPaidStatus ? ('APPROVED' as ManualApprovalStatus) : isFailedStatus ? ('REJECTED' as ManualApprovalStatus) : o.manualApprovalStatus,
+                  updatedAt: new Date().toISOString(),
+                }
               : o
           )
         );
@@ -445,6 +452,13 @@ export default function AdminOrdersPage() {
 
     setIsLoading(true);
     try {
+      let resolvedPaymentStatus = editForm.paymentStatus;
+      if (['PAYMENT_RECEIVED', 'CONFIRMED', 'PROCESSING', 'PACKED', 'READY_FOR_DISPATCH', 'SHIPPED', 'OUT_FOR_DELIVERY', 'DELIVERED'].includes(editForm.status)) {
+        resolvedPaymentStatus = 'PAID';
+      } else if (editForm.status === 'PAYMENT_NOT_RECEIVED') {
+        resolvedPaymentStatus = 'FAILED';
+      }
+
       const updates = {
         customerName: editForm.customerName.trim(),
         customerEmail: editForm.customerEmail.trim(),
@@ -460,7 +474,7 @@ export default function AdminOrdersPage() {
           postalCode: editForm.postalCode.trim(),
         },
         status: editForm.status,
-        paymentStatus: editForm.paymentStatus,
+        paymentStatus: resolvedPaymentStatus,
         adminNotes: editForm.adminNotes.trim(),
         actor: 'Operations Admin',
       };

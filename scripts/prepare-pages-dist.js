@@ -694,6 +694,11 @@ function anonymizeCustomerOrdersInWorker(custId, email) {
 // Completely purge customer account, credentials, reviews, inquiries, newsletter, and anonymize orders
 function purgeCustomerDataInWorker(custId, email) {
   const normEmail = (email || '').toLowerCase().trim();
+  // Protect root founder and system administrator accounts from deletion
+  if (normEmail === 'abdurrahmanibnghufran@gmail.com' || custId === 'cust-founder-01') {
+    return;
+  }
+
   if (normEmail) {
     deletedCustomersRegistry.set(normEmail, { id: custId || '', email: normEmail, deletedAt: new Date().toISOString() });
     registeredCustomers.delete(normEmail);
@@ -743,6 +748,10 @@ function syncCustomersFromCookie(request) {
       if (Array.isArray(parsed)) {
         for (const item of parsed) {
           if (item && (item.id || item.email)) {
+            const e = (item.email || '').toLowerCase().trim();
+            if (item.id === 'cust-founder-01' || e === 'abdurrahmanibnghufran@gmail.com') {
+              continue;
+            }
             purgeCustomerDataInWorker(item.id || '', item.email || '');
           }
         }
@@ -770,11 +779,13 @@ function syncCustomersFromCookie(request) {
 }
 
 function makeCustomerSyncCookies() {
-  const deletedList = Array.from(deletedCustomersRegistry.values()).map(d => ({
-    id: d.id,
-    email: d.email,
-    deletedAt: d.deletedAt
-  }));
+  const deletedList = Array.from(deletedCustomersRegistry.values())
+    .filter(d => d.id !== 'cust-founder-01' && (d.email || '').toLowerCase().trim() !== 'abdurrahmanibnghufran@gmail.com')
+    .map(d => ({
+      id: d.id,
+      email: d.email,
+      deletedAt: d.deletedAt
+    }));
 
   const initialIds = new Set(INITIAL_CUSTOMERS.map(c => c.id));
   const dynamicCustomers = Array.from(registeredCustomers.values())
@@ -2640,8 +2651,28 @@ async function handleApi(request, url, env) {
     for (const id of orderIds) {
       const order = ordersStore.get(id) || [...ordersStore.values()].find(o => o.orderNumber === id || o.id === id);
       if (order && !deletedOrderIds.has(order.id) && !deletedOrderIds.has(order.orderNumber)) {
-        if (updates.status) order.status = updates.status;
-        if (updates.paymentStatus) order.paymentStatus = updates.paymentStatus;
+        if (updates.status) {
+          order.status = updates.status;
+          if (['PAYMENT_RECEIVED', 'CONFIRMED', 'PROCESSING', 'PACKED', 'READY_FOR_DISPATCH', 'SHIPPED', 'OUT_FOR_DELIVERY', 'DELIVERED'].includes(updates.status)) {
+            order.paymentStatus = 'PAID';
+            order.manualApprovalStatus = 'APPROVED';
+          } else if (updates.status === 'PAYMENT_NOT_RECEIVED') {
+            order.paymentStatus = 'FAILED';
+            order.manualApprovalStatus = 'REJECTED';
+          }
+        }
+        if (updates.paymentStatus) {
+          order.paymentStatus = updates.paymentStatus;
+          if (updates.paymentStatus === 'PAID') {
+            if (order.status === 'PENDING' || order.status === 'PAYMENT_NOT_RECEIVED') {
+              order.status = 'PAYMENT_RECEIVED';
+            }
+            order.manualApprovalStatus = 'APPROVED';
+          } else if (updates.paymentStatus === 'FAILED') {
+            order.status = 'PAYMENT_NOT_RECEIVED';
+            order.manualApprovalStatus = 'REJECTED';
+          }
+        }
         if (updates.adminNotes) order.adminNotes = updates.adminNotes;
         order.updatedAt = new Date().toISOString();
         if (!order.timeline) order.timeline = [];
@@ -2962,9 +2993,9 @@ async function handleApi(request, url, env) {
         if (newStatus === 'PAYMENT_NOT_RECEIVED') {
           order.paymentStatus = 'FAILED';
           order.manualApprovalStatus = 'REJECTED';
-        } else if (newStatus === 'CONFIRMED' || newStatus === 'PROCESSING' || newStatus === 'PACKED' || newStatus === 'SHIPPED' || newStatus === 'DELIVERED') {
-          if (order.paymentStatus !== 'PAID') order.paymentStatus = 'PAID';
-          if (order.manualApprovalStatus === 'PENDING_REVIEW') order.manualApprovalStatus = 'APPROVED';
+        } else if (['PAYMENT_RECEIVED', 'CONFIRMED', 'PROCESSING', 'PACKED', 'READY_FOR_DISPATCH', 'SHIPPED', 'OUT_FOR_DELIVERY', 'DELIVERED'].includes(newStatus)) {
+          order.paymentStatus = 'PAID';
+          order.manualApprovalStatus = 'APPROVED';
         }
         order.updatedAt = new Date().toISOString();
         if (!order.timeline) order.timeline = [];
@@ -3042,8 +3073,28 @@ async function handleApi(request, url, env) {
         if (updates.customerPhone) order.customerPhone = updates.customerPhone;
         if (updates.shippingAddress) order.shippingAddress = { ...(order.shippingAddress || {}), ...updates.shippingAddress };
         if (updates.billingAddress) order.billingAddress = { ...(order.billingAddress || {}), ...updates.billingAddress };
-        if (updates.paymentStatus) order.paymentStatus = updates.paymentStatus;
-        if (updates.status) order.status = updates.status;
+        if (updates.status) {
+          order.status = updates.status;
+          if (['PAYMENT_RECEIVED', 'CONFIRMED', 'PROCESSING', 'PACKED', 'READY_FOR_DISPATCH', 'SHIPPED', 'OUT_FOR_DELIVERY', 'DELIVERED'].includes(updates.status)) {
+            order.paymentStatus = 'PAID';
+            order.manualApprovalStatus = 'APPROVED';
+          } else if (updates.status === 'PAYMENT_NOT_RECEIVED') {
+            order.paymentStatus = 'FAILED';
+            order.manualApprovalStatus = 'REJECTED';
+          }
+        }
+        if (updates.paymentStatus) {
+          order.paymentStatus = updates.paymentStatus;
+          if (updates.paymentStatus === 'PAID') {
+            if (order.status === 'PENDING' || order.status === 'PAYMENT_NOT_RECEIVED') {
+              order.status = 'PAYMENT_RECEIVED';
+            }
+            order.manualApprovalStatus = 'APPROVED';
+          } else if (updates.paymentStatus === 'FAILED') {
+            order.status = 'PAYMENT_NOT_RECEIVED';
+            order.manualApprovalStatus = 'REJECTED';
+          }
+        }
         if (updates.adminNotes) order.adminNotes = updates.adminNotes;
         if (Array.isArray(updates.items)) {
           order.items = updates.items;
@@ -3085,8 +3136,28 @@ async function handleApi(request, url, env) {
       if (body.customerPhone) order.customerPhone = body.customerPhone;
       if (body.shippingAddress) order.shippingAddress = { ...(order.shippingAddress || {}), ...body.shippingAddress };
       if (body.billingAddress) order.billingAddress = { ...(order.billingAddress || {}), ...body.billingAddress };
-      if (body.paymentStatus) order.paymentStatus = body.paymentStatus;
-      if (body.status) order.status = body.status;
+      if (body.status) {
+        order.status = body.status;
+        if (['PAYMENT_RECEIVED', 'CONFIRMED', 'PROCESSING', 'PACKED', 'READY_FOR_DISPATCH', 'SHIPPED', 'OUT_FOR_DELIVERY', 'DELIVERED'].includes(body.status)) {
+          order.paymentStatus = 'PAID';
+          order.manualApprovalStatus = 'APPROVED';
+        } else if (body.status === 'PAYMENT_NOT_RECEIVED') {
+          order.paymentStatus = 'FAILED';
+          order.manualApprovalStatus = 'REJECTED';
+        }
+      }
+      if (body.paymentStatus) {
+        order.paymentStatus = body.paymentStatus;
+        if (body.paymentStatus === 'PAID') {
+          if (order.status === 'PENDING' || order.status === 'PAYMENT_NOT_RECEIVED') {
+            order.status = 'PAYMENT_RECEIVED';
+          }
+          order.manualApprovalStatus = 'APPROVED';
+        } else if (body.paymentStatus === 'FAILED') {
+          order.status = 'PAYMENT_NOT_RECEIVED';
+          order.manualApprovalStatus = 'REJECTED';
+        }
+      }
       if (body.adminNotes) order.adminNotes = body.adminNotes;
       if (Array.isArray(body.items)) {
         order.items = body.items;
@@ -3506,6 +3577,17 @@ async function handleApi(request, url, env) {
   // /api/admin/customers
   if (p === '/api/admin/customers') {
     syncCustomersFromCookie(request);
+
+    // Guarantee baseline authentic accounts are always preserved in memory
+    for (const initCust of INITIAL_CUSTOMERS) {
+      const initEmail = (initCust.email || '').toLowerCase().trim();
+      if (!registeredCustomers.has(initEmail) && (initCust.id === 'cust-founder-01' || initCust.role === 'SUPER_ADMIN' || initCust.role === 'ADMIN' || initCust.id === 'cust-01')) {
+        registeredCustomers.set(initEmail, initCust);
+        deletedCustomersRegistry.delete(initEmail);
+        if (initCust.id) deletedCustomerIdsRegistry.delete(initCust.id);
+      }
+    }
+
     if (method === 'GET') {
       const q = url.searchParams.get('q')?.toLowerCase() || url.searchParams.get('search')?.toLowerCase();
       let list = [...registeredCustomers.values()]
@@ -3652,6 +3734,9 @@ async function handleApi(request, url, env) {
     for (const custId of customerIds) {
       const customer = [...registeredCustomers.values()].find(c => c.id === custId);
       const email = customer ? customer.email.toLowerCase().trim() : '';
+      if (custId === 'cust-founder-01' || email === 'abdurrahmanibnghufran@gmail.com' || customer?.role === 'SUPER_ADMIN' || customer?.role === 'ADMIN') {
+        continue;
+      }
       purgeCustomerDataInWorker(custId, email);
       deletedCount++;
     }
@@ -3689,6 +3774,9 @@ async function handleApi(request, url, env) {
     }
     if (method === 'DELETE') {
       const email = customer.email.toLowerCase().trim();
+      if (custId === 'cust-founder-01' || email === 'abdurrahmanibnghufran@gmail.com' || customer.role === 'SUPER_ADMIN' || customer.role === 'ADMIN') {
+        return json({ success: false, error: 'Protected root founder and administrator accounts cannot be deleted.' }, 403);
+      }
       purgeCustomerDataInWorker(custId, email);
 
       auditLogsStore.unshift({

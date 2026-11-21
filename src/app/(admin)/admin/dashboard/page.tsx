@@ -61,9 +61,32 @@ export default function AdminDashboardPage() {
     const handleSync = () => fetchOrders();
     window.addEventListener('infinicharm_orders_updated', handleSync);
     window.addEventListener('storage', handleSync);
+
+    let channel: BroadcastChannel | null = null;
+    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+      try {
+        channel = new BroadcastChannel('infinicharm_orders_channel');
+        channel.onmessage = () => {
+          fetchOrders();
+        };
+      } catch {}
+    }
+
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        fetchOrders();
+      }
+    }, 4000);
+
     return () => {
       window.removeEventListener('infinicharm_orders_updated', handleSync);
       window.removeEventListener('storage', handleSync);
+      clearInterval(interval);
+      if (channel) {
+        try {
+          channel.close();
+        } catch {}
+      }
     };
   }, []);
 

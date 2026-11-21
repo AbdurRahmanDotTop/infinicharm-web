@@ -214,8 +214,42 @@ function PaymentPageContent() {
     }
 
     fetchOrderDetails();
+
+    let channel: BroadcastChannel | null = null;
+    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+      try {
+        channel = new BroadcastChannel('infinicharm_orders_channel');
+        channel.onmessage = (event) => {
+          if (event.data?.type === 'ORDER_UPDATED' || event.data?.type === 'ORDER_CREATED') {
+            const updatedOrder = event.data?.payload?.order;
+            const targetId = (effectiveId || '').toUpperCase();
+            if (updatedOrder && (updatedOrder.orderNumber?.toUpperCase() === targetId || updatedOrder.id?.toUpperCase() === targetId)) {
+              if (isMounted) {
+                setOrder(updatedOrder);
+                if (updatedOrder.utrNumber) setUtrInput(updatedOrder.utrNumber);
+              }
+            } else {
+              fetchOrderDetails();
+            }
+          }
+        };
+      } catch {}
+    }
+
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        fetchOrderDetails();
+      }
+    }, 4000);
+
     return () => {
       isMounted = false;
+      clearInterval(interval);
+      if (channel) {
+        try {
+          channel.close();
+        } catch {}
+      }
     };
   }, [orderParam, orderId, tokenParam]);
 
@@ -369,11 +403,15 @@ function PaymentPageContent() {
   };
 
   // State guards
-  const isPaid = order?.paymentStatus === 'PAID' || order?.status === 'CONFIRMED';
+  const isPaid =
+    order?.paymentStatus === 'PAID' ||
+    ['PAYMENT_RECEIVED', 'CONFIRMED', 'PROCESSING', 'PACKED', 'READY_FOR_DISPATCH', 'SHIPPED', 'OUT_FOR_DELIVERY', 'DELIVERED'].includes(order?.status || '');
   const isCancelled = ['CANCELLED', 'RETURNED', 'REFUNDED'].includes(order?.status || '');
   const isPaymentNotReceived =
-    order?.status === 'PAYMENT_NOT_RECEIVED' ||
-    (order?.paymentStatus === 'FAILED' && !isCancelled);
+    !isPaid && !isCancelled && (
+      order?.status === 'PAYMENT_NOT_RECEIVED' ||
+      order?.paymentStatus === 'FAILED'
+    );
   const isPendingReview =
     !isPaid && !isCancelled && !isPaymentNotReceived && order?.manualApprovalStatus === 'PENDING_REVIEW';
 
@@ -928,14 +966,26 @@ function PaymentPageContent() {
                       <span className="text-[11px] text-muted font-bold uppercase tracking-wider">
                         Reconciliation Status
                       </span>
-                      <span className="text-xs font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                        ⏳ Under Bank Verification
-                      </span>
+                      {isPaid ? (
+                        <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 flex items-center gap-1">
+                          <span>✓</span> Payment Received & Verified
+                        </span>
+                      ) : (
+                        <span className="text-xs font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                          ⏳ Under Bank Verification
+                        </span>
+                      )}
                     </div>
 
-                    <p className="text-[11px] text-muted leading-relaxed pt-1">
-                      Our accounts desk is reconciling your payment against our <strong>IndusInd Bank Current Account (258825164657)</strong>. Your order will be confirmed upon verification.
-                    </p>
+                    {isPaid ? (
+                      <p className="text-[11px] text-emerald-800 leading-relaxed pt-1">
+                        Your payment has been successfully reconciled against our <strong>IndusInd Bank Current Account (258825164657)</strong>. Your order is confirmed and moving into fulfillment.
+                      </p>
+                    ) : (
+                      <p className="text-[11px] text-muted leading-relaxed pt-1">
+                        Our accounts desk is reconciling your payment against our <strong>IndusInd Bank Current Account (258825164657)</strong>. Your order will be confirmed upon verification.
+                      </p>
+                    )}
                   </div>
 
                   {/* Actions for Placed Order */}

@@ -447,6 +447,16 @@ export function deleteCustomer(id: string): boolean {
   const targetCust = raw.find((c) => c.id === id);
   if (!targetCust) return false;
 
+  // Protect system-critical founder and administrator accounts from deletion
+  if (
+    targetCust.id === 'cust-founder-01' ||
+    targetCust.email.toLowerCase() === 'abdurrahmanibnghufran@gmail.com' ||
+    (targetCust as any).role === 'SUPER_ADMIN' ||
+    targetCust.role === 'ADMIN'
+  ) {
+    throw new Error('Protected root founder and administrator accounts cannot be deleted.');
+  }
+
   // 1. Remove customer record from customers.json
   const filtered = raw.filter((c) => c.id !== id);
   writeRawCustomers(filtered);
@@ -615,9 +625,14 @@ export function bulkDeleteCustomers(ids: string[]): {
         errors.push(`Customer ${id} not found.`);
         continue;
       }
-      if (cust.role === 'ADMIN') {
+      if (
+        cust.id === 'cust-founder-01' ||
+        cust.email.toLowerCase() === 'abdurrahmanibnghufran@gmail.com' ||
+        (cust as any).role === 'SUPER_ADMIN' ||
+        cust.role === 'ADMIN'
+      ) {
         failedCount++;
-        errors.push(`Customer ${cust.email} is an administrator and cannot be bulk deleted.`);
+        errors.push(`Customer ${cust.email} is a protected administrator and cannot be bulk deleted.`);
         continue;
       }
       const ok = deleteCustomer(id);
