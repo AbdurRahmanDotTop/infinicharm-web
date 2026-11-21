@@ -492,6 +492,8 @@ const workerCode = '// InfiniCharm Production Cloudflare Pages Edge Worker\n' +
 `
 // Runtime in-memory state stores for Cloudflare worker isolate
 const registeredCustomers = new Map(INITIAL_CUSTOMERS.map(c => [c.email.toLowerCase().trim(), c]));
+const deletedCustomersRegistry = new Map(); // email -> { id, email, deletedAt }
+const deletedCustomerIdsRegistry = new Map(); // custId -> { id, email, deletedAt }
 const verificationTokens = new Map(); // token -> record
 const emailToVerification = new Map(); // email -> tokenRecord
 const passwordResetTokens = new Map(); // token -> record
@@ -569,10 +571,149 @@ function getCookie(request, name) {
   return null;
 }
 
+// Anonymize customer orders in worker per statutory tax compliance
+function anonymizeCustomerOrdersInWorker(custId, email) {
+  const normEmail = (email || '').toLowerCase().trim();
+  for (const order of ordersStore.values()) {
+    if (order.customerId === custId || (order.customerEmail && order.customerEmail.toLowerCase().trim() === normEmail)) {
+      order.customerName = 'Deleted Customer';
+      order.customerEmail = 'deleted-customer-' + (custId ? custId.slice(0, 8) : '00') + '@redacted.infinicharm.com';
+      order.customerPhone = 'XXXXX-XXXXX';
+      if (order.shippingAddress) {
+        order.shippingAddress.fullName = 'Deleted Customer';
+        order.shippingAddress.phone = 'XXXXX-XXXXX';
+        order.shippingAddress.addressLine1 = '[Redacted per DPDP Act]';
+        order.shippingAddress.addressLine2 = '';
+      }
+      if (order.billingAddress) {
+        order.billingAddress.fullName = 'Deleted Customer';
+        order.billingAddress.phone = 'XXXXX-XXXXX';
+        order.billingAddress.addressLine1 = '[Redacted per DPDP Act]';
+        order.billingAddress.addressLine2 = '';
+      }
+    }
+  }
+}
+
+// Completely purge customer account, credentials, reviews, inquiries, newsletter, and anonymize orders
+function purgeCustomerDataInWorker(custId, email) {
+  const normEmail = (email || '').toLowerCase().trim();
+  if (normEmail) {
+    deletedCustomersRegistry.set(normEmail, { id: custId || '', email: normEmail, deletedAt: new Date().toISOString() });
+    registeredCustomers.delete(normEmail);
+    passwordResetTokens.delete(normEmail);
+    emailToPasswordReset.delete(normEmail);
+    verificationTokens.delete(normEmail);
+    emailToVerification.delete(normEmail);
+  }
+  if (custId) {
+    deletedCustomerIdsRegistry.set(custId, { id: custId, email: normEmail, deletedAt: new Date().toISOString() });
+  }
+
+  // 1. Statutory order PII redaction
+  anonymizeCustomerOrdersInWorker(custId, normEmail);
+
+  // 2. Cascade delete reviews
+  for (let i = reviewsStore.length - 1; i >= 0; i--) {
+    const r = reviewsStore[i];
+    if (r && (r.customerId === custId || (r.customerEmail && r.customerEmail.toLowerCase().trim() === normEmail))) {
+      reviewsStore.splice(i, 1);
+    }
+  }
+
+  // 3. Cascade delete inquiries
+  for (let i = inquiriesStore.length - 1; i >= 0; i--) {
+    const inq = inquiriesStore[i];
+    if (inq && inq.email && inq.email.toLowerCase().trim() === normEmail) {
+      inquiriesStore.splice(i, 1);
+    }
+  }
+
+  // 4. Cascade delete newsletter subscriptions
+  for (let i = newsletterSubscribersStore.length - 1; i >= 0; i--) {
+    const sub = newsletterSubscribersStore[i];
+    if (sub && sub.email && sub.email.toLowerCase().trim() === normEmail) {
+      newsletterSubscribersStore.splice(i, 1);
+    }
+  }
+}
+
+function syncCustomersFromCookie(request) {
+  // 1. Sync tombstones across edge isolates
+  const deletedCookie = getCookie(request, 'infinicharm_deleted_customers');
+  if (deletedCookie) {
+    try {
+      const parsed = JSON.parse(decodeURIComponent(deletedCookie));
+      if (Array.isArray(parsed)) {
+        for (const item of parsed) {
+          if (item && (item.id || item.email)) {
+            purgeCustomerDataInWorker(item.id || '', item.email || '');
+          }
+        }
+      }
+    } catch {}
+  }
+
+  // 2. Sync dynamically added or updated customers across edge isolates
+  const addedCookie = getCookie(request, 'infinicharm_added_customers');
+  if (addedCookie) {
+    try {
+      const parsed = JSON.parse(decodeURIComponent(addedCookie));
+      if (Array.isArray(parsed)) {
+        for (const cust of parsed) {
+          if (cust && cust.email) {
+            const email = cust.email.toLowerCase().trim();
+            if (!deletedCustomersRegistry.has(email) && (!cust.id || !deletedCustomerIdsRegistry.has(cust.id))) {
+              registeredCustomers.set(email, cust);
+            }
+          }
+        }
+      }
+    } catch {}
+  }
+}
+
+function makeCustomerSyncCookies() {
+  const deletedList = Array.from(deletedCustomersRegistry.values()).map(d => ({
+    id: d.id,
+    email: d.email,
+    deletedAt: d.deletedAt
+  }));
+
+  const initialIds = new Set(INITIAL_CUSTOMERS.map(c => c.id));
+  const dynamicCustomers = Array.from(registeredCustomers.values())
+    .filter(c => !initialIds.has(c.id) && !deletedCustomersRegistry.has((c.email || '').toLowerCase().trim()))
+    .map(c => ({
+      id: c.id,
+      email: c.email,
+      fullName: c.fullName || c.name || '',
+      phone: c.phone || '',
+      password: c.password || '',
+      passwordHash: c.passwordHash || '',
+      status: c.status || 'ACTIVE',
+      emailVerified: Boolean(c.emailVerified),
+      role: c.role || 'CUSTOMER',
+      createdAt: c.createdAt || new Date().toISOString(),
+      addresses: Array.isArray(c.addresses) ? c.addresses : [],
+      wishlistProductIds: Array.isArray(c.wishlistProductIds) ? c.wishlistProductIds : [],
+      preferences: c.preferences || {}
+    }));
+
+  return [
+    'infinicharm_deleted_customers=' + encodeURIComponent(JSON.stringify(deletedList)) + '; Path=/; Max-Age=2592000; SameSite=Lax',
+    'infinicharm_added_customers=' + encodeURIComponent(JSON.stringify(dynamicCustomers)) + '; Path=/; Max-Age=2592000; SameSite=Lax'
+  ];
+}
+
 function getAuthenticatedCustomer(request) {
+  syncCustomersFromCookie(request);
   const session = getCookie(request, 'infinicharm_customer_session');
   const custId = getCookie(request, 'infinicharm_customer_id');
   if (session !== 'active') return null;
+
+  if (custId && deletedCustomerIdsRegistry.has(custId)) {
+    return null;
+  }
 
   let cust = null;
   if (custId) {
@@ -584,36 +725,28 @@ function getAuthenticatedCustomer(request) {
     if (rawData) {
       try {
         const parsed = JSON.parse(rawData);
-        if (parsed && (parsed.id || parsed.email)) {
-          cust = {
-            id: parsed.id || custId || ('cust-' + Date.now()),
-            email: parsed.email || '',
-            fullName: parsed.fullName || parsed.name || '',
-            name: parsed.fullName || parsed.name || '',
-            phone: parsed.phone || '',
-            status: parsed.status || 'ACTIVE',
-            emailVerified: Boolean(parsed.emailVerified),
-            role: parsed.role || 'CUSTOMER',
-            preferences: parsed.preferences || {
-              newsletterSubscribed: true,
-              smsAlerts: true,
-              orderUpdatesWhatsapp: true,
-              preferredCurrency: 'INR',
-              language: 'en'
-            },
-            addresses: Array.isArray(parsed.addresses) ? parsed.addresses : [],
-            wishlistProductIds: Array.isArray(parsed.wishlistProductIds) ? parsed.wishlistProductIds : [],
-            createdAt: parsed.createdAt || new Date().toISOString()
-          };
-          if (cust.email) {
-            registeredCustomers.set(cust.email, cust);
-          }
+        const cEmail = (parsed?.email || '').toLowerCase().trim();
+        const cId = parsed?.id || custId;
+
+        // Never resurrect a deleted customer
+        if ((cEmail && deletedCustomersRegistry.has(cEmail)) || (cId && deletedCustomerIdsRegistry.has(cId))) {
+          return null;
+        }
+
+        // Only resolve if customer already exists in registeredCustomers
+        if (cEmail && registeredCustomers.has(cEmail)) {
+          cust = registeredCustomers.get(cEmail);
+        } else if (cId) {
+          cust = [...registeredCustomers.values()].find(c => c.id === cId) || null;
         }
       } catch {}
     }
   }
 
   if (!cust) return null;
+  if (deletedCustomerIdsRegistry.has(cust.id) || deletedCustomersRegistry.has((cust.email || '').toLowerCase().trim())) {
+    return null;
+  }
 
   if (!Array.isArray(cust.addresses)) cust.addresses = [];
   if (!Array.isArray(cust.wishlistProductIds)) cust.wishlistProductIds = [];
@@ -1251,29 +1384,6 @@ async function generateStatelessResetToken(customer) {
   return await signVerificationToken(payload);
 }
 
-// Anonymize customer orders in worker per statutory tax compliance
-function anonymizeCustomerOrdersInWorker(custId, email) {
-  const normEmail = (email || '').toLowerCase().trim();
-  for (const order of ordersStore.values()) {
-    if (order.customerId === custId || (order.customerEmail && order.customerEmail.toLowerCase().trim() === normEmail)) {
-      order.customerName = 'Deleted Customer';
-      order.customerEmail = 'deleted-customer-' + custId.slice(0, 8) + '@redacted.infinicharm.com';
-      order.customerPhone = 'XXXXX-XXXXX';
-      if (order.shippingAddress) {
-        order.shippingAddress.fullName = 'Deleted Customer';
-        order.shippingAddress.phone = 'XXXXX-XXXXX';
-        order.shippingAddress.addressLine1 = '[Redacted per DPDP Act]';
-        order.shippingAddress.addressLine2 = '';
-      }
-      if (order.billingAddress) {
-        order.billingAddress.fullName = 'Deleted Customer';
-        order.billingAddress.phone = 'XXXXX-XXXXX';
-        order.billingAddress.addressLine1 = '[Redacted per DPDP Act]';
-        order.billingAddress.addressLine2 = '';
-      }
-    }
-  }
-}
 
 function sanitizeEmailParam(email) {
   if (!email || typeof email !== 'string') return '';
@@ -1426,6 +1536,7 @@ async function handleApi(request, url, env) {
       wishlistProductIds: [],
     };
     registeredCustomers.set(email, newCustomer);
+    deletedCustomersRegistry.delete(email);
 
     const currentStep = Math.floor(Date.now() / 300000);
     const otp = await computeTotpOtp(email, 'verify', currentStep);
@@ -1484,7 +1595,8 @@ async function handleApi(request, url, env) {
       message: 'Account created. We have sent a 6-digit verification code and instant link to your email.',
     }, 201, [
       'infinicharm_pending_auth=' + signedToken + '; Path=/; Max-Age=3600; SameSite=Lax; HttpOnly',
-      'infinicharm_pending_email=' + encodeURIComponent(email) + '; Path=/; Max-Age=3600; SameSite=Lax'
+      'infinicharm_pending_email=' + encodeURIComponent(email) + '; Path=/; Max-Age=3600; SameSite=Lax',
+      ...makeCustomerSyncCookies()
     ]);
   }
 
@@ -1602,7 +1714,8 @@ async function handleApi(request, url, env) {
         emailVerified: true
       })) + '; Path=/; Max-Age=2592000; SameSite=Lax; HttpOnly',
       'infinicharm_pending_auth=; Path=/; Max-Age=0; SameSite=Lax; HttpOnly',
-      'infinicharm_pending_email=; Path=/; Max-Age=0; SameSite=Lax'
+      'infinicharm_pending_email=; Path=/; Max-Age=0; SameSite=Lax',
+      ...makeCustomerSyncCookies()
     ]);
   }
 
@@ -1612,6 +1725,10 @@ async function handleApi(request, url, env) {
     const email = typeof body?.email === 'string' ? body.email.toLowerCase().trim() : '';
     if (!email) {
       return json({ success: false, error: 'Email address is required.' }, 400);
+    }
+
+    if (deletedCustomersRegistry.has(email) || [...deletedCustomerIdsRegistry.values()].some(d => d.email === email)) {
+      return json({ success: false, error: 'This account has been permanently deleted.' }, 404);
     }
 
     let customer = registeredCustomers.get(email);
@@ -1637,18 +1754,7 @@ async function handleApi(request, url, env) {
     }
 
     if (!customer) {
-      if (!email.includes('@') || !email.includes('.')) {
-        return json({ success: false, error: 'Please enter a valid email address.' }, 400);
-      }
-      customer = {
-        id: 'cust-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
-        email,
-        fullName: email.split('@')[0],
-        phone: '',
-        status: 'ACTIVE',
-        emailVerified: false,
-      };
-      registeredCustomers.set(email, customer);
+      return json({ success: false, error: 'No registered customer account found for this email address. Please create an account.' }, 404);
     }
 
     const currentStep = Math.floor(Date.now() / 300000);
@@ -1704,6 +1810,7 @@ async function handleApi(request, url, env) {
 
   // Customer Login
   if (p === '/api/auth/customer/login' && method === 'POST') {
+    syncCustomersFromCookie(request);
     const body = await request.clone().json().catch(() => null);
     const email = typeof body?.email === 'string' ? body.email.toLowerCase().trim() : '';
     const password = typeof body?.password === 'string' ? body.password : '';
@@ -1711,44 +1818,30 @@ async function handleApi(request, url, env) {
       return json({ success: false, error: 'Email and password are required.' }, 400);
     }
 
-    let customer = registeredCustomers.get(email);
-    if (!customer) {
-      const cookieHeader = request.headers.get('cookie') || '';
-      const match = cookieHeader.match(/(?:^|;\\s*)infinicharm_customer_data=([^;]*)/);
-      if (match) {
-        try {
-          const parsed = JSON.parse(decodeURIComponent(match[1]));
-          if (parsed && parsed.email === email) {
-            customer = parsed;
-            registeredCustomers.set(email, customer);
-          }
-        } catch {}
-      }
-      if (!customer) {
-        const pendingMatch = cookieHeader.match(/(?:^|;\\s*)infinicharm_pending_auth=([^;]*)/);
-        if (pendingMatch) {
-          try {
-            const cookieVal = decodeURIComponent(pendingMatch[1]);
-            const verifiedPayload = await verifyVerificationToken(cookieVal);
-            if (verifiedPayload && verifiedPayload.email === email) {
-              customer = {
-                id: verifiedPayload.customerId || ('cust-' + Date.now()),
-                email,
-                fullName: verifiedPayload.fullName || email.split('@')[0],
-                phone: verifiedPayload.phone || '',
-                password: verifiedPayload.password || '',
-                status: 'ACTIVE',
-                emailVerified: false,
-              };
-              registeredCustomers.set(email, customer);
-            }
-          } catch {}
-        }
-      }
+    const CLEAR_AUTH_COOKIES = [
+      'infinicharm_customer_session=; Path=/; Max-Age=0; SameSite=Lax; HttpOnly',
+      'infinicharm_customer_session=; Path=/; Max-Age=0; SameSite=Lax',
+      'infinicharm_customer_data=; Path=/; Max-Age=0; SameSite=Lax; HttpOnly',
+      'infinicharm_customer_data=; Path=/; Max-Age=0; SameSite=Lax',
+      'infinicharm_customer_id=; Path=/; Max-Age=0; SameSite=Lax; HttpOnly',
+      'infinicharm_customer_id=; Path=/; Max-Age=0; SameSite=Lax',
+      'infinicharm_customer_email=; Path=/; Max-Age=0; SameSite=Lax; HttpOnly',
+      'infinicharm_customer_sv=; Path=/; Max-Age=0; SameSite=Lax; HttpOnly'
+    ];
+
+    if (deletedCustomersRegistry.has(email) || [...deletedCustomerIdsRegistry.values()].some(d => d.email === email)) {
+      return jsonWithCookies({
+        success: false,
+        error: 'This customer account has been permanently deleted.'
+      }, 401, CLEAR_AUTH_COOKIES);
     }
 
+    let customer = registeredCustomers.get(email);
     if (!customer) {
-      return json({ success: false, error: 'Invalid email or password.' }, 401);
+      return jsonWithCookies({
+        success: false,
+        error: 'Invalid email or password.'
+      }, 401, CLEAR_AUTH_COOKIES);
     }
 
     const matches = (customer.password && customer.password === password) ||
@@ -1801,7 +1894,8 @@ async function handleApi(request, url, env) {
         fullName: customer.fullName,
         phone: customer.phone,
         emailVerified: true
-      })) + '; Path=/; Max-Age=2592000; SameSite=Lax; HttpOnly'
+      })) + '; Path=/; Max-Age=2592000; SameSite=Lax; HttpOnly',
+      ...makeCustomerSyncCookies()
     ]);
   }
 
@@ -1811,7 +1905,7 @@ async function handleApi(request, url, env) {
     let email = sanitizeEmailParam(body?.email);
     let token = '';
     let otp = '';
-    if (email && registeredCustomers.has(email)) {
+    if (email && registeredCustomers.has(email) && !deletedCustomersRegistry.has(email)) {
       const customer = registeredCustomers.get(email);
       const currentStep = Math.floor(Date.now() / 300000);
       otp = await computeTotpOtp(email, customer.id || '', currentStep);
@@ -1858,7 +1952,7 @@ async function handleApi(request, url, env) {
         }
       }
 
-      if (email && registeredCustomers.has(email)) {
+      if (email && registeredCustomers.has(email) && !deletedCustomersRegistry.has(email)) {
         return json({ valid: true, status: 'VALID', email });
       }
 
@@ -1894,7 +1988,7 @@ async function handleApi(request, url, env) {
 
       if (!verifiedEmail && email && otp) {
         const customer = registeredCustomers.get(email);
-        if (customer) {
+        if (customer && !deletedCustomersRegistry.has(email)) {
           const currentStep = Math.floor(Date.now() / 300000);
           for (let step = currentStep; step >= currentStep - 7; step--) {
             const expectedOtp = await computeTotpOtp(email, customer.id || '', step);
@@ -1912,7 +2006,7 @@ async function handleApi(request, url, env) {
         }
       }
 
-      if (!verifiedEmail) {
+      if (!verifiedEmail || deletedCustomersRegistry.has(verifiedEmail)) {
         return json({ success: false, error: 'Reset token or code is invalid or expired.' }, 400);
       }
 
@@ -3037,9 +3131,12 @@ async function handleApi(request, url, env) {
 
   // /api/admin/customers
   if (p === '/api/admin/customers') {
+    syncCustomersFromCookie(request);
     if (method === 'GET') {
       const q = url.searchParams.get('q')?.toLowerCase() || url.searchParams.get('search')?.toLowerCase();
-      let list = [...registeredCustomers.values()].map(c => ({
+      let list = [...registeredCustomers.values()]
+        .filter(c => !deletedCustomerIdsRegistry.has(c.id) && !deletedCustomersRegistry.has((c.email || '').toLowerCase().trim()))
+        .map(c => ({
         id: c.id,
         email: c.email,
         fullName: c.fullName || c.name || '',
@@ -3069,6 +3166,15 @@ async function handleApi(request, url, env) {
       if (!email || !body.fullName) {
         return json({ success: false, error: 'Full name and email are mandatory.' }, 400);
       }
+      if (registeredCustomers.has(email) && !deletedCustomersRegistry.has(email)) {
+        return json({ success: false, error: 'A customer with this email address already exists.' }, 409);
+      }
+      deletedCustomersRegistry.delete(email);
+      for (const [id, rec] of deletedCustomerIdsRegistry.entries()) {
+        if (rec.email === email) {
+          deletedCustomerIdsRegistry.delete(id);
+        }
+      }
       const newCust = {
         id: 'cust-' + Date.now(),
         email,
@@ -3077,6 +3183,7 @@ async function handleApi(request, url, env) {
         phone: String(body.phone || '').trim(),
         status: body.status || 'ACTIVE',
         emailVerified: body.emailVerified !== false,
+        password: String(body.password || 'Customer@1234!'),
         createdAt: new Date().toISOString(),
         addresses: body.address ? [body.address] : [],
         wishlistProductIds: [],
@@ -3089,12 +3196,17 @@ async function handleApi(request, url, env) {
         }
       };
       registeredCustomers.set(email, newCust);
-      return json({ success: true, customer: newCust, message: 'Customer account created successfully.' }, 201);
+      return jsonWithCookies({
+        success: true,
+        customer: newCust,
+        message: 'Customer account created successfully.'
+      }, 201, makeCustomerSyncCookies());
     }
   }
 
   // Admin Customer Addresses (/api/admin/customers/:id/addresses)
   if (p.startsWith('/api/admin/customers/') && p.includes('/addresses')) {
+    syncCustomersFromCookie(request);
     const segments = p.split('/');
     const custId = segments[4];
     const customer = [...registeredCustomers.values()].find(c => c.id === custId);
@@ -3122,29 +3234,30 @@ async function handleApi(request, url, env) {
       }
       customer.addresses.push(newAddr);
       registeredCustomers.set(customer.email, customer);
-      return json({ success: true, addresses: customer.addresses, message: 'Address added.' }, 201);
+      return jsonWithCookies({ success: true, addresses: customer.addresses, message: 'Address added.' }, 201, makeCustomerSyncCookies());
     }
 
     if (method === 'DELETE') {
       const addrId = segments[6];
       customer.addresses = customer.addresses.filter(a => a.id !== addrId);
       registeredCustomers.set(customer.email, customer);
-      return json({ success: true, addresses: customer.addresses, message: 'Address deleted.' });
+      return jsonWithCookies({ success: true, addresses: customer.addresses, message: 'Address deleted.' }, 200, makeCustomerSyncCookies());
     }
   }
 
   if (p.startsWith('/api/admin/customers/') && p.endsWith('/verify-email') && method === 'POST') {
+    syncCustomersFromCookie(request);
     const custId = decodeURIComponent(p.replace('/api/admin/customers/', '').replace('/verify-email', ''));
     const customer = [...registeredCustomers.values()].find(c => c.id === custId);
     if (!customer) return json({ success: false, error: 'Customer not found.' }, 404);
     const body = await request.clone().json().catch(() => ({}));
     if (body.action === 'VERIFY') {
       customer.emailVerified = true;
-      return json({ success: true, customer, message: customer.email + ' marked as email verified.' });
+      return jsonWithCookies({ success: true, customer, message: customer.email + ' marked as email verified.' }, 200, makeCustomerSyncCookies());
     }
     if (body.action === 'UNVERIFY') {
       customer.emailVerified = false;
-      return json({ success: true, customer, message: 'Email verification revoked for ' + customer.email + '.' });
+      return jsonWithCookies({ success: true, customer, message: 'Email verification revoked for ' + customer.email + '.' }, 200, makeCustomerSyncCookies());
     }
     if (body.action === 'RESEND') {
       return json({ success: true, message: 'Verification link dispatched to ' + customer.email + '.' });
@@ -3154,6 +3267,7 @@ async function handleApi(request, url, env) {
 
   // Bulk Delete Customers
   if (p === '/api/admin/customers/bulk-delete' && method === 'POST') {
+    syncCustomersFromCookie(request);
     const body = await request.clone().json().catch(() => ({}));
     const customerIds = Array.isArray(body?.customerIds) ? body.customerIds : [];
     if (!customerIds.length) {
@@ -3163,17 +3277,9 @@ async function handleApi(request, url, env) {
     let deletedCount = 0;
     for (const custId of customerIds) {
       const customer = [...registeredCustomers.values()].find(c => c.id === custId);
-      if (customer) {
-        const email = customer.email.toLowerCase().trim();
-        registeredCustomers.delete(email);
-        passwordResetTokens.delete(email);
-        emailToPasswordReset.delete(email);
-        verificationTokens.delete(email);
-        emailToVerification.delete(email);
-
-        anonymizeCustomerOrdersInWorker(custId, email);
-        deletedCount++;
-      }
+      const email = customer ? customer.email.toLowerCase().trim() : '';
+      purgeCustomerDataInWorker(custId, email);
+      deletedCount++;
     }
 
     auditLogsStore.unshift({
@@ -3182,19 +3288,20 @@ async function handleApi(request, url, env) {
       entity: 'Customer',
       entityId: 'BULK',
       actor: getCookie(request, 'infinicharm_admin_email') || 'admin@infinicharm.com',
-      details: 'Bulk deleted ' + deletedCount + ' customers with statutory order PII redaction',
+      details: 'Bulk deleted ' + deletedCount + ' customers with statutory order PII redaction and full data cascade',
       timestamp: new Date().toISOString()
     });
 
-    return json({
+    return jsonWithCookies({
       success: true,
       deletedCount,
       message: 'Successfully deleted ' + deletedCount + ' customer account(s) and sanitized linked data per statutory standards.'
-    });
+    }, 200, makeCustomerSyncCookies());
   }
 
   // Single Customer GET / PUT / PATCH / DELETE
   if (p.startsWith('/api/admin/customers/') && !p.includes('/verify-email') && !p.includes('/addresses') && !p.includes('/bulk-delete')) {
+    syncCustomersFromCookie(request);
     const custId = decodeURIComponent(p.replace('/api/admin/customers/', ''));
     const customer = [...registeredCustomers.values()].find(c => c.id === custId);
     if (!customer) return json({ success: false, error: 'Customer not found.' }, 404);
@@ -3204,17 +3311,11 @@ async function handleApi(request, url, env) {
     if (method === 'PUT' || method === 'PATCH') {
       const body = await request.clone().json().catch(() => ({}));
       Object.assign(customer, body);
-      return json({ success: true, customer, message: 'Customer updated successfully.' });
+      return jsonWithCookies({ success: true, customer, message: 'Customer updated successfully.' }, 200, makeCustomerSyncCookies());
     }
     if (method === 'DELETE') {
       const email = customer.email.toLowerCase().trim();
-      registeredCustomers.delete(email);
-      passwordResetTokens.delete(email);
-      emailToPasswordReset.delete(email);
-      verificationTokens.delete(email);
-      emailToVerification.delete(email);
-
-      anonymizeCustomerOrdersInWorker(custId, email);
+      purgeCustomerDataInWorker(custId, email);
 
       auditLogsStore.unshift({
         id: 'aud-' + Date.now(),
@@ -3222,15 +3323,15 @@ async function handleApi(request, url, env) {
         entity: 'Customer',
         entityId: custId,
         actor: getCookie(request, 'infinicharm_admin_email') || 'admin@infinicharm.com',
-        details: 'Deleted customer ' + email + ' (statutory order records retained with PII anonymized)',
+        details: 'Deleted customer ' + email + ' (statutory order records retained with PII anonymized and full data cascade)',
         timestamp: new Date().toISOString()
       });
 
-      return json({
+      return jsonWithCookies({
         success: true,
         customerId: custId,
         message: 'Customer deleted successfully (order financial records retained with PII sanitized per statutory compliance).'
-      });
+      }, 200, makeCustomerSyncCookies());
     }
   }
 

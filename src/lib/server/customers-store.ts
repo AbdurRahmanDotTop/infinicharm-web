@@ -576,6 +576,17 @@ export function deleteCustomer(id: string): boolean {
     }
   } catch {}
 
+  try {
+    const emailVerifyTokensPath = path.join(process.cwd(), 'src', 'data', 'email_verification_tokens.json');
+    if (fs.existsSync(emailVerifyTokensPath)) {
+      const allTokens = JSON.parse(fs.readFileSync(emailVerifyTokensPath, 'utf8'));
+      if (Array.isArray(allTokens)) {
+        const remaining = allTokens.filter((t) => t.email?.toLowerCase() !== targetCust.email.toLowerCase());
+        fs.writeFileSync(emailVerifyTokensPath, JSON.stringify(remaining, null, 2), 'utf8');
+      }
+    }
+  } catch {}
+
   return true;
 }
 

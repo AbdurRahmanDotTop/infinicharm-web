@@ -180,49 +180,56 @@ describe('Customer Store & RBAC Authorization Engine', () => {
 
     // Create a temporary order and review linked to this customer before deletion
     const currentOrders = JSON.parse(fs.readFileSync(ordersFilePath, 'utf8'));
-    const dummyOrder = {
-      id: `ord-test-delete-${Date.now()}`,
-      orderNumber: `INF-TEST-${Date.now()}`,
-      customerId: created.id,
-      customerEmail: testEmail,
-      status: 'CONFIRMED',
-      totalInPaise: 240000,
-      createdAt: new Date().toISOString(),
-    };
-    fs.writeFileSync(ordersFilePath, JSON.stringify([...currentOrders, dummyOrder], null, 2), 'utf8');
-
     const currentReviews = JSON.parse(fs.readFileSync(reviewsFilePath, 'utf8'));
-    const dummyReview = {
-      id: `rev-test-delete-${Date.now()}`,
-      productId: 'prod-01',
-      customerId: created.id,
-      customerEmail: testEmail,
-      rating: 5,
-      comment: 'Excellent harvest taste and fast delivery!',
-      status: 'APPROVED',
-      createdAt: new Date().toISOString(),
-    };
-    fs.writeFileSync(reviewsFilePath, JSON.stringify([...currentReviews, dummyReview], null, 2), 'utf8');
 
-    // Execute permanent deletion
-    const deleted = deleteCustomer(created.id);
-    assert.equal(deleted, true);
+    try {
+      const dummyOrder = {
+        id: `ord-test-delete-${Date.now()}`,
+        orderNumber: `INF-TEST-${Date.now()}`,
+        customerId: created.id,
+        customerEmail: testEmail,
+        status: 'CONFIRMED',
+        totalInPaise: 240000,
+        createdAt: new Date().toISOString(),
+      };
+      fs.writeFileSync(ordersFilePath, JSON.stringify([...currentOrders, dummyOrder], null, 2), 'utf8');
 
-    // Verify customer is permanently removed from database
-    const postDelete = getServerCustomerById(created.id);
-    assert.equal(postDelete, null);
+      const dummyReview = {
+        id: `rev-test-delete-${Date.now()}`,
+        productId: 'prod-01',
+        customerId: created.id,
+        customerEmail: testEmail,
+        rating: 5,
+        comment: 'Excellent harvest taste and fast delivery!',
+        status: 'APPROVED',
+        createdAt: new Date().toISOString(),
+      };
+      fs.writeFileSync(reviewsFilePath, JSON.stringify([...currentReviews, dummyReview], null, 2), 'utf8');
 
-    // Verify deleted user is permanently blocked from re-login
-    const authPostDelete = authenticateCustomer(testEmail, 'NewAdminSetPassword456!');
-    assert.equal(authPostDelete.customer, null);
-    assert.ok(authPostDelete.error?.includes('No account'));
+      // Execute permanent deletion
+      const deleted = deleteCustomer(created.id);
+      assert.equal(deleted, true);
 
-    // Verify cascading deletion: associated orders and reviews are permanently erased
-    const postDeleteOrders = JSON.parse(fs.readFileSync(ordersFilePath, 'utf8'));
-    assert.equal(postDeleteOrders.some((o: any) => o.customerId === created.id || o.customerEmail === testEmail), false);
+      // Verify customer is permanently removed from database
+      const postDelete = getServerCustomerById(created.id);
+      assert.equal(postDelete, null);
 
-    const postDeleteReviews = JSON.parse(fs.readFileSync(reviewsFilePath, 'utf8'));
-    assert.equal(postDeleteReviews.some((r: any) => r.customerId === created.id || r.customerEmail === testEmail), false);
+      // Verify deleted user is permanently blocked from re-login
+      const authPostDelete = authenticateCustomer(testEmail, 'NewAdminSetPassword456!');
+      assert.equal(authPostDelete.customer, null);
+      assert.ok(authPostDelete.error?.includes('No account'));
+
+      // Verify cascading deletion: associated orders and reviews are permanently sanitized/erased
+      const postDeleteOrders = JSON.parse(fs.readFileSync(ordersFilePath, 'utf8'));
+      assert.equal(postDeleteOrders.some((o: any) => o.customerId === created.id || o.customerEmail === testEmail), false);
+
+      const postDeleteReviews = JSON.parse(fs.readFileSync(reviewsFilePath, 'utf8'));
+      assert.equal(postDeleteReviews.some((r: any) => r.customerId === created.id || r.customerEmail === testEmail), false);
+    } finally {
+      // Guaranteed clean restoration so dummy order and review never persist on disk
+      fs.writeFileSync(ordersFilePath, JSON.stringify(currentOrders, null, 2), 'utf8');
+      fs.writeFileSync(reviewsFilePath, JSON.stringify(currentReviews, null, 2), 'utf8');
+    }
   });
 });
 
