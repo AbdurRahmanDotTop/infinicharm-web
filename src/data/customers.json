@@ -102,9 +102,9 @@
     "role": "CUSTOMER",
     "emailVerified": true,
     "emailVerifiedAt": "2026-11-11T08:00:00.000Z",
-    "registrationSource": "SEED",
+    "registrationSource": "ORGANIC",
     "sessionVersion": 1,
-    "notes": "Verified VIP founder account. Direct sourcing reviewer.",
+    "notes": "Verified patron account.",
     "preferences": {
       "newsletterSubscribed": true,
       "smsAlerts": true,
@@ -132,7 +132,7 @@
       "S-01-P-01"
     ],
     "createdAt": "2026-11-01T08:00:00.000Z",
-    "updatedAt": "2026-11-22T08:50:05.044Z",
-    "lastLoginAt": "2026-11-22T08:50:04.863Z"
+    "updatedAt": "2026-11-22T10:09:17.780Z",
+    "lastLoginAt": "2026-11-22T10:09:17.578Z"
   }
 ]

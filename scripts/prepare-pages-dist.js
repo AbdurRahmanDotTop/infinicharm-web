@@ -564,8 +564,7 @@ function syncOrdersFromCookie(request) {
       const parsed = JSON.parse(decodeURIComponent(deletedCookie));
       if (Array.isArray(parsed)) {
         for (const id of parsed) {
-          const isInitialOrder = INITIAL_ORDERS.some(io => io.id === id || io.orderNumber === id);
-          if (id && !isInitialOrder) {
+          if (id) {
             deletedOrderIds.add(id);
             ordersStore.delete(id);
             for (const [k, v] of ordersStore.entries()) {
@@ -612,37 +611,16 @@ function syncOrdersFromCookie(request) {
             if (mEmail && deletedCustomersRegistry.has(mEmail)) isCustomerDeleted = true;
 
             if (isCustomerDeleted) {
-              const isPaid =
-                merged.paymentStatus === 'PAID' ||
-                ['PAYMENT_RECEIVED', 'CONFIRMED', 'PROCESSING', 'PACKED', 'SHIPPED', 'DELIVERED'].includes(merged.status);
-              if (isPaid) {
-                // Anonymize PII per Indian GST Act 2017 & DPDP Act 2023
-                merged.customerId = null;
-                merged.customerName = 'Deleted Customer';
-                merged.customerEmail = 'anonymized-customer@infinicharm.com';
-                merged.customerPhone = 'REDACTED';
-                if (merged.shippingAddress) {
-                  merged.shippingAddress.fullName = 'Deleted Customer';
-                  merged.shippingAddress.phone = 'REDACTED';
-                  merged.shippingAddress.addressLine1 = '[Redacted per DPDP Act & Statutory Tax Retention]';
+              if (id) deletedOrderIds.add(id);
+              if (ordNum) deletedOrderIds.add(ordNum);
+              if (id) ordersStore.delete(id);
+              if (ordNum) ordersStore.delete(ordNum);
+              for (const [k, v] of ordersStore.entries()) {
+                if (v.id === id || v.orderNumber === ordNum || v.id === ordNum || v.orderNumber === id) {
+                  ordersStore.delete(k);
                 }
-                if (merged.billingAddress) {
-                  merged.billingAddress.fullName = 'Deleted Customer';
-                  merged.billingAddress.phone = 'REDACTED';
-                  merged.billingAddress.addressLine1 = '[Redacted per DPDP Act & Statutory Tax Retention]';
-                }
-              } else {
-                if (id) deletedOrderIds.add(id);
-                if (ordNum) deletedOrderIds.add(ordNum);
-                if (id) ordersStore.delete(id);
-                if (ordNum) ordersStore.delete(ordNum);
-                for (const [k, v] of ordersStore.entries()) {
-                  if (v.id === id || v.orderNumber === ordNum) {
-                    ordersStore.delete(k);
-                  }
-                }
-                continue;
               }
+              continue;
             }
 
             if (id) ordersStore.set(id, merged);
@@ -871,27 +849,7 @@ function purgeCustomerOrdersInWorker(custId, email, phone, fullName) {
       (normEmail && ordEmail === normEmail);
 
     if (isMatch) {
-      const isPaid =
-        order.paymentStatus === 'PAID' ||
-        ['PAYMENT_RECEIVED', 'CONFIRMED', 'PROCESSING', 'PACKED', 'SHIPPED', 'DELIVERED'].includes(order.status);
-      if (isPaid) {
-        order.customerId = null;
-        order.customerName = 'Deleted Customer';
-        order.customerEmail = 'anonymized-customer@infinicharm.com';
-        order.customerPhone = 'REDACTED';
-        if (order.shippingAddress) {
-          order.shippingAddress.fullName = 'Deleted Customer';
-          order.shippingAddress.phone = 'REDACTED';
-          order.shippingAddress.addressLine1 = '[Redacted per DPDP Act & Statutory Tax Retention]';
-        }
-        if (order.billingAddress) {
-          order.billingAddress.fullName = 'Deleted Customer';
-          order.billingAddress.phone = 'REDACTED';
-          order.billingAddress.addressLine1 = '[Redacted per DPDP Act & Statutory Tax Retention]';
-        }
-      } else {
-        toDelete.push(order);
-      }
+      toDelete.push(order);
     }
   }
 
@@ -3544,6 +3502,11 @@ async function handleApi(request, url, env) {
         discountInPaise: order.discountInPaise,
         taxInPaise: order.taxInPaise,
         items: order.items || [],
+        customerName: order.customerName,
+        customerPhone: order.customerPhone,
+        courierName: order.courierName,
+        trackingNumber: order.trackingNumber,
+        couponCode: order.couponCode,
         shippingAddress: order.shippingAddress
           ? {
               fullName: order.shippingAddress.fullName,

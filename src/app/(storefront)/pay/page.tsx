@@ -500,7 +500,7 @@ function PaymentPageContent() {
   // RENDER: Full Authoritative Payment Page
   // ---------------------------------------------------------------------------
   return (
-    <div className="min-h-screen bg-[#FAF7F2] py-8 md:py-12 px-3 sm:px-6 overflow-x-hidden">
+    <div className="min-h-screen bg-[#FAF7F2] pt-24 sm:pt-28 md:pt-32 pb-16 px-3 sm:px-6 overflow-x-hidden">
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Top Header & Security Banner */}
         <div className="bg-white border border-stone-200 rounded-2xl p-5 md:p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -515,11 +515,15 @@ function PaymentPageContent() {
               </span>
             </div>
             <h1 className="font-editorial text-2xl md:text-3xl font-bold text-slate">
-              Complete Payment for Order #{order.orderNumber}
+              {isPaid
+                ? `Order #${order.orderNumber} Payment Verified`
+                : isPaymentNotReceived
+                  ? `Retry Payment for Order #${order.orderNumber}`
+                  : `Complete Payment for Order #${order.orderNumber}`}
             </h1>
             <p className="text-xs text-muted mt-1">
               Placed on {new Date(order.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}{' '}
-              by <strong className="text-slate font-medium">{order.shippingAddress?.fullName || 'Valued Customer'}</strong>
+              by <strong className="text-slate font-medium">{order.shippingAddress?.fullName || order.customerName || 'Valued Customer'}</strong>
             </p>
           </div>
 
@@ -534,7 +538,7 @@ function PaymentPageContent() {
                 Order Cancelled
               </span>
             ) : isPaymentNotReceived ? (
-              <span className="px-3.5 py-1.5 bg-rose-600 text-white text-xs font-bold rounded-full shadow-sm flex items-center gap-1.5">
+              <span className="px-3.5 py-1.5 bg-rose-600 text-white text-xs font-bold rounded-full shadow-sm flex items-center gap-1.5 animate-pulse">
                 ✕ Payment Not Received — Please Retry
               </span>
             ) : isPendingReview ? (
@@ -554,41 +558,52 @@ function PaymentPageContent() {
 
         {/* Status Alert Banners */}
         {isPaid && (
-          <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-start gap-3">
-            <span className="text-emerald-700 font-bold text-lg">✓</span>
-            <div className="text-xs text-emerald-900 leading-relaxed">
-              <strong className="font-semibold block text-sm text-emerald-950 mb-0.5">
-                This order has already been paid and confirmed!
+          <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 sm:p-5 flex items-start gap-3 shadow-xs">
+            <span className="w-6 h-6 rounded-full bg-emerald-500 text-white flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">
+              ✓
+            </span>
+            <div className="text-xs text-emerald-900 leading-relaxed space-y-1">
+              <strong className="font-bold block text-sm text-emerald-950">
+                Payment Verified & Confirmed — No Further Action Needed!
               </strong>
-              Your payment has been reconciled with our accounts desk. No further payment is needed.{' '}
-              <Link href={getOrderTrackingUrl(activeOrderId)} className="underline font-bold text-emerald-900">
-                Track your shipment here →
-              </Link>
+              <p>
+                Your payment of <strong>₹{upiDetails.amountInRupees}</strong> has been successfully reconciled with our IndusInd Bank account (Ref UTR: <span className="font-mono font-bold">{order.utrNumber || 'Verified'}</span>). Your order is moving to fulfillment.{' '}
+                <Link href={getOrderTrackingUrl(activeOrderId)} className="underline font-bold text-emerald-950 hover:text-emerald-700 ml-1">
+                  Track your consignment here →
+                </Link>
+              </p>
             </div>
           </div>
         )}
 
         {isCancelled && (
-          <div className="bg-rose-50 border border-rose-200 rounded-xl p-4 flex items-start gap-3">
-            <span className="text-rose-700 font-bold text-lg">✕</span>
+          <div className="bg-rose-50 border border-rose-200 rounded-xl p-4 sm:p-5 flex items-start gap-3 shadow-xs">
+            <span className="w-6 h-6 rounded-full bg-rose-500 text-white flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">
+              ✕
+            </span>
             <div className="text-xs text-rose-900 leading-relaxed">
-              <strong className="font-semibold block text-sm text-rose-950 mb-0.5">
-                This order was cancelled.
+              <strong className="font-bold block text-sm text-rose-950 mb-0.5">
+                This Order Was Cancelled
               </strong>
-              This order reference is no longer active. If you wish to purchase these products, please place a new order on our store.
+              This order reference is no longer active. If you wish to purchase these products, please{' '}
+              <Link href="/shop" className="underline font-bold text-rose-950">
+                place a new order on our store →
+              </Link>
             </div>
           </div>
         )}
 
         {isPaymentNotReceived && (
           <div className="bg-rose-50 border border-rose-300 rounded-xl p-4 sm:p-5 flex items-start gap-3 shadow-sm">
-            <span className="text-rose-700 font-bold text-lg mt-0.5">⚠️</span>
+            <span className="w-6 h-6 rounded-full bg-rose-600 text-white flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">
+              ⚠️
+            </span>
             <div className="text-xs text-rose-900 leading-relaxed space-y-1">
               <strong className="font-bold block text-sm text-rose-950">
-                Payment Not Received / Action Required
+                Previous Payment Not Received — Action Required to Confirm Order
               </strong>
               <p>
-                Our banking operations desk was unable to reconcile your previous payment reference against our <strong>IndusInd Bank Current Account (258825164657)</strong>. Please transfer the payable amount using the UPI options or QR code below, and submit your updated 12-digit UTR reference so we can verify and confirm your order.
+                Your consignment is currently reserved. Our banking operations desk was unable to reconcile your previous payment reference against our <strong>IndusInd Bank Current Account (258825164657)</strong>. Please transfer the payable amount of <strong>₹{upiDetails.amountInRupees}</strong> using the UPI options or QR code below, and submit your updated 12-digit UTR reference to confirm your order immediately.
               </p>
             </div>
           </div>
@@ -607,11 +622,11 @@ function PaymentPageContent() {
                   <span className="text-[11px] uppercase tracking-wider text-muted font-bold block">
                     Exact Amount Payable
                   </span>
-                  <div className="flex items-baseline gap-1 mt-0.5">
+                  <div className="flex flex-wrap items-baseline gap-2 mt-0.5">
                     <span className="text-3xl md:text-4xl font-extrabold text-slate font-editorial">
                       ₹{upiDetails.amountInRupees}
                     </span>
-                    <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                    <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
                       0% Payment Surcharge
                     </span>
                   </div>
@@ -619,7 +634,7 @@ function PaymentPageContent() {
                 <button
                   type="button"
                   onClick={() => handleCopy(upiDetails.amountInRupees, 'amount')}
-                  className="text-[11px] font-semibold text-primary hover:underline px-2.5 py-1 rounded bg-white border border-stone-200 shadow-2xs"
+                  className="text-xs font-semibold text-primary hover:underline px-3 py-1.5 rounded-lg bg-white border border-stone-200 shadow-2xs cursor-pointer"
                 >
                   {copiedKey === 'amount' ? '✓ Copied' : 'Copy Amount'}
                 </button>
@@ -632,20 +647,19 @@ function PaymentPageContent() {
                     href={upiDetails.upiIntentUri}
                     data-testid="payment-page-pay-btn"
                     onClick={() => {
-                      // Desktop trigger
                       if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
                         setShowDesktopPrompt(true);
                       }
                     }}
-                    className="w-full flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2.5 py-3.5 px-4 bg-primary text-white rounded-xl font-bold text-sm md:text-base hover:bg-primary/95 transition-all shadow-md active:scale-[0.99] text-center"
+                    className="w-full flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2.5 py-3.5 px-4 bg-primary hover:bg-primary-hover text-white rounded-xl font-bold text-sm md:text-base transition-all shadow-md active:scale-[0.99] text-center cursor-pointer"
                   >
                     <span>⚡ Pay via UPI App</span>
                     <span className="text-xs font-normal opacity-90">
-                      (GPay, PhonePe, Paytm, BHIM)
+                      (Google Pay, PhonePe, Paytm, BHIM, Cred)
                     </span>
                   </a>
 
-                  {/* App-Specific 1-Tap Pills (Gold Standard for iOS Safari) */}
+                  {/* App-Specific 1-Tap Pills */}
                   <div>
                     <span className="text-[11px] text-muted font-semibold block mb-2 text-center">
                       Or select your preferred UPI application directly:
@@ -690,12 +704,12 @@ function PaymentPageContent() {
               {showDesktopPrompt && (
                 <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 flex items-start justify-between gap-2">
                   <span>
-                    <strong>Launching UPI Application...</strong> If your desktop browser does not have a registered UPI app, please scan the QR code below using your mobile phone.
+                    <strong>Launching UPI Application...</strong> If your desktop browser does not have a registered UPI app, please scan the QR code below using your mobile phone camera or any UPI app.
                   </span>
                   <button
                     type="button"
                     onClick={() => setShowDesktopPrompt(false)}
-                    className="font-bold text-amber-900 hover:text-black"
+                    className="font-bold text-amber-900 hover:text-black cursor-pointer"
                   >
                     ✕
                   </button>
@@ -727,14 +741,14 @@ function PaymentPageContent() {
                       Scan with any UPI Application
                     </h3>
                     <p className="text-xs text-muted leading-relaxed">
-                      Point your phone camera or open Google Pay, PhonePe, Paytm, or BHIM to scan. The payable amount and order note will be populated automatically.
+                      Point your phone camera or open Google Pay, PhonePe, Paytm, or BHIM to scan. The payable amount (₹{upiDetails.amountInRupees}) and transaction note will be auto-populated.
                     </p>
 
                     <div className="text-[11px] bg-stone-50 p-2.5 rounded-lg border border-stone-200 overflow-hidden">
                       <span className="text-muted block text-[10px] font-bold uppercase">
                         Transaction Note auto-populated:
                       </span>
-                      <strong className="text-primary font-mono font-bold block break-all text-xs">
+                      <strong className="text-primary font-mono font-bold block break-words text-xs">
                         {upiDetails.transactionNote}
                       </strong>
                     </div>
@@ -743,7 +757,7 @@ function PaymentPageContent() {
                       <a
                         href={qrCodeDataUrl}
                         download={`infinicharm-qr-${activeOrderId}.png`}
-                        className="inline-flex items-center justify-center gap-1.5 text-xs font-semibold text-slate hover:text-primary transition-colors py-2 px-3 bg-stone-100 rounded-lg border border-stone-200 w-full sm:w-auto"
+                        className="inline-flex items-center justify-center gap-1.5 text-xs font-semibold text-slate hover:text-primary transition-colors py-2 px-3 bg-stone-100 rounded-lg border border-stone-200 w-full sm:w-auto cursor-pointer"
                       >
                         📥 Download QR Code
                       </a>
@@ -757,60 +771,60 @@ function PaymentPageContent() {
                 <span className="text-[11px] font-bold uppercase tracking-wider text-muted block">
                   Official Payee Information (Merchant Authority)
                 </span>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                  <div className="p-2.5 bg-stone-50 rounded-lg border border-stone-200 flex items-center justify-between gap-2">
-                    <div className="min-w-0">
-                      <span className="text-[10px] text-muted block">Official UPI ID (VPA):</span>
-                      <strong className="font-mono text-slate text-xs break-all">{upiDetails.upiId}</strong>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+                  <div className="p-3 bg-stone-50 rounded-xl border border-stone-200 flex items-center justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <span className="text-[10px] text-muted block uppercase tracking-wider font-bold">Official UPI ID (VPA):</span>
+                      <strong className="font-mono text-slate text-xs sm:text-sm break-words block mt-0.5">{upiDetails.upiId}</strong>
                     </div>
                     <button
                       type="button"
                       onClick={() => handleCopy(upiDetails.upiId, 'vpa')}
-                      className="text-xs text-primary font-semibold hover:underline px-2 py-1 shrink-0 bg-white border border-stone-200 rounded"
+                      className="text-xs text-primary font-semibold hover:underline px-2.5 py-1 shrink-0 bg-white border border-stone-200 rounded-md cursor-pointer shadow-2xs"
                     >
                       {copiedKey === 'vpa' ? '✓ Copied' : 'Copy'}
                     </button>
                   </div>
 
-                  <div className="p-2.5 bg-stone-50 rounded-lg border border-stone-200 flex items-center justify-between gap-2">
-                    <div className="min-w-0">
-                      <span className="text-[10px] text-muted block">Payee / Mobile:</span>
-                      <strong className="text-slate text-xs break-words">
+                  <div className="p-3 bg-stone-50 rounded-xl border border-stone-200 flex items-center justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <span className="text-[10px] text-muted block uppercase tracking-wider font-bold">Payee / Mobile:</span>
+                      <strong className="text-slate text-xs sm:text-sm break-words block mt-0.5">
                         {upiDetails.upiNumber} • {upiDetails.payeeName}
                       </strong>
                     </div>
                     <button
                       type="button"
                       onClick={() => handleCopy(upiDetails.upiNumber, 'phone')}
-                      className="text-xs text-primary font-semibold hover:underline px-2 py-1 shrink-0 bg-white border border-stone-200 rounded"
+                      className="text-xs text-primary font-semibold hover:underline px-2.5 py-1 shrink-0 bg-white border border-stone-200 rounded-md cursor-pointer shadow-2xs"
                     >
                       {copiedKey === 'phone' ? '✓ Copied' : 'Copy'}
                     </button>
                   </div>
 
-                  <div className="p-2.5 bg-stone-50 rounded-lg border border-stone-200 col-span-1 sm:col-span-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                    <div className="min-w-0 space-y-0.5">
-                      <span className="text-[10px] text-muted block">Bank Settlement (IndusInd Bank Current Account):</span>
-                      <div className="text-xs text-slate flex flex-wrap items-center gap-x-2 gap-y-1">
-                        <span>A/C: <strong className="font-mono">{DEFAULT_UPI_CREDENTIALS.accountNumber}</strong></span>
+                  <div className="p-3 bg-stone-50 rounded-xl border border-stone-200 col-span-1 sm:col-span-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                    <div className="min-w-0 space-y-1">
+                      <span className="text-[10px] text-muted block uppercase tracking-wider font-bold">Direct Bank Transfer (IndusInd Bank Current Account):</span>
+                      <div className="text-xs text-slate flex flex-wrap items-center gap-x-2.5 gap-y-1 font-medium">
+                        <span>A/C: <strong className="font-mono text-slate font-bold">{DEFAULT_UPI_CREDENTIALS.accountNumber}</strong></span>
                         <span className="text-stone-300">•</span>
-                        <span>IFSC: <strong className="font-mono">{DEFAULT_UPI_CREDENTIALS.ifscCode}</strong></span>
+                        <span>IFSC: <strong className="font-mono text-slate font-bold">{DEFAULT_UPI_CREDENTIALS.ifscCode}</strong></span>
                         <span className="text-stone-300">•</span>
-                        <span className="text-[11px] text-muted">{DEFAULT_UPI_CREDENTIALS.bankName}</span>
+                        <span className="text-muted">{DEFAULT_UPI_CREDENTIALS.bankName}</span>
                       </div>
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
                       <button
                         type="button"
                         onClick={() => handleCopy(DEFAULT_UPI_CREDENTIALS.accountNumber, 'bank_ac')}
-                        className="text-xs text-primary font-semibold hover:underline px-2 py-1 bg-white border border-stone-200 rounded"
+                        className="text-xs text-primary font-semibold hover:underline px-2.5 py-1 bg-white border border-stone-200 rounded-md cursor-pointer shadow-2xs"
                       >
                         {copiedKey === 'bank_ac' ? '✓ A/C' : 'Copy A/C'}
                       </button>
                       <button
                         type="button"
                         onClick={() => handleCopy(DEFAULT_UPI_CREDENTIALS.ifscCode, 'bank_ifsc')}
-                        className="text-xs text-primary font-semibold hover:underline px-2 py-1 bg-white border border-stone-200 rounded"
+                        className="text-xs text-primary font-semibold hover:underline px-2.5 py-1 bg-white border border-stone-200 rounded-md cursor-pointer shadow-2xs"
                       >
                         {copiedKey === 'bank_ifsc' ? '✓ IFSC' : 'Copy IFSC'}
                       </button>
@@ -825,36 +839,33 @@ function PaymentPageContent() {
                   Share Payment Request (Universal HTTPS Link)
                 </span>
                 <p className="text-xs text-muted">
-                  Share this secure link with whoever is paying (via WhatsApp, SMS, or Telegram). Anyone with this link can view the order and pay via their UPI app.
+                  Share this secure payment desk link with whoever is paying (via WhatsApp, SMS, or Telegram). Anyone with this link can view the order and complete the payment.
                 </p>
 
                 <div className="flex flex-col sm:flex-row flex-wrap gap-2">
-                  {/* Copy HTTPS Link Button */}
                   <button
                     type="button"
                     onClick={() => handleCopy(upiDetails.shareablePaymentUrl, 'payment_link')}
-                    className="w-full sm:flex-1 py-2.5 px-3 bg-stone-100 hover:bg-stone-200 text-slate text-xs font-bold rounded-xl border border-stone-300 transition-all flex items-center justify-center gap-1.5"
+                    className="w-full sm:flex-1 py-2.5 px-3 bg-stone-100 hover:bg-stone-200 text-slate text-xs font-bold rounded-xl border border-stone-300 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                   >
                     <span>🔗</span>
                     <span className="truncate">{copiedKey === 'payment_link' ? '✓ Copied Link!' : 'Copy Payment Link'}</span>
                   </button>
 
-                  {/* Share on WhatsApp */}
                   <a
                     href={upiDetails.whatsAppShareUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="w-full sm:flex-1 py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-xs"
+                    className="w-full sm:flex-1 py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
                   >
                     <span>💬</span>
                     <span>Share on WhatsApp</span>
                   </a>
 
-                  {/* Native Device Share */}
                   <button
                     type="button"
                     onClick={handleNativeShare}
-                    className="w-full sm:w-auto py-2.5 px-3 bg-white hover:bg-stone-50 text-slate text-xs font-bold rounded-xl border border-stone-200 transition-all flex items-center justify-center gap-1.5"
+                    className="w-full sm:w-auto py-2.5 px-3 bg-white hover:bg-stone-50 text-slate text-xs font-bold rounded-xl border border-stone-200 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                   >
                     <span>📤</span>
                     <span>Share Link</span>
@@ -872,11 +883,11 @@ function PaymentPageContent() {
             <div className="bg-white border border-stone-200 rounded-2xl p-5 md:p-6 shadow-sm space-y-3">
               <h3 className="font-bold text-sm text-slate border-b border-stone-100 pb-2.5 flex items-center justify-between">
                 <span>Consignment Delivery Destination</span>
-                <span className="text-[11px] font-bold uppercase tracking-wider text-primary bg-primary/5 px-2 py-0.5 rounded border border-primary/20">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-primary bg-primary/5 px-2.5 py-0.5 rounded border border-primary/20">
                   {order.shippingAddress?.city || 'East Champaran'}, {order.shippingAddress?.state || 'Bihar'}
                 </span>
               </h3>
-              <div className="text-xs space-y-1.5 text-muted">
+              <div className="text-xs space-y-2 text-muted">
                 <div className="flex items-baseline justify-between">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-muted">Recipient:</span>
                   <strong className="text-slate text-xs font-semibold">
@@ -885,11 +896,11 @@ function PaymentPageContent() {
                 </div>
                 <div className="flex items-baseline justify-between">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-muted">Contact Phone:</span>
-                  <span className="font-mono text-slate">
+                  <span className="font-mono text-slate font-medium">
                     {order.shippingAddress?.phone || order.customerPhone || '8825164657'}
                   </span>
                 </div>
-                <div className="pt-1 border-t border-stone-100 text-[11px] leading-relaxed">
+                <div className="pt-1.5 border-t border-stone-100 text-[11px] leading-relaxed">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-muted block mb-0.5">
                     Shipping Address:
                   </span>
@@ -905,8 +916,8 @@ function PaymentPageContent() {
                   </p>
                 </div>
                 {order.courierName && (
-                  <div className="pt-1.5 border-t border-stone-100 flex items-center justify-between text-[11px]">
-                    <span className="text-muted">Assigned Logistics:</span>
+                  <div className="pt-2 border-t border-stone-100 flex items-center justify-between text-[11px]">
+                    <span className="text-muted font-medium">Assigned Logistics:</span>
                     <span className="font-semibold text-primary">
                       {order.courierName} {order.trackingNumber ? `(${order.trackingNumber})` : ''}
                     </span>
@@ -915,15 +926,16 @@ function PaymentPageContent() {
               </div>
             </div>
 
-            {/* Order Items & Financial Summary */}
+            {/* Order Items & Complete Transparent Price Breakdown */}
             <div className="bg-white border border-stone-200 rounded-2xl p-5 md:p-6 shadow-sm space-y-4">
               <h3 className="font-bold text-sm text-slate border-b border-stone-100 pb-3 flex items-center justify-between">
                 <span>Order Summary</span>
-                <span className="text-xs font-mono font-normal text-muted">
-                  {order.items?.length || 0} items
+                <span className="text-xs font-mono font-medium text-muted">
+                  {order.items?.length || 0} {order.items?.length === 1 ? 'item' : 'items'}
                 </span>
               </h3>
 
+              {/* Items List */}
               <div className="divide-y divide-stone-100 max-h-56 overflow-y-auto pr-1">
                 {order.items?.map((item, idx) => (
                   <div key={idx} className="py-2.5 flex items-center justify-between text-xs gap-3">
@@ -931,37 +943,67 @@ function PaymentPageContent() {
                       <strong className="text-slate block font-medium text-xs break-words">
                         {item.productTitle || (item as any).title}
                       </strong>
-                      <span className="text-muted text-[11px]">
-                        Qty: {item.quantity} × ₹{((item.priceInPaise || 0) / 100).toFixed(2)}
+                      <span className="text-muted text-[11px] block mt-0.5">
+                        {item.variantTitle && `${item.variantTitle} • `}Qty: {item.quantity} × ₹{((item.priceInPaise || 0) / 100).toFixed(2)}
                       </span>
                     </div>
-                    <span className="font-mono font-semibold text-slate shrink-0">
+                    <span className="font-mono font-bold text-slate shrink-0">
                       ₹{(((item.quantity || 1) * (item.priceInPaise || 0)) / 100).toFixed(2)}
                     </span>
                   </div>
                 ))}
               </div>
 
-              <div className="pt-3 border-t border-stone-100 space-y-1.5 text-xs text-muted">
-                <div className="flex justify-between">
-                  <span>Subtotal</span>
-                  <span className="font-mono text-slate">₹{((order.subtotalInPaise || 0) / 100).toFixed(2)}</span>
+              {/* Detailed Calculation Rows Matching Checkout */}
+              <div className="pt-3 border-t border-stone-100 space-y-2 text-xs text-muted">
+                <div className="flex justify-between items-center">
+                  <span>Items Subtotal</span>
+                  <span className="font-mono font-semibold text-slate">₹{((order.subtotalInPaise || 0) / 100).toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span>Delivery / Shipping</span>
-                  <span className="font-mono text-slate">
-                    {(order.shippingInPaise || 0) === 0 ? 'FREE' : `₹${((order.shippingInPaise || 0) / 100).toFixed(2)}`}
-                  </span>
-                </div>
+
                 {Number(order.discountInPaise || 0) > 0 && (
-                  <div className="flex justify-between text-emerald-700 font-semibold">
-                    <span>Discount Applied</span>
+                  <div className="flex justify-between items-center text-emerald-700 font-medium">
+                    <span className="flex items-center gap-1">
+                      <span>Promotional Discount</span>
+                      {order.couponCode && (
+                        <span className="text-[10px] uppercase font-mono px-1.5 py-0.2 bg-emerald-100 rounded border border-emerald-300">
+                          {order.couponCode}
+                        </span>
+                      )}
+                    </span>
                     <span className="font-mono">-₹{((order.discountInPaise || 0) / 100).toFixed(2)}</span>
                   </div>
                 )}
-                <div className="pt-2 border-t border-stone-200 flex justify-between text-sm font-bold text-slate">
-                  <span>Total Amount</span>
-                  <span className="font-mono text-primary text-base">₹{upiDetails.amountInRupees}</span>
+
+                <div className="flex justify-between items-center">
+                  <span>Standard Express Shipping</span>
+                  <span className="font-mono font-semibold">
+                    {(order.shippingInPaise || 0) === 0 ? (
+                      <span className="text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                        FREE
+                      </span>
+                    ) : (
+                      `₹${((order.shippingInPaise || 0) / 100).toFixed(2)}`
+                    )}
+                  </span>
+                </div>
+
+                <div className="flex justify-between items-center">
+                  <span>Statutory GST (Taxes)</span>
+                  <span className="text-muted text-[11px] font-medium">
+                    Included in product price (₹0.00 extra)
+                  </span>
+                </div>
+
+                {/* Final Payable Amount */}
+                <div className="pt-3 border-t border-stone-200 flex justify-between items-baseline">
+                  <div>
+                    <span className="text-sm font-bold text-slate block">Final Payable Amount</span>
+                    <span className="text-[10px] text-muted">Server Financial Authority • 0% Surcharge</span>
+                  </div>
+                  <span className="font-mono text-primary text-xl font-extrabold">
+                    ₹{upiDetails.amountInRupees}
+                  </span>
                 </div>
               </div>
             </div>
@@ -973,11 +1015,13 @@ function PaymentPageContent() {
                   2
                 </span>
                 <h3 className="font-bold text-sm text-slate">
-                  {isPaymentNotReceived
-                    ? 'Retry Payment & Submit Updated UTR'
-                    : order.utrNumber && !isEditingUtr
-                      ? 'Order Placed & Payment Submitted'
-                      : 'Finalize & Place Order (Payment Verification)'}
+                  {isPaid
+                    ? 'Payment Reconciled & Order Confirmed'
+                    : isPaymentNotReceived
+                      ? 'Retry Payment & Submit Updated UTR'
+                      : order.utrNumber && !isEditingUtr
+                        ? 'Payment Reference Submitted'
+                        : 'Finalize & Place Order (Payment Verification)'}
                 </h3>
               </div>
 
@@ -1023,7 +1067,7 @@ function PaymentPageContent() {
                         <button
                           type="button"
                           onClick={() => handleCopy(order.utrNumber || '', 'submitted_utr')}
-                          className="text-[10px] text-primary hover:underline px-1.5 py-0.5 bg-white border border-stone-200 rounded"
+                          className="text-[10px] text-primary hover:underline px-1.5 py-0.5 bg-white border border-stone-200 rounded cursor-pointer"
                         >
                           {copiedKey === 'submitted_utr' ? '✓' : 'Copy'}
                         </button>
@@ -1047,7 +1091,7 @@ function PaymentPageContent() {
 
                     {isPaid ? (
                       <p className="text-[11px] text-emerald-800 leading-relaxed pt-1">
-                        Your payment has been successfully reconciled against our <strong>IndusInd Bank Current Account (258825164657)</strong>. Your order is confirmed and moving into fulfillment.
+                        Your payment has been successfully reconciled against our <strong>IndusInd Bank Current Account (258825164657)</strong>. Your consignment is verified and moving into fulfillment.
                       </p>
                     ) : (
                       <p className="text-[11px] text-muted leading-relaxed pt-1">
@@ -1060,14 +1104,14 @@ function PaymentPageContent() {
                   <div className="flex flex-col sm:flex-row gap-2 pt-1">
                     <Link
                       href={getOrderTrackingUrl(activeOrderId)}
-                      className="w-full sm:flex-1 py-3 px-4 bg-primary text-white text-xs sm:text-sm font-bold rounded-xl hover:bg-primary/95 transition-all shadow-sm text-center flex items-center justify-center gap-1.5"
+                      className="w-full sm:flex-1 py-3 px-4 bg-primary text-white text-xs sm:text-sm font-bold rounded-xl hover:bg-primary-hover transition-all shadow-sm text-center flex items-center justify-center gap-1.5 cursor-pointer"
                     >
                       <span>Track Order Status</span>
                       <span>→</span>
                     </Link>
                     <Link
                       href="/account/orders"
-                      className="w-full sm:flex-1 py-3 px-4 bg-stone-100 hover:bg-stone-200 text-slate text-xs sm:text-sm font-bold rounded-xl transition-all border border-stone-200 text-center"
+                      className="w-full sm:flex-1 py-3 px-4 bg-stone-100 hover:bg-stone-200 text-slate text-xs sm:text-sm font-bold rounded-xl transition-all border border-stone-200 text-center cursor-pointer"
                     >
                       View Order History
                     </Link>
@@ -1081,7 +1125,7 @@ function PaymentPageContent() {
                           setUtrInput(order.utrNumber || '');
                           setIsEditingUtr(true);
                         }}
-                        className="text-xs text-primary hover:underline font-medium"
+                        className="text-xs text-primary hover:underline font-medium cursor-pointer"
                       >
                         Need to update or re-submit UTR reference?
                       </button>
@@ -1117,7 +1161,7 @@ function PaymentPageContent() {
                       type="text"
                       value={payerName}
                       onChange={(e) => setPayerName(e.target.value)}
-                      placeholder={order.shippingAddress?.fullName || 'Name on bank account'}
+                      placeholder={order.shippingAddress?.fullName || order.customerName || 'Name on bank account'}
                       className="w-full px-3.5 py-2.5 bg-white border border-stone-200 rounded-xl text-xs md:text-sm focus:outline-none focus:ring-1 focus:ring-primary shadow-2xs"
                     />
                   </div>
@@ -1137,7 +1181,7 @@ function PaymentPageContent() {
                     ) : (
                       <>
                         <span>✓</span>
-                        <span>Submit & Place Order</span>
+                        <span>{isPaymentNotReceived ? 'Retry Payment & Submit Updated UTR' : 'Submit & Place Order'}</span>
                       </>
                     )}
                   </button>
@@ -1146,7 +1190,7 @@ function PaymentPageContent() {
                     <button
                       type="button"
                       onClick={() => setIsEditingUtr(false)}
-                      className="w-full py-2 text-xs text-muted hover:text-slate transition-colors text-center"
+                      className="w-full py-2 text-xs text-muted hover:text-slate transition-colors text-center cursor-pointer"
                     >
                       Cancel and keep previous reference
                     </button>

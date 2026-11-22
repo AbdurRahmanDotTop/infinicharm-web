@@ -97,17 +97,22 @@ export async function GET(
         discountInPaise: order.discountInPaise,
         taxInPaise: order.taxInPaise,
         items: order.items || [],
+        customerName: order.customerName,
+        customerPhone: order.customerPhone,
+        courierName: order.courierName,
+        trackingNumber: order.trackingNumber,
+        couponCode: order.couponCode,
         shippingAddress: order.shippingAddress
           ? {
-              fullName: order.shippingAddress.fullName,
-              phone: order.shippingAddress.phone,
-              addressLine1: order.shippingAddress.addressLine1,
-              addressLine2: order.shippingAddress.addressLine2,
-              city: order.shippingAddress.city,
-              state: order.shippingAddress.state,
-              postalCode: order.shippingAddress.postalCode,
-              country: order.shippingAddress.country,
-            }
+            fullName: order.shippingAddress.fullName,
+            phone: order.shippingAddress.phone,
+            addressLine1: order.shippingAddress.addressLine1,
+            addressLine2: order.shippingAddress.addressLine2,
+            city: order.shippingAddress.city,
+            state: order.shippingAddress.state,
+            postalCode: order.shippingAddress.postalCode,
+            country: order.shippingAddress.country,
+          }
           : undefined,
       };
     } else {

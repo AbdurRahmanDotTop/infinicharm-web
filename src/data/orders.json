@@ -2,9 +2,9 @@
   {
     "id": "INF-202611-2527",
     "orderNumber": "INF-202611-2527",
-    "customerId": "cust-01",
+    "customerId": "cust-founder-01",
     "customerName": "AbdurRahman Ibn Ghufran",
-    "customerEmail": "customer@infinicharm.com",
+    "customerEmail": "abdurrahmanibnghufran@gmail.com",
     "customerPhone": "8825164657",
     "status": "PAYMENT_RECEIVED",
     "subtotalInPaise": 30000,
@@ -20,7 +20,7 @@
     "trackingNumber": "BD982341092",
     "shippingAddress": {
       "id": "addr-inf-2527",
-      "customerId": "cust-01",
+      "customerId": "cust-founder-01",
       "fullName": "AbdurRahman Ibn Ghufran",
       "phone": "8825164657",
       "addressLine1": "Ward No. 07, Lahsaniya, Khoripakar",
@@ -34,7 +34,7 @@
     },
     "billingAddress": {
       "id": "bill-inf-2527",
-      "customerId": "cust-01",
+      "customerId": "cust-founder-01",
       "fullName": "AbdurRahman Ibn Ghufran",
       "phone": "8825164657",
       "addressLine1": "Ward No. 07, Lahsaniya, Khoripakar",
@@ -79,9 +79,9 @@
   {
     "id": "INF-202611-4435",
     "orderNumber": "INF-202611-4435",
-    "customerId": "cust-01",
+    "customerId": "cust-founder-01",
     "customerName": "AbdurRahman Ibn Ghufran",
-    "customerEmail": "customer@infinicharm.com",
+    "customerEmail": "abdurrahmanibnghufran@gmail.com",
     "customerPhone": "8825164657",
     "status": "PAYMENT_RECEIVED",
     "subtotalInPaise": 240000,
@@ -97,7 +97,7 @@
     "trackingNumber": "DEL78291034",
     "shippingAddress": {
       "id": "addr-inf-4435",
-      "customerId": "cust-01",
+      "customerId": "cust-founder-01",
       "fullName": "AbdurRahman Ibn Ghufran",
       "phone": "8825164657",
       "addressLine1": "Ward No. 07, Lahsaniya, Khoripakar",
@@ -111,7 +111,7 @@
     },
     "billingAddress": {
       "id": "bill-inf-4435",
-      "customerId": "cust-01",
+      "customerId": "cust-founder-01",
       "fullName": "AbdurRahman Ibn Ghufran",
       "phone": "8825164657",
       "addressLine1": "Ward No. 07, Lahsaniya, Khoripakar",
