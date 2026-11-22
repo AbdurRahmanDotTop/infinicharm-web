@@ -119,13 +119,11 @@ export default function CheckoutPage() {
   const [desktopUpiNotice, setDesktopUpiNotice] = useState<boolean>(false);
   const [remoteSyncNotice, setRemoteSyncNotice] = useState<string | null>(null);
 
-  // Initialize or restore stable checkout order number
+  // Initialize or restore stable checkout order number (per-session only)
   useEffect(() => {
     if (typeof window === 'undefined') return;
     try {
-      const existing =
-        sessionStorage.getItem('infinicharm_checkout_order_id') ||
-        localStorage.getItem('infinicharm_checkout_order_id');
+      const existing = sessionStorage.getItem('infinicharm_checkout_order_id');
       if (existing && existing.startsWith('INF-')) {
         setCheckoutOrderNumber(existing);
         return;
@@ -135,7 +133,7 @@ export default function CheckoutPage() {
     setCheckoutOrderNumber(newOrderNum);
     try {
       sessionStorage.setItem('infinicharm_checkout_order_id', newOrderNum);
-      localStorage.setItem('infinicharm_checkout_order_id', newOrderNum);
+      localStorage.removeItem('infinicharm_checkout_order_id');
     } catch {}
   }, []);
 
@@ -1070,6 +1068,7 @@ export default function CheckoutPage() {
     try {
       localStorage.removeItem('infinicharm_checkout_draft');
       sessionStorage.removeItem('infinicharm_checkout_order_id');
+      localStorage.removeItem('infinicharm_checkout_order_id');
     } catch {}
     setTimeout(() => {
       router.push(`/checkout/success?order_id=${orderData.orderNumber}`);

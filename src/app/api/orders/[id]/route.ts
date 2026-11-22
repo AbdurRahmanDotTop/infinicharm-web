@@ -79,9 +79,11 @@ export async function GET(
     const isPaymentOrDetailIntent =
       searchParams.get('purpose') === 'pay' ||
       searchParams.get('purpose') === 'account' ||
+      searchParams.get('purpose') === 'success' ||
       searchParams.get('intent') === 'pay' ||
       Boolean(searchParams.get('token')) ||
       request.headers.get('referer')?.includes('/pay') ||
+      request.headers.get('referer')?.includes('/checkout/success') ||
       request.headers.get('referer')?.includes('/account/orders');
 
     let payloadOrder;

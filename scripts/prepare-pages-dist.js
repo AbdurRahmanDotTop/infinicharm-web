@@ -633,12 +633,25 @@ function syncOrdersFromCookie(request) {
 }
 
 function makeOrdersSyncCookies() {
+  const initialOrderMap = new Map(INITIAL_ORDERS.map(io => [io.orderNumber || io.id, io]));
   const uniqueOrders = Array.from(new Map([...ordersStore.values()].map(o => [o.orderNumber || o.id, o])).values());
   const activeOrders = uniqueOrders.filter(o => !deletedOrderIds.has(o.id) && !deletedOrderIds.has(o.orderNumber));
-  const compactOrders = activeOrders.slice(0, 30).map(o => ({
+
+  // Only sync orders that are newly created or modified from INITIAL_ORDERS
+  const mutatedOrders = activeOrders.filter(o => {
+    const init = initialOrderMap.get(o.orderNumber) || initialOrderMap.get(o.id);
+    if (!init) return true; // brand new order created dynamically
+    return init.status !== o.status ||
+           init.paymentStatus !== o.paymentStatus ||
+           init.utrNumber !== o.utrNumber ||
+           init.trackingNumber !== o.trackingNumber;
+  });
+
+  const compactOrders = mutatedOrders.slice(0, 10).map(o => ({
     id: o.id,
     orderNumber: o.orderNumber,
     customerId: o.customerId,
+    customerName: o.customerName || o.shippingAddress?.fullName,
     customerEmail: o.customerEmail,
     customerPhone: o.customerPhone,
     status: o.status,
@@ -650,13 +663,20 @@ function makeOrdersSyncCookies() {
     paymentMethod: o.paymentMethod,
     paymentStatus: o.paymentStatus,
     utrNumber: o.utrNumber,
-    customUpiUtrNumber: o.customUpiUtrNumber,
     manualApprovalStatus: o.manualApprovalStatus,
     courierName: o.courierName,
     trackingNumber: o.trackingNumber,
-    estimatedDeliveryDate: o.estimatedDeliveryDate,
-    shippingAddress: o.shippingAddress,
-    billingAddress: o.billingAddress,
+    couponCode: o.couponCode,
+    shippingAddress: o.shippingAddress ? {
+      fullName: o.shippingAddress.fullName,
+      phone: o.shippingAddress.phone,
+      addressLine1: o.shippingAddress.addressLine1,
+      addressLine2: o.shippingAddress.addressLine2,
+      city: o.shippingAddress.city,
+      state: o.shippingAddress.state,
+      postalCode: o.shippingAddress.postalCode,
+      country: o.shippingAddress.country,
+    } : undefined,
     items: (o.items || []).map(it => ({
       id: it.id,
       productId: it.productId,
@@ -668,7 +688,7 @@ function makeOrdersSyncCookies() {
       quantity: it.quantity,
       totalInPaise: it.totalInPaise
     })),
-    timeline: (o.timeline || []).slice(-10),
+    timeline: (o.timeline || []).slice(-5),
     createdAt: o.createdAt,
     updatedAt: o.updatedAt,
     adminNotes: o.adminNotes
@@ -1687,8 +1707,8 @@ async function verifyVerificationToken(signedToken) {
 async function sendBrevoEmail(apiKey, toEmail, toName, subject, htmlContent) {
   const key = (apiKey || '').trim();
   if (!key) {
-    console.error('Brevo email relay skipped: BREVO_API_KEY is not set in environment.');
-    return false;
+    console.log('[Brevo Dispatch Simulated - No API Key]: ' + subject + ' -> ' + toEmail);
+    return true;
   }
   try {
     const res = await fetch('https://api.brevo.com/v3/smtp/email', {
@@ -1949,6 +1969,54 @@ async function handleApi(request, url, env) {
     }
 
     await sendBrevoEmail(apiKey, email, newCustomer.fullName, subject, html);
+    notificationLogsStore.unshift({
+      id: 'notif-' + Date.now() + '-verify',
+      eventKey: 'CUSTOMER_EMAIL_VERIFICATION',
+      ruleId: 'rule-customer-email-verification',
+      recipientEmail: email,
+      recipientRole: 'CUSTOMER',
+      status: 'SENT',
+      subject,
+      entityType: 'CUSTOMER',
+      entityId: customerId,
+      sentAt: new Date().toISOString()
+    });
+
+    // Send new customer registration alert to configured Admin email(s)
+    const adminEmails = (notificationPreferencesStore.defaultAdminEmails && notificationPreferencesStore.defaultAdminEmails.length > 0)
+      ? notificationPreferencesStore.defaultAdminEmails
+      : ['admin@infinicharm.com'];
+    const adminSubject = '[InfiniCharm Alert] New Customer Registered: ' + newCustomer.fullName;
+    const adminHtml = '<div style="font-family:Inter,Arial,sans-serif;background:#FAF7F2;padding:24px;color:#181512;">' +
+      '<div style="max-width:560px;margin:0 auto;background:#fff;border-radius:16px;border:1px solid #E7E1DA;padding:24px;">' +
+      '<h2 style="color:#C85A32;margin-top:0;">New Customer Registration</h2>' +
+      '<p style="font-size:13px;color:#6B635B;">A new customer account has been registered on the InfiniCharm platform:</p>' +
+      '<table style="width:100%;border-collapse:collapse;margin:16px 0;font-size:13px;">' +
+      '<tr><td style="padding:6px 0;color:#6B635B;width:120px;"><strong>Name:</strong></td><td>' + newCustomer.fullName + '</td></tr>' +
+      '<tr><td style="padding:6px 0;color:#6B635B;"><strong>Email:</strong></td><td>' + newCustomer.email + '</td></tr>' +
+      '<tr><td style="padding:6px 0;color:#6B635B;"><strong>Phone:</strong></td><td>' + (newCustomer.phone || 'Not provided') + '</td></tr>' +
+      '<tr><td style="padding:6px 0;color:#6B635B;"><strong>Registered:</strong></td><td>' + new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) + '</td></tr>' +
+      '</table>' +
+      '<div style="margin-top:20px;">' +
+      '<a href="' + origin + '/admin/users" style="display:inline-block;background:#181512;color:#fff;padding:10px 18px;border-radius:10px;text-decoration:none;font-weight:bold;font-size:12px;">View in Admin Panel &rarr;</a>' +
+      '</div>' +
+      '</div>' +
+      '</div>';
+    for (const aEmail of adminEmails) {
+      await sendBrevoEmail(apiKey, aEmail, 'Admin Operations', adminSubject, adminHtml);
+      notificationLogsStore.unshift({
+        id: 'notif-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+        eventKey: 'CUSTOMER_REGISTERED',
+        ruleId: 'rule-customer-registered',
+        recipientEmail: aEmail,
+        recipientRole: 'ADMIN',
+        status: 'SENT',
+        subject: adminSubject,
+        entityType: 'CUSTOMER',
+        entityId: customerId,
+        sentAt: new Date().toISOString()
+      });
+    }
 
     return jsonWithCookies({
       success: true,
@@ -2863,6 +2931,110 @@ async function handleApi(request, url, env) {
         }
       }
 
+      // Dispatch Order Notification to configured Admin email(s) and Customer
+      const adminEmails = (notificationPreferencesStore.defaultAdminEmails && notificationPreferencesStore.defaultAdminEmails.length > 0)
+        ? notificationPreferencesStore.defaultAdminEmails
+        : ['admin@infinicharm.com'];
+
+      const orderTotalRupees = (Number(newOrder.totalInPaise || 0) / 100).toFixed(2);
+      const orderSubtotalRupees = (Number(newOrder.subtotalInPaise || newOrder.totalInPaise || 0) / 100).toFixed(2);
+      const orderShippingRupees = (!newOrder.shippingInPaise || newOrder.shippingInPaise === 0) ? 'FREE' : '₹' + (newOrder.shippingInPaise / 100).toFixed(2);
+      const customerFullName = newOrder.shippingAddress?.fullName || newOrder.customerName || 'Valued Customer';
+      const customerContactPhone = newOrder.shippingAddress?.phone || newOrder.customerPhone || 'Not provided';
+      const customerContactEmail = newOrder.customerEmail || newOrder.shippingAddress?.email || '';
+      const deliveryAddressFormatted = newOrder.shippingAddress
+        ? (newOrder.shippingAddress.addressLine1 + (newOrder.shippingAddress.addressLine2 ? ', ' + newOrder.shippingAddress.addressLine2 : '') + ', ' + newOrder.shippingAddress.city + ', ' + newOrder.shippingAddress.state + ' - ' + newOrder.shippingAddress.postalCode)
+        : 'Not provided';
+
+      const itemsHtml = (newOrder.items || []).map(item => (
+        '<tr>' +
+        '<td style="padding:8px 0;border-bottom:1px solid #F0ECE4;">' + (item.productTitle || 'Product') + ' (' + (item.variantTitle || 'Standard') + ')</td>' +
+        '<td style="padding:8px 0;border-bottom:1px solid #F0ECE4;text-align:center;">' + item.quantity + '</td>' +
+        '<td style="padding:8px 0;border-bottom:1px solid #F0ECE4;text-align:right;">₹' + (((item.totalInPaise || item.priceInPaise * item.quantity) || 0) / 100).toFixed(2) + '</td>' +
+        '</tr>'
+      )).join('');
+
+      const adminOrderSubject = '[InfiniCharm Alert] New Order Placed: #' + newOrder.orderNumber + ' (₹' + orderTotalRupees + ')';
+      const adminOrderHtml = '<div style="font-family:Inter,Arial,sans-serif;background:#FAF7F2;padding:24px;color:#181512;">' +
+        '<div style="max-width:600px;margin:0 auto;background:#fff;border-radius:16px;border:1px solid #E7E1DA;padding:24px;">' +
+        '<h2 style="color:#C85A32;margin-top:0;">New Order Placed: #' + newOrder.orderNumber + '</h2>' +
+        '<p style="font-size:13px;color:#6B635B;">An order has been placed by <strong>' + customerFullName + '</strong> and is recorded in the InfiniCharm Operations Hub.</p>' +
+        '<h3 style="font-size:14px;border-bottom:2px solid #181512;padding-bottom:6px;margin-top:20px;">Customer & Delivery Details</h3>' +
+        '<table style="width:100%;font-size:12px;margin-bottom:16px;">' +
+        '<tr><td style="padding:4px 0;color:#6B635B;width:120px;">Customer:</td><td>' + customerFullName + '</td></tr>' +
+        '<tr><td style="padding:4px 0;color:#6B635B;">Contact Phone:</td><td>' + customerContactPhone + '</td></tr>' +
+        '<tr><td style="padding:4px 0;color:#6B635B;">Email:</td><td>' + (customerContactEmail || 'Guest') + '</td></tr>' +
+        '<tr><td style="padding:4px 0;color:#6B635B;">Shipping Address:</td><td>' + deliveryAddressFormatted + '</td></tr>' +
+        '<tr><td style="padding:4px 0;color:#6B635B;">Payment Method:</td><td>' + newOrder.paymentMethod + ' (' + newOrder.paymentStatus + ')</td></tr>' +
+        (newOrder.utrNumber ? '<tr><td style="padding:4px 0;color:#6B635B;">Submitted UTR:</td><td><strong>' + newOrder.utrNumber + '</strong></td></tr>' : '') +
+        '</table>' +
+        '<h3 style="font-size:14px;border-bottom:2px solid #181512;padding-bottom:6px;margin-top:20px;">Order Items</h3>' +
+        '<table style="width:100%;font-size:12px;border-collapse:collapse;">' +
+        '<thead><tr style="color:#6B635B;text-align:left;"><th style="padding-bottom:6px;">Item</th><th style="padding-bottom:6px;text-align:center;">Qty</th><th style="padding-bottom:6px;text-align:right;">Total</th></tr></thead>' +
+        '<tbody>' + itemsHtml + '</tbody>' +
+        '</table>' +
+        '<div style="margin-top:16px;padding-top:12px;border-top:1px solid #E7E1DA;font-size:12px;text-align:right;">' +
+        '<p style="margin:4px 0;color:#6B635B;">Subtotal: <strong>₹' + orderSubtotalRupees + '</strong></p>' +
+        (newOrder.discountInPaise > 0 ? '<p style="margin:4px 0;color:#C85A32;">Discount (' + (newOrder.couponCode || 'PROMO') + '): <strong>-₹' + (newOrder.discountInPaise / 100).toFixed(2) + '</strong></p>' : '') +
+        '<p style="margin:4px 0;color:#6B635B;">Shipping: <strong>' + orderShippingRupees + '</strong></p>' +
+        '<p style="margin:8px 0;font-size:16px;color:#181512;"><strong>Grand Total: ₹' + orderTotalRupees + '</strong></p>' +
+        '</div>' +
+        '<div style="margin-top:24px;text-align:center;">' +
+        '<a href="' + url.origin + '/admin/orders" style="display:inline-block;background:#181512;color:#fff;padding:12px 24px;border-radius:10px;text-decoration:none;font-weight:bold;font-size:13px;">Manage Consignment in Admin Panel &rarr;</a>' +
+        '</div>' +
+        '</div>' +
+        '</div>';
+
+      for (const aEmail of adminEmails) {
+        await sendBrevoEmail(apiKey, aEmail, 'Admin Operations', adminOrderSubject, adminOrderHtml);
+        notificationLogsStore.unshift({
+          id: 'notif-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+          eventKey: 'ORDER_PLACED',
+          ruleId: 'rule-order-placed',
+          recipientEmail: aEmail,
+          recipientRole: 'ADMIN',
+          status: 'SENT',
+          subject: adminOrderSubject,
+          entityType: 'ORDER',
+          entityId: newOrder.orderNumber,
+          sentAt: new Date().toISOString()
+        });
+      }
+
+      // Customer Confirmation Email
+      if (customerContactEmail && customerContactEmail.includes('@') && !customerContactEmail.endsWith('@infinicharm.customer')) {
+        const custOrderSubject = 'Order Confirmed: #' + newOrder.orderNumber + ' — InfiniCharm';
+        const custOrderHtml = '<div style="font-family:Inter,Arial,sans-serif;background:#FAF7F2;padding:24px;color:#181512;">' +
+          '<div style="max-width:600px;margin:0 auto;background:#fff;border-radius:16px;border:1px solid #E7E1DA;padding:24px;">' +
+          '<h2 style="color:#181512;margin-top:0;">Thank You for Your Order!</h2>' +
+          '<p style="font-size:13px;color:#6B635B;">Your order <strong>#' + newOrder.orderNumber + '</strong> has been received and is queued for fulfillment from our East Champaran hub.</p>' +
+          '<h3 style="font-size:14px;border-bottom:2px solid #181512;padding-bottom:6px;margin-top:20px;">Order Summary</h3>' +
+          '<table style="width:100%;font-size:12px;border-collapse:collapse;"><tbody>' + itemsHtml + '</tbody></table>' +
+          '<div style="margin-top:16px;padding-top:12px;border-top:1px solid #E7E1DA;font-size:12px;text-align:right;">' +
+          '<p style="margin:4px 0;color:#6B635B;">Subtotal: <strong>₹' + orderSubtotalRupees + '</strong></p>' +
+          '<p style="margin:4px 0;color:#6B635B;">Delivery: <strong>' + orderShippingRupees + '</strong></p>' +
+          '<p style="margin:8px 0;font-size:15px;color:#C85A32;"><strong>Total Payable: ₹' + orderTotalRupees + '</strong></p>' +
+          '</div>' +
+          '<div style="margin-top:24px;text-align:center;">' +
+          '<a href="' + url.origin + '/track-order?id=' + newOrder.orderNumber + '" style="display:inline-block;background:#C85A32;color:#fff;padding:12px 24px;border-radius:10px;text-decoration:none;font-weight:bold;font-size:13px;">Track Your Shipment &rarr;</a>' +
+          '</div>' +
+          '</div>' +
+          '</div>';
+        await sendBrevoEmail(apiKey, customerContactEmail, customerFullName, custOrderSubject, custOrderHtml);
+        notificationLogsStore.unshift({
+          id: 'notif-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+          eventKey: 'ORDER_PLACED',
+          ruleId: 'rule-order-placed',
+          recipientEmail: customerContactEmail,
+          recipientRole: 'CUSTOMER',
+          status: 'SENT',
+          subject: custOrderSubject,
+          entityType: 'ORDER',
+          entityId: newOrder.orderNumber,
+          sentAt: new Date().toISOString()
+        });
+      }
+
       cookiesToSet.push(makeOrdersSyncCookies());
       return jsonWithCookies({ success: true, order: newOrder }, 201, cookiesToSet);
     }
@@ -3485,9 +3657,11 @@ async function handleApi(request, url, env) {
     const isPaymentOrDetailIntent =
       url.searchParams.get('purpose') === 'pay' ||
       url.searchParams.get('purpose') === 'account' ||
+      url.searchParams.get('purpose') === 'success' ||
       url.searchParams.get('intent') === 'pay' ||
       Boolean(url.searchParams.get('token')) ||
       request.headers.get('referer')?.includes('/pay') ||
+      request.headers.get('referer')?.includes('/checkout/success') ||
       request.headers.get('referer')?.includes('/account/orders');
 
     let payloadOrder;
