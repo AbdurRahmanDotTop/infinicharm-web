@@ -143,20 +143,25 @@ export async function PATCH(
     };
 
     // If variants updated via simplified price/stock fields
-    if (body.priceRupees !== undefined || body.stock !== undefined) {
-      const priceInPaise = body.priceRupees !== undefined
-        ? Math.round(Number(body.priceRupees) * 100)
+    const rawPrice = body.sellingPriceRupees ?? body.priceRupees;
+    const rawCompare = body.mrpPriceRupees ?? body.comparePriceRupees;
+    if (rawPrice !== undefined || rawCompare !== undefined || body.stock !== undefined) {
+      const priceInPaise = rawPrice !== undefined
+        ? Math.round(Number(rawPrice) * 100)
         : existing.variants[0]?.priceInPaise || 29900;
+      const compareAtPriceInPaise = rawCompare !== undefined
+        ? (rawCompare ? Math.round(Number(rawCompare) * 100) : undefined)
+        : existing.variants[0]?.compareAtPriceInPaise;
       const stockQuantity = body.stock !== undefined
         ? Math.max(0, Number(body.stock))
         : existing.variants[0]?.stockQuantity || 0;
 
-      updated.variants = existing.variants.map((v, idx) => {
+      updated.variants = (updated.variants || existing.variants).map((v: any, idx: number) => {
         if (idx === 0) {
           return {
             ...v,
             priceInPaise,
-            compareAtPriceInPaise: Math.round(priceInPaise * 1.25),
+            compareAtPriceInPaise,
             stockQuantity,
           };
         }

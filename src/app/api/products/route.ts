@@ -75,7 +75,19 @@ export async function POST(request: Request) {
 
     const id = body.id || `prod-custom-${Date.now()}`;
     const categoryId = body.categoryId || 'cat-honey';
-    const priceInPaise = Math.round(Number(body.priceInPaise || body.priceRupees * 100 || 29900));
+    const priceInPaise = Math.round(
+      Number(body.priceInPaise || (body.sellingPriceRupees || body.priceRupees) * 100 || 29900)
+    );
+    const compareAtPriceInPaise = body.compareAtPriceInPaise !== undefined
+      ? body.compareAtPriceInPaise
+      : (body.mrpPriceRupees || body.comparePriceRupees
+          ? Math.round(Number(body.mrpPriceRupees || body.comparePriceRupees) * 100)
+          : undefined);
+    const costPriceInPaise = body.costPriceInPaise !== undefined
+      ? body.costPriceInPaise
+      : (body.costPriceRupees
+          ? Math.round(Number(body.costPriceRupees) * 100)
+          : undefined);
     const stockQuantity = Math.max(0, Number(body.stockQuantity || body.stock || 50));
     const originRegion = body.originRegion || body.origin || 'Bairgania, Sitamarhi, Bihar';
     const brand = body.brand || 'InfiniCharm';
@@ -112,8 +124,8 @@ export async function POST(request: Request) {
               sku: body.sku || `INF-${id.toUpperCase().slice(-8)}`,
               title: body.variantTitle || 'Standard Pack',
               priceInPaise,
-              compareAtPriceInPaise: Math.round(priceInPaise * 1.25),
-              costPriceInPaise: Math.round(priceInPaise * 0.65),
+              compareAtPriceInPaise,
+              costPriceInPaise,
               stockQuantity,
               lowStockThreshold: 10,
               weightInGrams: body.weightInGrams || 500,

@@ -80,9 +80,11 @@ interface ProductFormState {
   storageInstructions: string;
   fssaiLicenseNumber: string;
 
-  // Pricing & Inventory
-  regularPriceRupees: string;
-  salePriceRupees: string;
+  // Pricing & Inventory Authority
+  sellingPriceRupees: string;
+  mrpPriceRupees: string;
+  regularPriceRupees?: string;
+  salePriceRupees?: string;
   saleStartDate: string;
   saleEndDate: string;
   costPriceRupees: string;
@@ -169,6 +171,8 @@ const DEFAULT_FORM_STATE: ProductFormState = {
   storageInstructions: 'Store in a cool, dry place away from direct sunlight.',
   fssaiLicenseNumber: 'FSSAI Lic. No. 10423000001234',
 
+  sellingPriceRupees: '299',
+  mrpPriceRupees: '',
   regularPriceRupees: '299',
   salePriceRupees: '',
   saleStartDate: '',
@@ -531,6 +535,10 @@ export default function AdminProductsPage() {
       storageInstructions: p.storageInstructions || 'Store in a cool dry place.',
       fssaiLicenseNumber: p.fssaiLicenseNumber || 'FSSAI Lic. No. 10423000001234',
 
+      sellingPriceRupees: defaultVar ? (defaultVar.priceInPaise / 100).toString() : '299',
+      mrpPriceRupees: defaultVar?.compareAtPriceInPaise
+        ? (defaultVar.compareAtPriceInPaise / 100).toString()
+        : '',
       regularPriceRupees: defaultVar ? (defaultVar.priceInPaise / 100).toString() : '299',
       salePriceRupees: defaultVar?.compareAtPriceInPaise
         ? (defaultVar.compareAtPriceInPaise / 100).toString()
@@ -539,7 +547,7 @@ export default function AdminProductsPage() {
       saleEndDate: p.saleEndDate || '',
       costPriceRupees: defaultVar?.costPriceInPaise
         ? (defaultVar.costPriceInPaise / 100).toString()
-        : '180',
+        : '',
       taxStatus: p.taxStatus || 'TAXABLE',
       taxClass: p.taxClass || 'GST 5%',
       manageStock: p.manageStock !== false,
@@ -617,8 +625,8 @@ export default function AdminProductsPage() {
       id: `var-new-${Date.now()}-${count}`,
       sku: `${formState.baseSku || 'INF-PRD'}-VAR${count}`,
       title: `Option ${count}`,
-      priceRupees: formState.regularPriceRupees || '299',
-      comparePriceRupees: formState.salePriceRupees || '',
+      priceRupees: formState.sellingPriceRupees || formState.regularPriceRupees || '299',
+      comparePriceRupees: formState.mrpPriceRupees || formState.salePriceRupees || '',
       stockQuantity: '25',
       stockStatus: 'IN_STOCK' as const,
       weightInGrams: '500',
@@ -668,9 +676,12 @@ export default function AdminProductsPage() {
 
     setIsSubmitting(true);
     try {
-      const priceInPaise = Math.round(parseFloat(formState.regularPriceRupees || '0') * 100);
-      const compareAtPriceInPaise = formState.salePriceRupees
-        ? Math.round(parseFloat(formState.salePriceRupees) * 100)
+      const priceInPaise = Math.round(
+        parseFloat(formState.sellingPriceRupees || formState.regularPriceRupees || '0') * 100
+      );
+      const rawMrp = formState.mrpPriceRupees || formState.salePriceRupees;
+      const compareAtPriceInPaise = rawMrp
+        ? Math.round(parseFloat(rawMrp) * 100)
         : undefined;
       const costPriceInPaise = formState.costPriceRupees
         ? Math.round(parseFloat(formState.costPriceRupees) * 100)
@@ -958,6 +969,48 @@ export default function AdminProductsPage() {
           </div>
         )}
 
+        {/* 4 Catalogue KPI Cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="p-4 bg-surface rounded-2xl border border-border shadow-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-muted">Total Catalogue</span>
+              <Package className="w-4 h-4 text-accent" />
+            </div>
+            <div className="text-2xl font-extrabold text-primary mt-1">{products.length}</div>
+            <span className="text-[10px] text-muted">Master SKU listings</span>
+          </div>
+          <div className="p-4 bg-surface rounded-2xl border border-border shadow-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-muted">Published Live</span>
+              <Eye className="w-4 h-4 text-emerald-600" />
+            </div>
+            <div className="text-2xl font-extrabold text-emerald-600 mt-1">
+              {products.filter((p) => p.status === 'PUBLISHED').length}
+            </div>
+            <span className="text-[10px] text-muted">Visible on storefront</span>
+          </div>
+          <div className="p-4 bg-surface rounded-2xl border border-border shadow-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-muted">Draft / Staging</span>
+              <EyeOff className="w-4 h-4 text-amber-600" />
+            </div>
+            <div className="text-2xl font-extrabold text-amber-600 mt-1">
+              {products.filter((p) => p.status === 'DRAFT').length}
+            </div>
+            <span className="text-[10px] text-muted">Hidden from public</span>
+          </div>
+          <div className="p-4 bg-surface rounded-2xl border border-border shadow-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-muted">Low Stock Alert</span>
+              <AlertTriangle className="w-4 h-4 text-rose-600" />
+            </div>
+            <div className="text-2xl font-extrabold text-rose-600 mt-1">
+              {products.filter((p) => (p.variants || []).some((v) => v.stockQuantity <= (v.lowStockThreshold || 10))).length}
+            </div>
+            <span className="text-[10px] text-muted">Units at or below threshold</span>
+          </div>
+        </div>
+
         {/* Filter Controls & Search */}
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
@@ -1125,12 +1178,26 @@ export default function AdminProductsPage() {
 
                     <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-border/60">
                       <div>
-                        <span className="font-bold text-primary text-sm">
-                          {defaultVar ? formatPaiseToRupees(defaultVar.priceInPaise) : '—'}
-                        </span>
-                        <span className="text-[10px] text-muted font-mono ml-1.5">
-                          ({defaultVar?.title || 'Single'})
-                        </span>
+                        <div className="flex items-baseline gap-1.5 flex-wrap">
+                          <span className="font-bold text-primary text-sm">
+                            {defaultVar ? formatPaiseToRupees(defaultVar.priceInPaise) : '—'}
+                          </span>
+                          {defaultVar?.compareAtPriceInPaise && defaultVar.compareAtPriceInPaise > defaultVar.priceInPaise && (
+                            <span className="text-[10px] text-muted line-through font-mono">
+                              {formatPaiseToRupees(defaultVar.compareAtPriceInPaise)}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className="text-[10px] text-muted font-mono">
+                            {defaultVar?.priceInPaise} paise
+                          </span>
+                          {defaultVar?.compareAtPriceInPaise && defaultVar.compareAtPriceInPaise > defaultVar.priceInPaise && (
+                            <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">
+                              {Math.round(((defaultVar.compareAtPriceInPaise - defaultVar.priceInPaise) / defaultVar.compareAtPriceInPaise) * 100)}% OFF
+                            </span>
+                          )}
+                        </div>
                       </div>
 
                       {defaultVar && (
@@ -1324,12 +1391,26 @@ export default function AdminProductsPage() {
 
                         {/* Price in Paise */}
                         <td className="py-3.5 px-3 whitespace-nowrap">
-                          <span className="font-bold text-primary">
-                            {defaultVar ? formatPaiseToRupees(defaultVar.priceInPaise) : '—'}
-                          </span>
-                          <span className="block text-[10px] text-muted font-mono">
-                            {defaultVar?.priceInPaise} paise
-                          </span>
+                          <div className="flex items-baseline gap-1.5">
+                            <span className="font-bold text-primary">
+                              {defaultVar ? formatPaiseToRupees(defaultVar.priceInPaise) : '—'}
+                            </span>
+                            {defaultVar?.compareAtPriceInPaise && defaultVar.compareAtPriceInPaise > defaultVar.priceInPaise && (
+                              <span className="text-[11px] text-muted line-through font-mono">
+                                {formatPaiseToRupees(defaultVar.compareAtPriceInPaise)}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <span className="text-[10px] text-muted font-mono">
+                              {defaultVar?.priceInPaise} paise
+                            </span>
+                            {defaultVar?.compareAtPriceInPaise && defaultVar.compareAtPriceInPaise > defaultVar.priceInPaise && (
+                              <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">
+                                {Math.round(((defaultVar.compareAtPriceInPaise - defaultVar.priceInPaise) / defaultVar.compareAtPriceInPaise) * 100)}% OFF
+                              </span>
+                            )}
+                          </div>
                         </td>
 
                         {/* Stock Controls */}
@@ -1773,45 +1854,128 @@ export default function AdminProductsPage() {
                   <div className="space-y-4">
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       <div>
-                        <label className="block font-semibold text-primary mb-1">Regular Retail Price (₹) *</label>
+                        <label className="block font-semibold text-primary mb-1">
+                          Selling / Offer Price (₹) <span className="text-rose-500">*</span>
+                        </label>
                         <input
                           type="number"
                           step="0.01"
                           required
-                          value={formState.regularPriceRupees}
-                          onChange={(e) => setFormState({ ...formState, regularPriceRupees: e.target.value })}
-                          placeholder="e.g. 299"
+                          value={formState.sellingPriceRupees}
+                          onChange={(e) =>
+                            setFormState({
+                              ...formState,
+                              sellingPriceRupees: e.target.value,
+                              regularPriceRupees: e.target.value,
+                            })
+                          }
+                          placeholder="e.g. 2400"
                           className="w-full px-3.5 py-2.5 bg-surface-dim border border-border rounded-xl text-primary font-bold text-sm focus:outline-none focus:border-accent"
                         />
                         <span className="text-[10px] text-muted font-mono mt-0.5 block">
-                          = {Math.round(parseFloat(formState.regularPriceRupees || '0') * 100)} integer paise
+                          = {Math.round(parseFloat(formState.sellingPriceRupees || '0') * 100)} integer paise (charged at checkout)
                         </span>
                       </div>
 
                       <div>
-                        <label className="block font-semibold text-primary mb-1">Sale Discounted Price (₹)</label>
+                        <label className="block font-semibold text-primary mb-1">
+                          Original M.R.P. / Compare-At Price (₹)
+                        </label>
                         <input
                           type="number"
                           step="0.01"
-                          value={formState.salePriceRupees}
-                          onChange={(e) => setFormState({ ...formState, salePriceRupees: e.target.value })}
-                          placeholder="e.g. 249"
+                          value={formState.mrpPriceRupees}
+                          onChange={(e) =>
+                            setFormState({
+                              ...formState,
+                              mrpPriceRupees: e.target.value,
+                              salePriceRupees: e.target.value,
+                            })
+                          }
+                          placeholder="e.g. 2800"
                           className="w-full px-3.5 py-2.5 bg-surface-dim border border-border rounded-xl text-primary font-bold text-sm focus:outline-none focus:border-accent"
                         />
+                        <span className="text-[10px] text-muted font-mono mt-0.5 block">
+                          = {formState.mrpPriceRupees ? `${Math.round(parseFloat(formState.mrpPriceRupees) * 100)} integer paise (strikethrough)` : 'Optional M.R.P. baseline'}
+                        </span>
                       </div>
 
                       <div>
-                        <label className="block font-semibold text-primary mb-1">Cost Price (₹, Gross Margin)</label>
+                        <label className="block font-semibold text-primary mb-1">
+                          Cost Price (₹, Gross Margin)
+                        </label>
                         <input
                           type="number"
                           step="0.01"
                           value={formState.costPriceRupees}
                           onChange={(e) => setFormState({ ...formState, costPriceRupees: e.target.value })}
-                          placeholder="e.g. 150"
+                          placeholder="e.g. 1680"
                           className="w-full px-3.5 py-2.5 bg-surface-dim border border-border rounded-xl text-primary font-medium focus:outline-none focus:border-accent"
                         />
+                        <span className="text-[10px] text-muted font-mono mt-0.5 block">
+                          = {formState.costPriceRupees ? `${Math.round(parseFloat(formState.costPriceRupees) * 100)} integer paise (procurement)` : 'Internal unit cost'}
+                        </span>
                       </div>
                     </div>
+
+                    {/* Dynamic Pricing & Margin Intelligence Card */}
+                    {(() => {
+                      const sell = parseFloat(formState.sellingPriceRupees || '0');
+                      const mrp = parseFloat(formState.mrpPriceRupees || '0');
+                      const cost = parseFloat(formState.costPriceRupees || '0');
+                      const hasDiscount = mrp > sell && sell > 0;
+                      const isInvalidMrp = mrp > 0 && mrp < sell;
+                      const discountAmount = hasDiscount ? mrp - sell : 0;
+                      const discountPercent = hasDiscount ? Math.round(((mrp - sell) / mrp) * 100) : 0;
+                      const grossProfit = sell > 0 && cost > 0 ? sell - cost : 0;
+                      const grossMarginPercent = sell > 0 && cost > 0 ? ((grossProfit / sell) * 100).toFixed(1) : '0.0';
+
+                      return (
+                        <div
+                          className={`p-3.5 rounded-xl border text-xs transition-colors ${
+                            isInvalidMrp
+                              ? 'bg-rose-50/60 dark:bg-rose-950/30 border-rose-300 dark:border-rose-800'
+                              : 'bg-accent/5 border-accent/20'
+                          }`}
+                        >
+                          {isInvalidMrp ? (
+                            <div className="flex items-center gap-2 text-rose-700 dark:text-rose-400 font-semibold">
+                              <AlertTriangle className="w-4 h-4 shrink-0" />
+                              <span>
+                                Notice: Original M.R.P. (₹{mrp.toFixed(2)}) is lower than Selling Price (₹{sell.toFixed(2)}). Strikethrough M.R.P. must be higher than or equal to the selling price.
+                              </span>
+                            </div>
+                          ) : (
+                            <div className="flex flex-wrap items-center justify-between gap-3">
+                              <div className="flex items-center gap-3 flex-wrap">
+                                <span className="text-muted font-medium">Customer Checkout:</span>
+                                <span className="font-extrabold text-primary text-sm">
+                                  ₹{sell.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                </span>
+                                {hasDiscount && (
+                                  <>
+                                    <span className="line-through text-muted font-mono">
+                                      ₹{mrp.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                    </span>
+                                    <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400">
+                                      Save ₹{discountAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })} ({discountPercent}% OFF)
+                                    </span>
+                                  </>
+                                )}
+                              </div>
+                              {cost > 0 && sell > 0 && (
+                                <div className="flex items-center gap-2 font-mono text-[11px] text-muted">
+                                  <span>Gross Margin:</span>
+                                  <span className={`font-bold ${grossProfit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                    ₹{grossProfit.toLocaleString('en-IN', { minimumFractionDigits: 2 })} ({grossMarginPercent}%)
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
 
                     <div className="grid grid-cols-2 gap-3">
                       <div>
@@ -1988,7 +2152,7 @@ export default function AdminProductsPage() {
                             {formState.variants.map((v, idx) => (
                               <div
                                 key={v.id}
-                                className="p-3 bg-surface-dim/50 rounded-xl border border-border grid grid-cols-1 sm:grid-cols-6 gap-2 items-center"
+                                className="p-3 bg-surface-dim/50 rounded-xl border border-border grid grid-cols-1 sm:grid-cols-7 gap-2 items-center"
                               >
                                 <div>
                                   <label className="text-[10px] font-bold text-muted uppercase">Option Name</label>
@@ -2019,7 +2183,7 @@ export default function AdminProductsPage() {
                                 </div>
 
                                 <div>
-                                  <label className="text-[10px] font-bold text-muted uppercase">Price (₹)</label>
+                                  <label className="text-[10px] font-bold text-muted uppercase">Selling (₹)</label>
                                   <input
                                     type="number"
                                     value={v.priceRupees}
@@ -2028,7 +2192,23 @@ export default function AdminProductsPage() {
                                       copy[idx].priceRupees = e.target.value;
                                       setFormState({ ...formState, variants: copy });
                                     }}
+                                    placeholder="2400"
                                     className="w-full px-2 py-1 bg-surface border border-border rounded text-[11px] font-bold"
+                                  />
+                                </div>
+
+                                <div>
+                                  <label className="text-[10px] font-bold text-muted uppercase">M.R.P. (₹)</label>
+                                  <input
+                                    type="number"
+                                    value={v.comparePriceRupees}
+                                    onChange={(e) => {
+                                      const copy = [...formState.variants];
+                                      copy[idx].comparePriceRupees = e.target.value;
+                                      setFormState({ ...formState, variants: copy });
+                                    }}
+                                    placeholder="2800"
+                                    className="w-full px-2 py-1 bg-surface border border-border rounded text-[11px]"
                                   />
                                 </div>
 

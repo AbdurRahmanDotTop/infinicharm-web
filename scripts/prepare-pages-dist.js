@@ -696,6 +696,55 @@ function makeOrdersSyncCookies() {
 function makeDeletedOrdersCookie() {
   return 'infinicharm_deleted_orders=' + encodeURIComponent(JSON.stringify([...deletedOrderIds])) + '; Path=/; Max-Age=2592000; SameSite=Lax; Secure';
 }
+
+const productsStore = new Map();
+PRODUCTS.forEach(p => {
+  if (p && p.id) productsStore.set(p.id, p);
+});
+const deletedProductIds = new Set();
+
+function syncProductsFromCookie(request) {
+  const deletedCookie = getCookie(request, 'infinicharm_deleted_products');
+  if (deletedCookie) {
+    try {
+      const parsed = JSON.parse(decodeURIComponent(deletedCookie));
+      if (Array.isArray(parsed)) {
+        for (const id of parsed) {
+          if (id) {
+            deletedProductIds.add(id);
+            productsStore.delete(id);
+          }
+        }
+      }
+    } catch {}
+  }
+
+  const productsCookie = getCookie(request, 'infinicharm_products_cache');
+  if (productsCookie) {
+    try {
+      const parsed = JSON.parse(decodeURIComponent(productsCookie));
+      if (Array.isArray(parsed)) {
+        for (const cp of parsed) {
+          if (cp && cp.id) {
+            if (deletedProductIds.has(cp.id)) continue;
+            const existing = productsStore.get(cp.id);
+            const merged = existing ? { ...existing, ...cp } : cp;
+            productsStore.set(cp.id, merged);
+          }
+        }
+      }
+    } catch {}
+  }
+}
+
+function makeProductsSyncCookies() {
+  const activeProducts = Array.from(productsStore.values()).filter(p => !deletedProductIds.has(p.id));
+  return 'infinicharm_products_cache=' + encodeURIComponent(JSON.stringify(activeProducts)) + '; Path=/; Max-Age=2592000; SameSite=Lax; Secure';
+}
+
+function makeDeletedProductsCookie() {
+  return 'infinicharm_deleted_products=' + encodeURIComponent(JSON.stringify([...deletedProductIds])) + '; Path=/; Max-Age=2592000; SameSite=Lax; Secure';
+}
 const couponsStore = [...COUPONS];
 const emailTemplatesStore = [...EMAIL_TEMPLATES];
 const mediaAssetsStore = [...MEDIA_ASSETS];
@@ -1046,7 +1095,7 @@ function getAuthenticatedCustomer(request) {
   if (!Array.isArray(cust.addresses)) cust.addresses = [];
   if (!Array.isArray(cust.wishlistProductIds)) cust.wishlistProductIds = [];
   try {
-    const validIds = new Set(PRODUCTS.filter(p => p.status === 'PUBLISHED').map(p => p.id));
+    const validIds = new Set(Array.from(productsStore.values()).filter(p => !deletedProductIds.has(p.id) && p.status === 'PUBLISHED').map(p => p.id));
     cust.wishlistProductIds = cust.wishlistProductIds.filter(id => validIds.has(id));
   } catch {}
   if (!cust.preferences) {
@@ -2339,7 +2388,7 @@ async function handleApi(request, url, env) {
     if (method === 'GET') {
       const uniqueOrders = Array.from(new Map([...ordersStore.values()].map(o => [o.orderNumber || o.id, o])).values());
       const customerOrders = uniqueOrders.filter(o => isOrderOwnedByCustomerEdge(o, customer));
-      const validProductIds = new Set(PRODUCTS.filter(p => p.status === 'PUBLISHED').map(p => p.id));
+      const validProductIds = new Set(Array.from(productsStore.values()).filter(p => !deletedProductIds.has(p.id) && p.status === 'PUBLISHED').map(p => p.id));
       const cleanWishlist = (customer.wishlistProductIds || []).filter(id => validProductIds.has(id));
       customer.wishlistProductIds = cleanWishlist;
 
@@ -4825,25 +4874,245 @@ async function handleApi(request, url, env) {
     return json({ success: true, category: cat });
   }
 
-  // /api/products
-  if (p === '/api/products') {
-    const category = url.searchParams.get('category');
-    const query = url.searchParams.get('q')?.toLowerCase();
-    const admin = url.searchParams.get('admin') === 'true';
-    let list = admin ? PRODUCTS : PRODUCTS.filter(pr => pr.status === 'PUBLISHED');
-    if (category) {
-      list = list.filter(pr => pr.categoryId === category || pr.categorySlug === category);
+  // /api/products & /api/admin/products (Collection: GET, POST, PATCH)
+  if (p === '/api/products' || p === '/api/admin/products') {
+    syncProductsFromCookie(request);
+
+    // GET: List products
+    if (method === 'GET') {
+      const category = url.searchParams.get('category');
+      const query = url.searchParams.get('q')?.toLowerCase();
+      const admin = url.searchParams.get('admin') === 'true' || p.startsWith('/api/admin/');
+      const status = url.searchParams.get('status');
+      const featured = url.searchParams.get('featured') === 'true';
+
+      let list = Array.from(productsStore.values()).filter(pr => !deletedProductIds.has(pr.id));
+      if (!admin) {
+        list = list.filter(pr => pr.status === 'PUBLISHED');
+      } else if (status && status !== 'ALL') {
+        list = list.filter(pr => pr.status === status);
+      }
+      if (category && category !== 'ALL') {
+        list = list.filter(pr => pr.categoryId === category || pr.categorySlug === category);
+      }
+      if (query && query.trim()) {
+        list = list.filter(pr =>
+          (pr.title && pr.title.toLowerCase().includes(query)) ||
+          (pr.shortDescription && pr.shortDescription.toLowerCase().includes(query)) ||
+          (pr.brand && pr.brand.toLowerCase().includes(query)) ||
+          (pr.originRegion && pr.originRegion.toLowerCase().includes(query)) ||
+          (pr.variants || []).some(v => v.sku?.toLowerCase().includes(query))
+        );
+      }
+      if (featured) {
+        list = list.filter(pr => pr.isFeatured);
+      }
+      return json({ success: true, count: list.length, products: list });
     }
-    if (query) {
-      list = list.filter(pr => pr.title.toLowerCase().includes(query) || (pr.description && pr.description.toLowerCase().includes(query)));
+
+    // POST: Create product
+    if (method === 'POST') {
+      const body = await request.clone().json().catch(() => ({}));
+      if (!body.title || !body.title.trim()) {
+        return json({ success: false, error: 'Product title is required.' }, 400);
+      }
+      const title = body.title.trim();
+      const slug = body.slug?.trim() || title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '') + '-' + Date.now().toString().slice(-4);
+      const id = body.id || 'prod-custom-' + Date.now();
+      const priceInPaise = Math.round(Number(body.priceInPaise || (body.sellingPriceRupees || body.priceRupees || 299) * 100));
+      const compareAtPriceInPaise = body.compareAtPriceInPaise !== undefined 
+        ? body.compareAtPriceInPaise 
+        : (body.mrpPriceRupees || body.comparePriceRupees ? Math.round(Number(body.mrpPriceRupees || body.comparePriceRupees) * 100) : undefined);
+      const costPriceInPaise = body.costPriceInPaise !== undefined
+        ? body.costPriceInPaise
+        : (body.costPriceRupees ? Math.round(Number(body.costPriceRupees) * 100) : undefined);
+      const stockQuantity = Math.max(0, Number(body.stockQuantity || body.stock || 50));
+      const now = new Date().toISOString();
+
+      const newProduct = {
+        ...body,
+        id,
+        title,
+        slug,
+        status: body.status || 'PUBLISHED',
+        brand: body.brand || 'InfiniCharm',
+        categoryId: body.categoryId || 'cat-honey',
+        originCountry: body.originCountry || 'India',
+        originRegion: body.originRegion || 'East Champaran, Bihar',
+        shortDescription: body.shortDescription || title,
+        fullDescription: body.fullDescription || body.shortDescription || title,
+        variants: body.variants && body.variants.length > 0 ? body.variants : [
+          {
+            id: 'var-' + id + '-primary',
+            productId: id,
+            sku: body.sku || 'INF-' + id.toUpperCase().slice(-8),
+            title: body.variantTitle || 'Standard Pack',
+            priceInPaise,
+            compareAtPriceInPaise,
+            costPriceInPaise,
+            stockQuantity,
+            lowStockThreshold: 10,
+            weightInGrams: body.weightInGrams || 500,
+            isActive: true,
+          }
+        ],
+        media: body.media && body.media.length > 0 ? body.media : [
+          {
+            id: 'med-' + id + '-1',
+            provider: 'EXTERNAL_HTTPS',
+            externalUrl: body.mediaUrl || 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?auto=format&fit=crop&w=800&q=80',
+            mimeType: 'image/jpeg',
+            altText: title,
+            role: 'PRIMARY',
+            displayOrder: 1,
+            isActive: true,
+          }
+        ],
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      deletedProductIds.delete(id);
+      productsStore.set(id, newProduct);
+      return jsonWithCookies({ success: true, product: newProduct }, 201, [makeProductsSyncCookies()]);
     }
-    return json({ success: true, count: list.length, products: list });
+
+    // PATCH: Bulk Actions
+    if (method === 'PATCH') {
+      const body = await request.clone().json().catch(() => ({}));
+      if (body.action === 'BULK_ACTION') {
+        const { ids, bulkAction } = body;
+        if (!Array.isArray(ids) || ids.length === 0 || !['PUBLISH', 'DRAFT', 'DELETE'].includes(bulkAction)) {
+          return json({ success: false, error: 'Valid ids array and bulkAction (PUBLISH|DRAFT|DELETE) are required' }, 400);
+        }
+        let affectedCount = 0;
+        const now = new Date().toISOString();
+        const cookies = [];
+
+        if (bulkAction === 'DELETE') {
+          for (const id of ids) {
+            if (productsStore.has(id)) {
+              productsStore.delete(id);
+              deletedProductIds.add(id);
+              affectedCount++;
+            }
+          }
+          cookies.push(makeProductsSyncCookies(), makeDeletedProductsCookie());
+        } else {
+          const targetStatus = bulkAction === 'PUBLISH' ? 'PUBLISHED' : 'DRAFT';
+          for (const id of ids) {
+            const prod = productsStore.get(id);
+            if (prod) {
+              prod.status = targetStatus;
+              prod.updatedAt = now;
+              productsStore.set(id, prod);
+              affectedCount++;
+            }
+          }
+          cookies.push(makeProductsSyncCookies());
+        }
+        return jsonWithCookies({ success: true, count: affectedCount, action: bulkAction, message: 'Successfully updated ' + affectedCount + ' product(s).' }, 200, cookies);
+      }
+    }
   }
-  if (p.startsWith('/api/products/')) {
-    const slugOrId = decodeURIComponent(p.replace('/api/products/', ''));
-    const product = PRODUCTS.find(pr => pr.id === slugOrId || pr.slug === slugOrId);
-    if (!product) return json({ success: false, error: 'Product not found' }, 404);
-    return json({ success: true, product });
+
+  // Single Product Routes: /api/products/:id and /api/admin/products/:id
+  if (p.startsWith('/api/products/') || p.startsWith('/api/admin/products/')) {
+    syncProductsFromCookie(request);
+    const prefix = p.startsWith('/api/admin/products/') ? '/api/admin/products/' : '/api/products/';
+    const slugOrId = decodeURIComponent(p.replace(prefix, ''));
+    let product = productsStore.get(slugOrId) || [...productsStore.values()].find(pr => !deletedProductIds.has(pr.id) && (pr.id === slugOrId || pr.slug === slugOrId));
+
+    // GET
+    if (method === 'GET') {
+      if (!product || deletedProductIds.has(product.id)) {
+        return json({ success: false, error: 'Product not found' }, 404);
+      }
+      const admin = url.searchParams.get('admin') === 'true' || p.startsWith('/api/admin/');
+      if (!admin && product.status !== 'PUBLISHED') {
+        return json({ success: false, error: 'Product not found' }, 404);
+      }
+      return json({ success: true, product });
+    }
+
+    // DELETE
+    if (method === 'DELETE') {
+      if (!product) {
+        return json({ success: false, error: 'Product ' + slugOrId + ' not found.' }, 404);
+      }
+      productsStore.delete(product.id);
+      deletedProductIds.add(product.id);
+      return jsonWithCookies({ success: true, message: 'Product ' + product.id + ' deleted successfully.' }, 200, [makeProductsSyncCookies(), makeDeletedProductsCookie()]);
+    }
+
+    // PATCH / PUT
+    if (method === 'PATCH' || method === 'PUT') {
+      const body = await request.clone().json().catch(() => ({}));
+      const action = body.action || 'UPDATE_PRODUCT';
+
+      // 1. Stock Adjustment
+      if (action === 'UPDATE_STOCK') {
+        if (!product) return json({ success: false, error: 'Product ' + slugOrId + ' not found.' }, 404);
+        const { variantId, delta } = body;
+        const vIdx = (product.variants || []).findIndex(v => v.id === variantId);
+        if (vIdx === -1) return json({ success: false, error: 'Variant not found' }, 404);
+        const curStock = product.variants[vIdx].stockQuantity || 0;
+        const newStock = Math.max(0, curStock + (Number(delta) || 0));
+        product.variants[vIdx].stockQuantity = newStock;
+        product.updatedAt = new Date().toISOString();
+        productsStore.set(product.id, product);
+        return jsonWithCookies({ success: true, product, newStock }, 200, [makeProductsSyncCookies()]);
+      }
+
+      // 2. Toggle Status (PUBLISHED <-> DRAFT)
+      if (action === 'TOGGLE_STATUS') {
+        if (!product) return json({ success: false, error: 'Product ' + slugOrId + ' not found.' }, 404);
+        product.status = product.status === 'PUBLISHED' ? 'DRAFT' : 'PUBLISHED';
+        product.updatedAt = new Date().toISOString();
+        productsStore.set(product.id, product);
+        return jsonWithCookies({ success: true, product }, 200, [makeProductsSyncCookies()]);
+      }
+
+      // 3. Duplicate Product
+      if (action === 'DUPLICATE') {
+        if (!product) return json({ success: false, error: 'Product ' + slugOrId + ' not found.' }, 404);
+        const now = new Date().toISOString();
+        const timestamp = Date.now();
+        const randomSuffix = Math.floor(Math.random() * 1000);
+        const newId = 'prod-copy-' + timestamp;
+        const newSlug = product.slug + '-copy-' + timestamp.toString().slice(-4);
+        const clonedProduct = {
+          ...product,
+          id: newId,
+          slug: newSlug,
+          title: product.title + ' (Copy)',
+          status: 'DRAFT',
+          baseSku: product.baseSku ? product.baseSku + '-COPY' : undefined,
+          variants: (product.variants || []).map((v, idx) => ({
+            ...v,
+            id: 'var-' + timestamp + '-' + (idx + 1),
+            productId: newId,
+            sku: (v.sku || 'SKU') + '-COPY-' + randomSuffix,
+          })),
+          createdAt: now,
+          updatedAt: now,
+        };
+        productsStore.set(newId, clonedProduct);
+        deletedProductIds.delete(newId);
+        return jsonWithCookies({ success: true, product: clonedProduct }, 201, [makeProductsSyncCookies()]);
+      }
+
+      // 4. Full / Partial Update
+      if (!product) return json({ success: false, error: 'Product ' + slugOrId + ' not found.' }, 404);
+      const updatedProduct = {
+        ...product,
+        ...body,
+        id: product.id,
+        updatedAt: new Date().toISOString(),
+      };
+      productsStore.set(product.id, updatedProduct);
+      return jsonWithCookies({ success: true, product: updatedProduct }, 200, [makeProductsSyncCookies()]);
+    }
   }
 
   // /api/homepage/sections
@@ -4976,7 +5245,8 @@ async function handleApi(request, url, env) {
     }).length;
 
     // Resolve authoritative product prices & categories
-    const productMap = new Map(PRODUCTS.map((p) => [p.id, p]));
+    syncProductsFromCookie(request);
+    const productMap = new Map(Array.from(productsStore.values()).filter(p => !deletedProductIds.has(p.id)).map((p) => [p.id, p]));
     const categorySlugById = new Map(CATEGORIES.map((c) => [c.id, c.slug]));
 
     const resolvedItems = rawItems.map((item) => {
