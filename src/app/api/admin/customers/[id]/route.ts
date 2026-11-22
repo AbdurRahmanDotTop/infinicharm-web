@@ -125,12 +125,9 @@ export async function DELETE(
       return NextResponse.json({ success: false, error: 'Customer not found or already deleted.' }, { status: 404 });
     }
 
-    if (
-      isSuperAdminAccount(targetCustomer) ||
-      targetCustomer.role === 'ADMIN'
-    ) {
+    if (isSuperAdminAccount(targetCustomer)) {
       return NextResponse.json(
-        { success: false, error: 'Protected Super Administrator and administrator accounts cannot be deleted.' },
+        { success: false, error: 'Protected Super Administrator account cannot be deleted.' },
         { status: 403 }
       );
     }

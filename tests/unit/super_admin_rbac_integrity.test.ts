@@ -1,5 +1,8 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   getServerCustomers,
   getServerCustomerById,
@@ -8,6 +11,10 @@ import {
   deleteCustomer,
   bulkUpdateCustomers,
 } from '../../src/lib/server/customers-store.ts';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const customersJsonPath = path.resolve(__dirname, '../../src/data/customers.json');
 
 describe('Super Admin Identity & Role Integrity Suite', () => {
   test('authoritative Super Admin account is usr-admin-01 with admin@infinicharm.com and SUPER_ADMIN role', () => {
@@ -54,17 +61,30 @@ describe('Super Admin Identity & Role Integrity Suite', () => {
       () => {
         deleteCustomer('usr-admin-01');
       },
-      /Protected Super Administrator and founder accounts cannot be deleted/i
+      /Protected Super Administrator account cannot be deleted/i
     );
   });
 
-  test('Root Founder account cust-founder-01 cannot be deleted', () => {
+  test('Super Admin has full CRUD authority to delete non-super admin users including cust-founder-01', () => {
+    // Only the primary Super Administrator account is protected
     assert.throws(
       () => {
-        deleteCustomer('cust-founder-01');
+        deleteCustomer('usr-admin-01');
       },
-      /Protected Super Administrator and founder accounts cannot be deleted/i
+      /Protected Super Administrator account cannot be deleted/i
     );
+
+    // Save exact customers fixture snapshot
+    const snapshot = fs.readFileSync(customersJsonPath, 'utf8');
+    try {
+      // Deleting cust-founder-01 succeeds without throwing error or 403
+      const deleted = deleteCustomer('cust-founder-01');
+      assert.equal(deleted, true);
+      assert.equal(getServerCustomerById('cust-founder-01'), null, 'cust-founder-01 must be deleted from active store');
+    } finally {
+      // Restore customers fixture snapshot so all other tests have authentic data
+      fs.writeFileSync(customersJsonPath, snapshot, 'utf8');
+    }
   });
 
   test('getServerCustomerById resolves user by either ID or email', () => {
