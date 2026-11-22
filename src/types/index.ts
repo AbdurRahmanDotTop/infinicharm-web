@@ -163,6 +163,7 @@ export interface Product {
   fssaiLicenseNumber?: string;
   isFeatured: boolean;
   isNewArrival: boolean;
+  displayOrder?: number;
   customBadge?: string;
   customShippingText?: string;
   customGuaranteeText?: string;
@@ -966,6 +967,7 @@ export interface NotificationDeliveryLog {
 
 export type HomepageSectionType =
   | 'hero'
+  | 'best_sellers'
   | 'categories'
   | 'departments'
   | 'flash_deals'
@@ -1019,11 +1021,23 @@ export interface SourcingCenterCardItem {
 }
 
 export interface HomepageSectionConfig {
-  selectionMode?: 'manual' | 'category';
+  selectionMode?: 'manual' | 'category' | 'sales';
   selectedProductIds?: string[];
   selectedCategoryId?: string;
   productLimit?: number;
-  sortBy?: 'featured' | 'newest' | 'price_low_high' | 'price_high_low' | 'discount';
+  buttonText?: string;
+  sortBy?: 'featured' | 'newest' | 'price_low_high' | 'price_high_low' | 'discount' | 'sales';
+  categories?: Array<{
+    id: string;
+    name: string;
+    slug: string;
+    imageUrl?: string;
+    badge?: string;
+    tagline?: string;
+    description?: string;
+    linkUrl?: string;
+  }>;
+  selectedCategoryIds?: string[];
   featuredTagline?: string;
   discountHighlight?: string;
   bundleHighlight?: string;

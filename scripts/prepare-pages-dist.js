@@ -745,6 +745,46 @@ function makeProductsSyncCookies() {
 function makeDeletedProductsCookie() {
   return 'infinicharm_deleted_products=' + encodeURIComponent(JSON.stringify([...deletedProductIds])) + '; Path=/; Max-Age=2592000; SameSite=Lax; Secure';
 }
+
+let homepageSectionsStore = JSON.parse(JSON.stringify(HOMEPAGE_SECTIONS));
+const deletedSectionIds = new Set();
+
+function syncHomepageSectionsFromCookie(request) {
+  const deletedCookie = getCookie(request, 'infinicharm_deleted_sections');
+  if (deletedCookie) {
+    try {
+      const parsed = JSON.parse(decodeURIComponent(deletedCookie));
+      if (Array.isArray(parsed)) {
+        for (const id of parsed) {
+          if (id) {
+            deletedSectionIds.add(id);
+            homepageSectionsStore = homepageSectionsStore.filter(s => s.id !== id);
+          }
+        }
+      }
+    } catch {}
+  }
+
+  const sectionsCookie = getCookie(request, 'infinicharm_homepage_cache');
+  if (sectionsCookie) {
+    try {
+      const parsed = JSON.parse(decodeURIComponent(sectionsCookie));
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        homepageSectionsStore = parsed.filter(s => !deletedSectionIds.has(s.id));
+      }
+    } catch {}
+  }
+}
+
+function makeHomepageSyncCookies() {
+  const activeSections = homepageSectionsStore.filter(s => !deletedSectionIds.has(s.id));
+  return 'infinicharm_homepage_cache=' + encodeURIComponent(JSON.stringify(activeSections)) + '; Path=/; Max-Age=2592000; SameSite=Lax; Secure';
+}
+
+function makeDeletedSectionsCookie() {
+  return 'infinicharm_deleted_sections=' + encodeURIComponent(JSON.stringify([...deletedSectionIds])) + '; Path=/; Max-Age=2592000; SameSite=Lax; Secure';
+}
+
 const couponsStore = [...COUPONS];
 const emailTemplatesStore = [...EMAIL_TEMPLATES];
 const mediaAssetsStore = [...MEDIA_ASSETS];
@@ -5115,11 +5155,169 @@ async function handleApi(request, url, env) {
     }
   }
 
-  // /api/homepage/sections
+  // /api/products/best-sellers
+  if (p === '/api/products/best-sellers') {
+    syncOrdersFromCookie(request);
+    syncProductsFromCookie(request);
+    const limitParam = url.searchParams.get('limit');
+    const limit = limitParam ? Math.max(1, Math.min(parseInt(limitParam, 10) || 99, 99)) : 99;
+
+    // Filter genuine orders excluding cancelled/refunded/failed
+    const validOrders = Array.from(ordersStore.values()).filter(o => {
+      const status = String(o.status || '').toUpperCase();
+      const pStatus = String(o.paymentStatus || '').toUpperCase();
+      if (['CANCELLED', 'REFUNDED', 'PAYMENT_FAILED', 'PAYMENT_NOT_RECEIVED'].includes(status)) return false;
+      if (['FAILED', 'REFUNDED'].includes(pStatus)) return false;
+      return true;
+    });
+
+    const salesMetrics = {};
+    for (const order of validOrders) {
+      for (const item of (order.items || [])) {
+        if (!item.productId) continue;
+        const qty = Math.max(0, Math.round(Number(item.quantity || 0)));
+        if (qty <= 0) continue;
+        const price = Number(item.unitPriceInPaise || item.priceInPaise) || 0;
+        if (!salesMetrics[item.productId]) {
+          salesMetrics[item.productId] = { unitsSold: 0, revenueInPaise: 0, orderCount: 0 };
+        }
+        salesMetrics[item.productId].unitsSold += qty;
+        salesMetrics[item.productId].revenueInPaise += price * qty;
+        salesMetrics[item.productId].orderCount += 1;
+      }
+    }
+
+    const published = Array.from(productsStore.values())
+      .filter(pr => !deletedProductIds.has(pr.id) && pr.status === 'PUBLISHED')
+      .sort((a, b) => {
+        const unitsA = salesMetrics[a.id]?.unitsSold || 0;
+        const unitsB = salesMetrics[b.id]?.unitsSold || 0;
+        if (unitsB !== unitsA) return unitsB - unitsA;
+        const orderA = a.displayOrder !== undefined ? a.displayOrder : 999;
+        const orderB = b.displayOrder !== undefined ? b.displayOrder : 999;
+        if (orderA !== orderB) return orderA - orderB;
+        return a.id.localeCompare(b.id);
+      })
+      .slice(0, limit);
+
+    return json({
+      success: true,
+      count: published.length,
+      products: published,
+      salesMetrics,
+    });
+  }
+
+  // /api/homepage/sections/reorder
+  if (p === '/api/homepage/sections/reorder') {
+    syncHomepageSectionsFromCookie(request);
+    if (method === 'POST') {
+      const body = await parseJson(request);
+      const orderedIds = body.orderedIds;
+      if (!Array.isArray(orderedIds)) {
+        return json({ success: false, error: 'orderedIds array required' }, 400);
+      }
+      const sectionMap = new Map();
+      homepageSectionsStore.forEach(s => sectionMap.set(s.id, s));
+      const reordered = [];
+      orderedIds.forEach((id, idx) => {
+        const sec = sectionMap.get(id);
+        if (sec) {
+          reordered.push({ ...sec, displayOrder: idx + 1, updatedAt: new Date().toISOString() });
+          sectionMap.delete(id);
+        }
+      });
+      sectionMap.forEach(sec => {
+        reordered.push({ ...sec, displayOrder: reordered.length + 1 });
+      });
+      homepageSectionsStore = reordered;
+      return jsonWithCookies({ success: true, sections: homepageSectionsStore }, 200, [makeHomepageSyncCookies()]);
+    }
+  }
+
+  // /api/homepage/sections (Collection GET & POST)
   if (p === '/api/homepage/sections') {
-    const onlyEnabled = url.searchParams.get('onlyEnabled') === 'true';
-    const list = onlyEnabled ? HOMEPAGE_SECTIONS.filter(s => s.isEnabled) : HOMEPAGE_SECTIONS;
-    return json({ success: true, count: list.length, sections: list });
+    syncHomepageSectionsFromCookie(request);
+
+    if (method === 'GET') {
+      const onlyEnabled = url.searchParams.get('onlyEnabled') === 'true';
+      const list = (onlyEnabled ? homepageSectionsStore.filter(s => s.isEnabled) : homepageSectionsStore)
+        .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
+      return json({ success: true, count: list.length, sections: list });
+    }
+
+    if (method === 'POST') {
+      const body = await parseJson(request);
+      if (!body.title || !body.type) {
+        return json({ success: false, error: 'Title and type are required' }, 400);
+      }
+      const newSection = {
+        id: 'sec-custom-' + Date.now(),
+        type: body.type,
+        title: body.title.trim(),
+        subtitle: body.subtitle ? body.subtitle.trim() : '',
+        badge: body.badge ? body.badge.trim() : '',
+        ctaText: body.ctaText ? body.ctaText.trim() : '',
+        ctaLink: body.ctaLink ? body.ctaLink.trim() : '',
+        secondaryCtaText: body.secondaryCtaText ? body.secondaryCtaText.trim() : '',
+        secondaryCtaLink: body.secondaryCtaLink ? body.secondaryCtaLink.trim() : '',
+        imageUrl: body.imageUrl ? body.imageUrl.trim() : '',
+        displayOrder: homepageSectionsStore.length + 1,
+        isEnabled: body.isEnabled !== false,
+        config: body.config || {},
+        updatedAt: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+      };
+      homepageSectionsStore.push(newSection);
+      return jsonWithCookies({ success: true, section: newSection }, 201, [makeHomepageSyncCookies()]);
+    }
+  }
+
+  // /api/homepage/sections/:id (GET, PATCH, DELETE)
+  if (p.startsWith('/api/homepage/sections/')) {
+    syncHomepageSectionsFromCookie(request);
+    const secId = decodeURIComponent(p.replace('/api/homepage/sections/', ''));
+    const index = homepageSectionsStore.findIndex(s => s.id === secId);
+
+    if (method === 'GET') {
+      if (index === -1) {
+        return json({ success: false, error: 'Section not found' }, 404);
+      }
+      return json({ success: true, section: homepageSectionsStore[index] });
+    }
+
+    if (method === 'PATCH') {
+      if (index === -1) {
+        return json({ success: false, error: 'Section not found' }, 404);
+      }
+      const body = await parseJson(request);
+      let updated;
+      if (body.action === 'TOGGLE_ENABLE') {
+        updated = {
+          ...homepageSectionsStore[index],
+          isEnabled: body.isEnabled !== undefined ? Boolean(body.isEnabled) : !homepageSectionsStore[index].isEnabled,
+          updatedAt: new Date().toISOString(),
+        };
+      } else {
+        updated = {
+          ...homepageSectionsStore[index],
+          ...body,
+          id: secId,
+          updatedAt: new Date().toISOString(),
+        };
+      }
+      homepageSectionsStore[index] = updated;
+      return jsonWithCookies({ success: true, section: updated }, 200, [makeHomepageSyncCookies()]);
+    }
+
+    if (method === 'DELETE') {
+      if (index === -1) {
+        return json({ success: false, error: 'Section not found' }, 404);
+      }
+      deletedSectionIds.add(secId);
+      homepageSectionsStore.splice(index, 1);
+      return jsonWithCookies({ success: true, message: 'Section ' + secId + ' deleted.' }, 200, [makeHomepageSyncCookies(), makeDeletedSectionsCookie()]);
+    }
   }
 
   // /api/announcements

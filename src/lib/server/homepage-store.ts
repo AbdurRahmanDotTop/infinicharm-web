@@ -5,7 +5,7 @@
 
 import fs from 'fs';
 import path from 'path';
-import { HomepageSection } from '@/types';
+import type { HomepageSection } from '../../types/index.ts';
 
 function getHomepageFilePath(): string {
   const primaryPath = path.join(process.cwd(), 'src', 'data', 'homepage_sections.json');

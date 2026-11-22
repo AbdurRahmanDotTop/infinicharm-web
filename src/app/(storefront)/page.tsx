@@ -45,6 +45,7 @@ import { getAllBlogPosts } from '@/lib/data/blog';
 import defaultSections from '@/data/homepage_sections.json';
 import { Container } from '@/components/ui/Container';
 import { NewsletterCircleSection } from '@/components/common/NewsletterCircleSection';
+import { ProductCard } from '@/components/shop/ProductCard';
 import { useCart } from '@/lib/context/CartContext';
 import { useWishlist } from '@/lib/context/WishlistContext';
 import { formatPaiseToRupees } from '@/lib/utils/currency';
@@ -73,12 +74,13 @@ export default function HomePage() {
 
   const [allProducts, setAllProducts] = useState<Product[]>(() => getAllProducts());
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>(() => getFeaturedProducts());
+  const [bestSellingProducts, setBestSellingProducts] = useState<Product[]>([]);
   const [liveCategories, setLiveCategories] = useState<Category[]>(() =>
     (CATEGORIES as Category[]).filter((c) => c.isActive !== false)
   );
   const blogPosts = getAllBlogPosts();
 
-  // Sync products, categories, and homepage sections dynamically with server authority
+  // Sync products, categories, orders, and homepage sections dynamically with server authority
   useEffect(() => {
     const syncAll = () => {
       fetch('/api/products')
@@ -90,6 +92,15 @@ export default function HomePage() {
           }
         })
         .catch((err) => console.error('Failed to sync homepage products:', err));
+
+      fetch('/api/products/best-sellers?limit=99')
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success && Array.isArray(data.products)) {
+            setBestSellingProducts(data.products);
+          }
+        })
+        .catch((err) => console.error('Failed to sync best-selling products:', err));
 
       fetch('/api/categories?activeOnly=true', { cache: 'no-store' })
         .then((res) => res.json())
@@ -127,12 +138,14 @@ export default function HomePage() {
 
     const handleUpdate = () => syncAll();
     window.addEventListener('infinicharm_products_updated', handleUpdate);
+    window.addEventListener('infinicharm_orders_updated', handleUpdate);
     window.addEventListener('infinicharm_categories_updated', handleUpdate);
     window.addEventListener('infinicharm_sections_updated', handleUpdate);
     window.addEventListener('infinicharm_reviews_updated', handleUpdate);
     window.addEventListener('storage', handleUpdate);
     return () => {
       window.removeEventListener('infinicharm_products_updated', handleUpdate);
+      window.removeEventListener('infinicharm_orders_updated', handleUpdate);
       window.removeEventListener('infinicharm_categories_updated', handleUpdate);
       window.removeEventListener('infinicharm_sections_updated', handleUpdate);
       window.removeEventListener('infinicharm_reviews_updated', handleUpdate);
@@ -176,7 +189,13 @@ export default function HomePage() {
         }
       }
 
-      // 3. Smart Domain-Aware Fallback
+      // 3. Best-Selling Products Dynamic Sales Ranking Mode
+      if (sec.type === 'best_sellers') {
+        const pool = bestSellingProducts.length > 0 ? bestSellingProducts : published;
+        return pool.slice(0, limit);
+      }
+
+      // 4. Smart Domain-Aware Fallback
       if (sec.type === 'kirana_packs') {
         const essentials = published.filter((p) =>
           ['cat-honey', 'cat-zamzam-water', 'cat-takmeeli-talbeena', 'cat-premium-dates'].includes(
@@ -197,7 +216,7 @@ export default function HomePage() {
 
       return published.slice(0, limit);
     },
-    [allProducts]
+    [allProducts, bestSellingProducts]
   );
 
   const handleQuickAdd = (product: Product, e: React.MouseEvent) => {
@@ -551,8 +570,67 @@ export default function HomePage() {
   );
 };
 
+  // 1.5 Best-Selling Products Section (Dynamic Sales Ranking Authority)
+  const renderBestSellers = (sec: HomepageSection) => {
+    const products = getSectionProducts(sec, sec.config?.productLimit || 99);
+    const ctaButtonText = sec.config?.buttonText || 'Add to Bag';
+
+    return (
+      <section key={sec.id} className="w-full py-16 bg-surface border-y border-border">
+        <Container className="px-3 sm:px-6 lg:px-8">
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
+            <div>
+              <span className="font-mono text-[11px] uppercase tracking-widest text-accent font-bold">
+                {sec.badge || 'TOP RATED & MOST LOVED'}
+              </span>
+              <h2 className="font-display text-2xl sm:text-3xl font-extrabold text-primary mt-1">
+                {sec.title}
+              </h2>
+              {sec.subtitle && (
+                <p className="text-xs text-muted mt-1 max-w-xl">{sec.subtitle}</p>
+              )}
+            </div>
+            <Link
+              href={sec.ctaLink || '/shop'}
+              className="text-xs font-bold text-accent hover:text-accent-hover flex items-center gap-1 transition-colors self-start sm:self-auto shrink-0"
+            >
+              <span>{sec.ctaText || 'View All Bestsellers'}</span>
+              <ChevronRight className="w-4 h-4" />
+            </Link>
+          </div>
+
+          {products.length === 0 ? (
+            <div className="p-12 text-center bg-surface-dim rounded-2xl border border-border">
+              <ShoppingBag className="w-8 h-8 mx-auto mb-2 text-muted" />
+              <h3 className="font-bold text-primary text-sm">No Best-Selling Products Recorded</h3>
+              <p className="text-xs text-muted mt-1">
+                Customer favorites dynamically ranked by sales performance will appear here.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+              {products.map((product) => (
+                <ProductCard
+                  key={product.id}
+                  product={product}
+                  ctaText={ctaButtonText}
+                />
+              ))}
+            </div>
+          )}
+        </Container>
+      </section>
+    );
+  };
+
   // 2. Categories Carousel / Grid (Dynamic from Server / Admin Authority)
-  const renderCategories = (sec: HomepageSection) => (
+  const renderCategories = (sec: HomepageSection) => {
+    const categoriesToRender =
+      Array.isArray(sec.config?.categories) && sec.config.categories.length > 0
+        ? sec.config.categories
+        : liveCategories;
+
+    return (
     <section key={sec.id} className="w-full py-16 bg-canvas">
       <Container className="px-3 sm:px-6 lg:px-8">
         <div className="flex items-end justify-between mb-8">
@@ -577,18 +655,18 @@ export default function HomePage() {
         </div>
 
         {/* Dynamic Category Grid: Renders exactly as many categories as active in Admin */}
-        {liveCategories.length === 0 ? (
+        {categoriesToRender.length === 0 ? (
           <div className="p-12 text-center bg-surface rounded-2xl border border-border">
             <Layers className="w-8 h-8 mx-auto mb-2 text-muted" />
             <h3 className="font-bold text-primary text-sm">No Active Categories</h3>
             <p className="text-xs text-muted mt-1">Active categories configured in the Admin Panel will appear here.</p>
           </div>
         ) : (
-          <div className={`grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 ${liveCategories.length <= 5 ? 'lg:grid-cols-5' : 'lg:grid-cols-4 xl:grid-cols-7'} gap-3 sm:gap-4`}>
-            {liveCategories.map((cat) => (
+          <div className={`grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 ${categoriesToRender.length <= 5 ? 'lg:grid-cols-5' : 'lg:grid-cols-4 xl:grid-cols-7'} gap-3 sm:gap-4`}>
+            {categoriesToRender.map((cat: any) => (
               <Link
                 key={cat.id}
-                href={`/shop?category=${cat.slug}`}
+                href={cat.linkUrl || `/shop?category=${cat.slug}`}
                 className="group bg-surface p-3 rounded-2xl border border-border shadow-xs hover:shadow-level-2 hover:border-accent/40 transition-all duration-300 flex flex-col items-center text-center"
               >
                 <div className="w-full aspect-square rounded-xl overflow-hidden bg-surface-dim mb-3 relative">
@@ -618,6 +696,7 @@ export default function HomePage() {
       </Container>
     </section>
   );
+};
 
   // 3. Flash Deals
   const renderFlashDeals = (sec: HomepageSection) => (
@@ -1358,6 +1437,8 @@ export default function HomePage() {
     switch (sec.type) {
       case 'hero':
         return renderHero(sec);
+      case 'best_sellers':
+        return renderBestSellers(sec);
       case 'categories':
       case 'departments':
         return renderCategories(sec);

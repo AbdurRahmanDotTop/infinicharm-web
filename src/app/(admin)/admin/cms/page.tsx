@@ -133,10 +133,12 @@ export default function AdminCmsPage() {
 
   // Dynamic Product Selection Controller States
   const [catalogueProducts, setCatalogueProducts] = useState<Product[]>([]);
-  const [secSelectionMode, setSecSelectionMode] = useState<'manual' | 'category'>('manual');
+  const [secSelectionMode, setSecSelectionMode] = useState<'manual' | 'category' | 'sales'>('sales');
   const [secSelectedProductIds, setSecSelectedProductIds] = useState<string[]>([]);
   const [secSelectedCategoryId, setSecSelectedCategoryId] = useState<string>('cat-honey');
   const [secProductLimit, setSecProductLimit] = useState<number>(4);
+  const [secButtonText, setSecButtonText] = useState('Add to Bag');
+  const [secCategories, setSecCategories] = useState<any[]>([]);
   const [productSearchTerm, setProductSearchTerm] = useState('');
 
   // Dynamic Spotlight & Origin Highlights Section States
@@ -610,10 +612,38 @@ export default function AdminCmsPage() {
 
     // Initialize Product Assignment Config
     const cfg = section.config || {};
-    setSecSelectionMode(cfg.selectionMode || (section.type === 'kirana_packs' ? 'manual' : 'category'));
+    setSecSelectionMode(
+      cfg.selectionMode ||
+        (section.type === 'best_sellers'
+          ? 'sales'
+          : section.type === 'kirana_packs'
+          ? 'manual'
+          : 'category')
+    );
     setSecSelectedProductIds(Array.isArray(cfg.selectedProductIds) ? cfg.selectedProductIds : []);
     setSecSelectedCategoryId(cfg.selectedCategoryId || 'cat-honey');
-    setSecProductLimit(cfg.productLimit || (section.type === 'flash_deals' ? 5 : 4));
+    setSecProductLimit(
+      cfg.productLimit ||
+        (section.type === 'best_sellers'
+          ? 99
+          : section.type === 'flash_deals'
+          ? 5
+          : 4)
+    );
+    setSecButtonText(cfg.buttonText || (section.type === 'best_sellers' ? 'Add to Bag' : 'Add'));
+    setSecCategories(
+      Array.isArray(cfg.categories) && cfg.categories.length > 0
+        ? cfg.categories
+        : allCategoriesList.map((cat) => ({
+            id: cat.id,
+            name: cat.name,
+            slug: cat.slug,
+            tagline: cat.tagline || cat.hindiName || cat.description,
+            badge: cat.badge || 'Verified',
+            imageUrl: cat.imageUrl || '',
+            linkUrl: `/shop?category=${cat.slug}`,
+          }))
+    );
     setProductSearchTerm('');
 
     // Initialize Spotlight & Center Highlight Configs
@@ -901,7 +931,9 @@ export default function AdminCmsPage() {
         selectionMode: secSelectionMode,
         selectedProductIds: secSelectedProductIds,
         selectedCategoryId: secSelectedCategoryId,
-        productLimit: Number(secProductLimit) || 4,
+        productLimit: Number(secProductLimit) || (editingSection.type === 'best_sellers' ? 99 : 4),
+        buttonText: secButtonText.trim() || 'Add to Bag',
+        categories: secCategories,
         heroItems: secHeroItems,
         spotlightFloatingBadge: secSpotlightFloatingBadge.trim(),
         spotlightFloatingText: secSpotlightFloatingText.trim(),
@@ -974,6 +1006,10 @@ export default function AdminCmsPage() {
           secondaryCtaLink: secSecondaryCtaLink.trim(),
           imageUrl: secImageUrl.trim(),
           isEnabled: secIsEnabled,
+          config:
+            secType === 'best_sellers'
+              ? { productLimit: 99, buttonText: 'Add to Bag', selectionMode: 'sales' }
+              : {},
         }),
       });
 
@@ -2671,7 +2707,7 @@ export default function AdminCmsPage() {
                 )}
 
                 {/* Product Section Dynamic Inventory Controller */}
-                {Boolean((editingSection && ['kirana_packs', 'flash_deals', 'tabbed_spotlight', 'custom'].includes(editingSection.type)) || ['kirana_packs', 'flash_deals', 'tabbed_spotlight', 'custom'].includes(secType)) && (
+                {Boolean((editingSection && ['best_sellers', 'kirana_packs', 'flash_deals', 'tabbed_spotlight', 'custom'].includes(editingSection.type)) || ['best_sellers', 'kirana_packs', 'flash_deals', 'tabbed_spotlight', 'custom'].includes(secType)) && (
                   <div className="p-4 bg-surface-dim/60 rounded-2xl border border-border space-y-3.5">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
@@ -2681,12 +2717,38 @@ export default function AdminCmsPage() {
                         </span>
                       </div>
                       <span className="text-[10px] font-mono bg-accent/10 text-accent font-semibold px-2 py-0.5 rounded-full">
-                        {secSelectionMode === 'manual' ? 'Manual Selection' : 'Category-Based'}
+                        {secSelectionMode === 'sales'
+                          ? 'Sales Performance'
+                          : secSelectionMode === 'manual'
+                          ? 'Manual Selection'
+                          : 'Category-Based'}
                       </span>
                     </div>
 
                     {/* Mode Radio Buttons */}
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setSecSelectionMode('sales')}
+                        className={`p-2.5 rounded-xl border text-left flex items-start gap-2 transition-all ${
+                          secSelectionMode === 'sales'
+                            ? 'border-accent bg-accent/5 shadow-xs'
+                            : 'border-border bg-surface hover:bg-surface-dim'
+                        }`}
+                      >
+                        <div
+                          className={`w-3.5 h-3.5 rounded-full mt-0.5 border flex items-center justify-center shrink-0 ${
+                            secSelectionMode === 'sales' ? 'border-accent bg-accent' : 'border-muted'
+                          }`}
+                        >
+                          {secSelectionMode === 'sales' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                        </div>
+                        <div>
+                          <p className="font-bold text-primary text-[11px]">Dynamic Sales Ranking</p>
+                          <p className="text-[10px] text-muted">Auto-sorts by total units sold</p>
+                        </div>
+                      </button>
+
                       <button
                         type="button"
                         onClick={() => setSecSelectionMode('manual')}
@@ -2705,7 +2767,7 @@ export default function AdminCmsPage() {
                         </div>
                         <div>
                           <p className="font-bold text-primary text-[11px]">Manual Product Selection</p>
-                          <p className="text-[10px] text-muted">Pick and reorder exact published products</p>
+                          <p className="text-[10px] text-muted">Pick and reorder exact products</p>
                         </div>
                       </button>
 
@@ -2727,24 +2789,38 @@ export default function AdminCmsPage() {
                         </div>
                         <div>
                           <p className="font-bold text-primary text-[11px]">Category-Based Auto Feed</p>
-                          <p className="text-[10px] text-muted">Feed from a category up to product limit</p>
+                          <p className="text-[10px] text-muted">Feed from a category up to limit</p>
                         </div>
                       </button>
                     </div>
 
-                    {/* Product Limit Input */}
-                    <div>
-                      <label className="block font-semibold text-primary mb-1">
-                        Display Product Limit (Max Cards to Show)
-                      </label>
-                      <input
-                        type="number"
-                        min={1}
-                        max={16}
-                        value={secProductLimit}
-                        onChange={(e) => setSecProductLimit(parseInt(e.target.value || '4', 10))}
-                        className="w-full px-3 py-2 bg-surface border border-border rounded-xl text-primary text-xs"
-                      />
+                    {/* Product Limit & CTA Button Text Inputs */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block font-semibold text-primary mb-1">
+                          Display Product Limit (Max Cards to Show, up to 99)
+                        </label>
+                        <input
+                          type="number"
+                          min={1}
+                          max={99}
+                          value={secProductLimit}
+                          onChange={(e) => setSecProductLimit(parseInt(e.target.value || '99', 10))}
+                          className="w-full px-3 py-2 bg-surface border border-border rounded-xl text-primary text-xs"
+                        />
+                      </div>
+                      <div>
+                        <label className="block font-semibold text-primary mb-1">
+                          Product Card CTA Button Text
+                        </label>
+                        <input
+                          type="text"
+                          value={secButtonText}
+                          onChange={(e) => setSecButtonText(e.target.value)}
+                          placeholder="e.g. Add to Bag, Add to Cart, Buy Now"
+                          className="w-full px-3 py-2 bg-surface border border-border rounded-xl text-primary text-xs"
+                        />
+                      </div>
                     </div>
 
                     {secSelectionMode === 'category' ? (
@@ -2895,6 +2971,110 @@ export default function AdminCmsPage() {
                         </div>
                       </div>
                     )}
+                  </div>
+                )}
+
+                {/* Dynamic Category Management Controller */}
+                {Boolean((editingSection && ['categories', 'departments'].includes(editingSection.type)) || ['categories', 'departments'].includes(secType)) && (
+                  <div className="p-4 bg-surface-dim/60 rounded-2xl border border-border space-y-3.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Layers className="w-4 h-4 text-accent" />
+                        <span className="font-bold text-primary text-xs">
+                          Approved Homepage Categories Configuration
+                        </span>
+                      </div>
+                      <Link
+                        href="/admin/categories"
+                        className="text-[10px] font-bold text-accent hover:underline flex items-center gap-1"
+                      >
+                        <span>Manage Global Taxonomy</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </Link>
+                    </div>
+                    <p className="text-[11px] text-muted">
+                      Configure the category banners, titles, descriptions, badges, and linked paths displayed dynamically on the homepage grid.
+                    </p>
+
+                    <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
+                      {secCategories.map((cat, idx) => (
+                        <div key={cat.id || idx} className="p-3 bg-surface rounded-xl border border-border space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-primary text-xs">{cat.name} ({cat.slug})</span>
+                            <span className="text-[10px] font-mono text-muted">Order #{idx + 1}</span>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <div>
+                              <label className="block text-[10px] font-semibold text-muted mb-0.5">Display Title</label>
+                              <input
+                                type="text"
+                                value={cat.name}
+                                onChange={(e) => {
+                                  const updated = [...secCategories];
+                                  updated[idx] = { ...updated[idx], name: e.target.value };
+                                  setSecCategories(updated);
+                                }}
+                                className="w-full px-2.5 py-1.5 bg-surface-dim border border-border rounded-lg text-xs"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[10px] font-semibold text-muted mb-0.5">Badge (e.g. Verified Pure)</label>
+                              <input
+                                type="text"
+                                value={cat.badge || ''}
+                                onChange={(e) => {
+                                  const updated = [...secCategories];
+                                  updated[idx] = { ...updated[idx], badge: e.target.value };
+                                  setSecCategories(updated);
+                                }}
+                                className="w-full px-2.5 py-1.5 bg-surface-dim border border-border rounded-lg text-xs"
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-semibold text-muted mb-0.5">Tagline / Short Description</label>
+                            <input
+                              type="text"
+                              value={cat.tagline || ''}
+                              onChange={(e) => {
+                                const updated = [...secCategories];
+                                updated[idx] = { ...updated[idx], tagline: e.target.value };
+                                setSecCategories(updated);
+                              }}
+                              className="w-full px-2.5 py-1.5 bg-surface-dim border border-border rounded-lg text-xs"
+                            />
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <div>
+                              <label className="block text-[10px] font-semibold text-muted mb-0.5">Banner Image URL</label>
+                              <input
+                                type="url"
+                                value={cat.imageUrl || ''}
+                                onChange={(e) => {
+                                  const updated = [...secCategories];
+                                  updated[idx] = { ...updated[idx], imageUrl: e.target.value };
+                                  setSecCategories(updated);
+                                }}
+                                className="w-full px-2.5 py-1.5 bg-surface-dim border border-border rounded-lg text-xs"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[10px] font-semibold text-muted mb-0.5">Linked Target Path</label>
+                              <input
+                                type="text"
+                                value={cat.linkUrl || `/shop?category=${cat.slug}`}
+                                onChange={(e) => {
+                                  const updated = [...secCategories];
+                                  updated[idx] = { ...updated[idx], linkUrl: e.target.value };
+                                  setSecCategories(updated);
+                                }}
+                                className="w-full px-2.5 py-1.5 bg-surface-dim border border-border rounded-lg text-xs"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
 
@@ -3127,6 +3307,7 @@ export default function AdminCmsPage() {
                     >
                       <option value="custom">Custom Content Section</option>
                       <option value="hero">Hero Banner</option>
+                      <option value="best_sellers">Best-Selling Products Section</option>
                       <option value="categories">Categories Grid</option>
                       <option value="flash_deals">Flash Deals Spotlight</option>
                       <option value="tabbed_spotlight">Tabbed Spotlight</option>
@@ -3373,7 +3554,7 @@ export default function AdminCmsPage() {
                 )}
 
                 {/* Product Section Dynamic Inventory Controller */}
-                {Boolean((editingSection && ['kirana_packs', 'flash_deals', 'tabbed_spotlight', 'custom'].includes(editingSection.type)) || ['kirana_packs', 'flash_deals', 'tabbed_spotlight', 'custom'].includes(secType)) && (
+                {Boolean((editingSection && ['best_sellers', 'kirana_packs', 'flash_deals', 'tabbed_spotlight', 'custom'].includes(editingSection.type)) || ['best_sellers', 'kirana_packs', 'flash_deals', 'tabbed_spotlight', 'custom'].includes(secType)) && (
                   <div className="p-4 bg-surface-dim/60 rounded-2xl border border-border space-y-3.5">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
@@ -3383,12 +3564,38 @@ export default function AdminCmsPage() {
                         </span>
                       </div>
                       <span className="text-[10px] font-mono bg-accent/10 text-accent font-semibold px-2 py-0.5 rounded-full">
-                        {secSelectionMode === 'manual' ? 'Manual Selection' : 'Category-Based'}
+                        {secSelectionMode === 'sales'
+                          ? 'Sales Performance'
+                          : secSelectionMode === 'manual'
+                          ? 'Manual Selection'
+                          : 'Category-Based'}
                       </span>
                     </div>
 
                     {/* Mode Radio Buttons */}
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setSecSelectionMode('sales')}
+                        className={`p-2.5 rounded-xl border text-left flex items-start gap-2 transition-all ${
+                          secSelectionMode === 'sales'
+                            ? 'border-accent bg-accent/5 shadow-xs'
+                            : 'border-border bg-surface hover:bg-surface-dim'
+                        }`}
+                      >
+                        <div
+                          className={`w-3.5 h-3.5 rounded-full mt-0.5 border flex items-center justify-center shrink-0 ${
+                            secSelectionMode === 'sales' ? 'border-accent bg-accent' : 'border-muted'
+                          }`}
+                        >
+                          {secSelectionMode === 'sales' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                        </div>
+                        <div>
+                          <p className="font-bold text-primary text-[11px]">Dynamic Sales Ranking</p>
+                          <p className="text-[10px] text-muted">Auto-sorts by total units sold</p>
+                        </div>
+                      </button>
+
                       <button
                         type="button"
                         onClick={() => setSecSelectionMode('manual')}
@@ -3407,7 +3614,7 @@ export default function AdminCmsPage() {
                         </div>
                         <div>
                           <p className="font-bold text-primary text-[11px]">Manual Product Selection</p>
-                          <p className="text-[10px] text-muted">Pick and reorder exact published products</p>
+                          <p className="text-[10px] text-muted">Pick and reorder exact products</p>
                         </div>
                       </button>
 
@@ -3429,24 +3636,38 @@ export default function AdminCmsPage() {
                         </div>
                         <div>
                           <p className="font-bold text-primary text-[11px]">Category-Based Auto Feed</p>
-                          <p className="text-[10px] text-muted">Feed from a category up to product limit</p>
+                          <p className="text-[10px] text-muted">Feed from a category up to limit</p>
                         </div>
                       </button>
                     </div>
 
-                    {/* Product Limit Input */}
-                    <div>
-                      <label className="block font-semibold text-primary mb-1">
-                        Display Product Limit (Max Cards to Show)
-                      </label>
-                      <input
-                        type="number"
-                        min={1}
-                        max={16}
-                        value={secProductLimit}
-                        onChange={(e) => setSecProductLimit(parseInt(e.target.value || '4', 10))}
-                        className="w-full px-3 py-2 bg-surface border border-border rounded-xl text-primary text-xs"
-                      />
+                    {/* Product Limit & CTA Button Text Inputs */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block font-semibold text-primary mb-1">
+                          Display Product Limit (Max Cards to Show, up to 99)
+                        </label>
+                        <input
+                          type="number"
+                          min={1}
+                          max={99}
+                          value={secProductLimit}
+                          onChange={(e) => setSecProductLimit(parseInt(e.target.value || '99', 10))}
+                          className="w-full px-3 py-2 bg-surface border border-border rounded-xl text-primary text-xs"
+                        />
+                      </div>
+                      <div>
+                        <label className="block font-semibold text-primary mb-1">
+                          Product Card CTA Button Text
+                        </label>
+                        <input
+                          type="text"
+                          value={secButtonText}
+                          onChange={(e) => setSecButtonText(e.target.value)}
+                          placeholder="e.g. Add to Bag, Add to Cart, Buy Now"
+                          className="w-full px-3 py-2 bg-surface border border-border rounded-xl text-primary text-xs"
+                        />
+                      </div>
                     </div>
 
                     {secSelectionMode === 'category' ? (

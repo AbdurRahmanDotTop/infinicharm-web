@@ -46,6 +46,7 @@ describe('Product Management Full CRUD & Pricing Authority Suite', () => {
       productType: 'simple',
       status: 'PUBLISHED',
       isFeatured: true,
+      isNewArrival: false,
       brand: 'InfiniCharm Reserve',
       baseSku: 'INF-ACH-01',
       categoryId: 'cat-honey',
@@ -70,6 +71,7 @@ describe('Product Management Full CRUD & Pricing Authority Suite', () => {
           lowStockThreshold: 10,
           weightInGrams: 500,
           isActive: true,
+          attributes: {},
         },
       ],
       media: [

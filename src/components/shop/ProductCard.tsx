@@ -12,11 +12,13 @@ import { ExternalImage } from '@/components/media';
 
 interface ProductCardProps {
   product: Product;
+  ctaText?: string;
 }
 
-export function ProductCard({ product }: ProductCardProps) {
+export function ProductCard({ product, ctaText }: ProductCardProps) {
   const { addItem } = useCart();
   const { isInWishlist, toggleWishlist } = useWishlist();
+  const [isAdded, setIsAdded] = React.useState(false);
   const defaultVariant = product.variants[0];
   const category = CATEGORIES.find((c) => c.id === product.categoryId);
   const isWishlisted = isInWishlist(product.id);
@@ -35,7 +37,9 @@ export function ProductCard({ product }: ProductCardProps) {
     e.preventDefault();
     e.stopPropagation();
     if (defaultVariant) {
-      addItem(product, defaultVariant, 1);
+      addItem(product, defaultVariant, 1, true);
+      setIsAdded(true);
+      setTimeout(() => setIsAdded(false), 1500);
     }
   };
 
@@ -133,11 +137,24 @@ export function ProductCard({ product }: ProductCardProps) {
           <button
             type="button"
             onClick={handleQuickAdd}
-            className="inline-flex items-center gap-1.5 px-3 py-2 bg-surface-dim hover:bg-accent text-primary hover:text-white text-xs font-bold rounded-xl transition-all border border-border hover:border-accent"
-            aria-label={`Add ${product.title} to bag`}
+            className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl transition-all border shadow-xs ${
+              isAdded
+                ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                : 'bg-surface-dim hover:bg-accent text-primary hover:text-white border-border hover:border-accent'
+            }`}
+            aria-label={`${ctaText || 'Add'} ${product.title}`}
           >
-            <ShoppingBag className="w-3.5 h-3.5 shrink-0" />
-            <span>Add</span>
+            {isAdded ? (
+              <>
+                <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                <span>Added!</span>
+              </>
+            ) : (
+              <>
+                <ShoppingBag className="w-3.5 h-3.5 shrink-0" />
+                <span>{ctaText || 'Add'}</span>
+              </>
+            )}
           </button>
         </div>
       </div>

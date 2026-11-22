@@ -72,6 +72,23 @@
     "updatedAt": "2026-11-12T13:15:00.000Z"
   },
   {
+    "id": "sec-best-sellers",
+    "type": "best_sellers",
+    "title": "Best-Selling Products",
+    "subtitle": "Customer favorites ranked dynamically by verified sales performance.",
+    "badge": "TOP RATED & MOST LOVED",
+    "ctaText": "View All Bestsellers",
+    "ctaLink": "/shop",
+    "displayOrder": 2,
+    "isEnabled": true,
+    "config": {
+      "productLimit": 99,
+      "buttonText": "Add to Bag",
+      "selectionMode": "sales"
+    },
+    "updatedAt": "2026-11-22T05:58:33.118Z"
+  },
+  {
     "id": "sec-departments",
     "type": "categories",
     "title": "Shop by Approved Categories",
@@ -79,7 +96,7 @@
     "badge": "CURATED CATEGORY TAXONOMY",
     "ctaText": "View All Categories",
     "ctaLink": "/shop",
-    "displayOrder": 2,
+    "displayOrder": 3,
     "isEnabled": true,
     "config": {},
     "updatedAt": "2026-11-12T13:15:00.000Z"
@@ -92,7 +109,7 @@
     "badge": "DIRECT CATALOGUE PICKS",
     "ctaText": "View Full Catalogue",
     "ctaLink": "/shop",
-    "displayOrder": 3,
+    "displayOrder": 4,
     "isEnabled": true,
     "config": {
       "selectionMode": "manual",
@@ -115,7 +132,7 @@
     "badge": "LIVE CATALOGUE FILTER",
     "ctaText": "Explore Full Shop",
     "ctaLink": "/shop",
-    "displayOrder": 4,
+    "displayOrder": 5,
     "isEnabled": true,
     "config": {
       "selectionMode": "category",
@@ -132,7 +149,7 @@
     "ctaText": "Shop Wholesome Essentials",
     "ctaLink": "/shop",
     "imageUrl": "https://plus.unsplash.com/premium_photo-1676208753932-6e8bc83a0b0d?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D",
-    "displayOrder": 5,
+    "displayOrder": 6,
     "isEnabled": true,
     "config": {
       "spotlightFloatingBadge": "Bairgania, Bihar Dispatch",
@@ -167,7 +184,7 @@
     "badge": "EVERYDAY FAMILY ESSENTIALS",
     "ctaText": "Shop All Essentials",
     "ctaLink": "/shop",
-    "displayOrder": 6,
+    "displayOrder": 7,
     "isEnabled": true,
     "config": {
       "selectionMode": "manual",
@@ -190,7 +207,7 @@
     "badge": "VERIFIED CATALOGUE COLLECTIONS",
     "ctaText": "About InfiniCharm Sourcing",
     "ctaLink": "/about",
-    "displayOrder": 7,
+    "displayOrder": 8,
     "isEnabled": true,
     "config": {
       "hubCount": "4 Signature Collections",
@@ -253,7 +270,7 @@
     "title": "The InfiniCharm Invariant Guarantees",
     "subtitle": "Strict Single-Owner Sourcing • Integer Paise Authority • Bairgania, Bihar Dispatch",
     "badge": "FOUNDATIONAL STANDARDS",
-    "displayOrder": 8,
+    "displayOrder": 9,
     "isEnabled": true,
     "config": {},
     "updatedAt": "2026-11-12T13:15:00.000Z"
@@ -266,7 +283,7 @@
     "badge": "EDITORIAL INTELLIGENCE",
     "ctaText": "Read All Journal Guides",
     "ctaLink": "/blog",
-    "displayOrder": 9,
+    "displayOrder": 10,
     "isEnabled": true,
     "config": {},
     "updatedAt": "2026-11-12T13:15:00.000Z"
@@ -279,7 +296,7 @@
     "badge": "COMMUNITY DISPATCH",
     "ctaText": "Subscribe",
     "ctaLink": "#newsletter",
-    "displayOrder": 10,
+    "displayOrder": 11,
     "isEnabled": true,
     "config": {
       "incentive": "Receive early access to fresh restocks and community updates."
