@@ -54,8 +54,30 @@ describe('Super Admin Identity & Role Integrity Suite', () => {
       () => {
         deleteCustomer('usr-admin-01');
       },
-      /Protected Super Administrator and administrator accounts cannot be deleted/i
+      /Protected Super Administrator and founder accounts cannot be deleted/i
     );
+  });
+
+  test('Root Founder account cust-founder-01 cannot be deleted', () => {
+    assert.throws(
+      () => {
+        deleteCustomer('cust-founder-01');
+      },
+      /Protected Super Administrator and founder accounts cannot be deleted/i
+    );
+  });
+
+  test('getServerCustomerById resolves user by either ID or email', () => {
+    const byId = getServerCustomerById('cust-founder-01');
+    const byEmail = getServerCustomerById('abdurrahmanibnghufran@gmail.com');
+    assert.ok(byId);
+    assert.ok(byEmail);
+    assert.equal(byId.id, byEmail.id);
+  });
+
+  test('deleteCustomer handles non-existent or already-deleted user idempotently', () => {
+    const result = deleteCustomer('non-existent-user-id-999');
+    assert.equal(result, true);
   });
 
   test('Non-super admin users cannot be escalated to SUPER_ADMIN', () => {

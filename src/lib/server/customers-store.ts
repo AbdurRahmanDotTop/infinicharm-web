@@ -98,6 +98,16 @@ export function isSuperAdminAccount(cust: { id?: string; email?: string; role?: 
 }
 
 /**
+ * Check if account is protected from deletion (Super Admin or Root Founder)
+ */
+export function isProtectedAccount(cust: { id?: string; email?: string; role?: string } | null | undefined): boolean {
+  if (!cust) return false;
+  if (isSuperAdminAccount(cust)) return true;
+  const email = (cust.email || '').toLowerCase().trim();
+  return cust.id === 'cust-founder-01' || email === 'abdurrahmanibnghufran@gmail.com';
+}
+
+/**
  * Get all customers with dynamic spend and order aggregates from orders-store
  */
 export function getServerCustomers(search?: string, status?: string, role?: string): CustomerSummary[] {
@@ -164,7 +174,8 @@ export function getServerCustomers(search?: string, status?: string, role?: stri
  */
 export function getServerCustomerById(id: string): Customer | null {
   const raw = readRawCustomers();
-  return raw.find((c) => c.id === id) || null;
+  const clean = decodeURIComponent(id).trim();
+  return raw.find((c) => c.id === clean || c.email.toLowerCase() === clean.toLowerCase()) || null;
 }
 
 /**
@@ -483,19 +494,22 @@ export function updateCustomer(
  */
 export function deleteCustomer(id: string): boolean {
   const raw = readRawCustomers();
-  const targetCust = raw.find((c) => c.id === id);
-  if (!targetCust) return false;
+  const clean = decodeURIComponent(id).trim();
+  const targetCust = raw.find((c) => c.id === clean || c.email.toLowerCase() === clean.toLowerCase());
+  if (!targetCust) return true; // Idempotent: already deleted
 
-  // Protect system-critical Super Administrator and administrator accounts from deletion
+  // Protect system-critical Super Administrator, administrator, and Founder accounts from deletion
   if (
     isSuperAdminAccount(targetCust) ||
-    targetCust.role === 'ADMIN'
+    targetCust.role === 'ADMIN' ||
+    targetCust.id === 'cust-founder-01' ||
+    targetCust.email.toLowerCase() === 'abdurrahmanibnghufran@gmail.com'
   ) {
-    throw new Error('Protected Super Administrator and administrator accounts cannot be deleted.');
+    throw new Error('Protected Super Administrator and founder accounts cannot be deleted.');
   }
 
   // 1. Remove customer record from customers.json
-  const filtered = raw.filter((c) => c.id !== id);
+  const filtered = raw.filter((c) => c.id !== targetCust.id && c.email.toLowerCase() !== targetCust.email.toLowerCase());
   writeRawCustomers(filtered);
 
   // 2. Anonymize PII on orders and fulfillment records in orders.json (statutory compliance)

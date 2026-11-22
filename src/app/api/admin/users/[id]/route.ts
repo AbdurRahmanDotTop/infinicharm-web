@@ -34,7 +34,7 @@ export async function GET(
         (o.customerPhone && o.customerPhone === user.phone)
     );
 
-    const isProtected = isSuperAdminAccount(user);
+    const isProtected = isSuperAdminAccount(user) || user.id === 'cust-founder-01' || user.email.toLowerCase() === 'abdurrahmanibnghufran@gmail.com';
 
     const { passwordHash, ...safe } = user;
 
@@ -154,15 +154,17 @@ export async function DELETE(
     const { id } = await params;
     const targetCust = getServerCustomerById(id);
     if (!targetCust) {
-      return NextResponse.json({ success: false, error: 'User not found.' }, { status: 404 });
+      return NextResponse.json({ success: true, message: 'User account already deleted.' });
     }
 
     if (
       isSuperAdminAccount(targetCust) ||
-      targetCust.role === 'ADMIN'
+      targetCust.role === 'ADMIN' ||
+      targetCust.id === 'cust-founder-01' ||
+      targetCust.email.toLowerCase() === 'abdurrahmanibnghufran@gmail.com'
     ) {
       return NextResponse.json(
-        { success: false, error: 'Protected Super Administrator and administrator accounts cannot be deleted.' },
+        { success: false, error: 'Protected Super Administrator and founder accounts cannot be deleted.' },
         { status: 403 }
       );
     }
