@@ -236,6 +236,34 @@ export function isValidOrderTransition(
 }
 
 /**
+ * Resolves effective payment status based on authoritative fulfillment lifecycle state.
+ * Prevents contradictory UI badge states (e.g. PAYMENT_RECEIVED displayed next to FAILED).
+ */
+export function getEffectivePaymentStatus(order: {
+  status: OrderStatus;
+  paymentStatus?: PaymentStatus;
+}): PaymentStatus {
+  if (
+    [
+      'PAYMENT_RECEIVED',
+      'CONFIRMED',
+      'PROCESSING',
+      'PACKED',
+      'READY_FOR_DISPATCH',
+      'SHIPPED',
+      'OUT_FOR_DELIVERY',
+      'DELIVERED',
+    ].includes(order.status)
+  ) {
+    return 'PAID';
+  }
+  if (order.status === 'PAYMENT_NOT_RECEIVED') {
+    return 'FAILED';
+  }
+  return order.paymentStatus || 'PENDING';
+}
+
+/**
  * Determines whether an order is currently eligible for payment retry or Pay Now.
  */
 export function isOrderEligibleForPaymentRetry(order: Order | null | undefined): boolean {

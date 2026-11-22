@@ -14,6 +14,7 @@ import {
   manageCustomerAddress,
   manageCustomerWishlist,
 } from '../../src/lib/server/customers-store.ts';
+import { getEffectivePaymentStatus } from '../../src/lib/services/orders.ts';
 
 describe('Customer Store & RBAC Authorization Engine', () => {
   test('getServerCustomers returns sanitized profiles and calculates lifetime aggregates', () => {
@@ -230,6 +231,152 @@ describe('Customer Store & RBAC Authorization Engine', () => {
       fs.writeFileSync(ordersFilePath, JSON.stringify(currentOrders, null, 2), 'utf8');
       fs.writeFileSync(reviewsFilePath, JSON.stringify(currentReviews, null, 2), 'utf8');
     }
+  });
+
+  test('Complete A-to-Z customer data deletion: anonymizes guest orders by phone/name and cascades across all dependent stores', () => {
+    const testEmail = `cascade.test.${Date.now()}@example.com`;
+    const testPhone = '9876543210';
+    const testName = 'AtoZ Cascade Customer';
+
+    const created = createCustomer({
+      email: testEmail,
+      fullName: testName,
+      phone: testPhone,
+      password: 'CascadePassword123!',
+      role: 'CUSTOMER',
+      emailVerified: true,
+    });
+    assert.ok(created);
+    assert.ok(created.id);
+
+    const ordersPath = path.join(process.cwd(), 'src', 'data', 'orders.json');
+    const inqPath = path.join(process.cwd(), 'src', 'data', 'inquiries.json');
+    const notifPath = path.join(process.cwd(), 'src', 'data', 'notification_logs.json');
+    const deliveryPath = path.join(process.cwd(), 'src', 'data', 'email_delivery_logs.json');
+
+    const origOrders = JSON.parse(fs.readFileSync(ordersPath, 'utf8'));
+    const origInq = JSON.parse(fs.readFileSync(inqPath, 'utf8'));
+    const origNotif = JSON.parse(fs.readFileSync(notifPath, 'utf8'));
+    const origDelivery = JSON.parse(fs.readFileSync(deliveryPath, 'utf8'));
+
+    try {
+      // 1. Guest order placed with same customer phone and full name but guest customerId
+      const guestOrder = {
+        id: `ord-guest-cascade-${Date.now()}`,
+        orderNumber: `INF-GUEST-${Date.now()}`,
+        customerId: 'guest',
+        customerEmail: 'guest-checkout@example.com',
+        customerPhone: testPhone,
+        status: 'PAYMENT_RECEIVED',
+        totalInPaise: 450000,
+        paymentMethod: 'CUSTOM_UPI',
+        paymentStatus: 'FAILED', // Deliberate test of payment status normalization
+        shippingAddress: {
+          fullName: testName,
+          phone: testPhone,
+          addressLine1: '123 Heritage Lane',
+          city: 'East Champaran',
+          state: 'Bihar',
+          postalCode: '845427',
+          country: 'India',
+        },
+        billingAddress: {
+          fullName: testName,
+          phone: testPhone,
+          addressLine1: '123 Heritage Lane',
+          city: 'East Champaran',
+          state: 'Bihar',
+          postalCode: '845427',
+          country: 'India',
+        },
+        items: [],
+        timeline: [
+          {
+            title: 'Order Placed',
+            description: `Order placed by ${testName} with phone ${testPhone}`,
+            timestamp: new Date().toISOString(),
+            actor: testName,
+          },
+        ],
+        createdAt: new Date().toISOString(),
+      };
+      fs.writeFileSync(ordersPath, JSON.stringify([...origOrders, guestOrder], null, 2), 'utf8');
+
+      // 2. Customer inquiry
+      const dummyInquiry = {
+        id: `inq-test-${Date.now()}`,
+        fullName: testName,
+        email: testEmail,
+        phone: testPhone,
+        subject: 'Product availability question',
+        message: 'Is Takmeeli Talbeena back in stock?',
+        createdAt: new Date().toISOString(),
+      };
+      fs.writeFileSync(inqPath, JSON.stringify([...origInq, dummyInquiry], null, 2), 'utf8');
+
+      // 3. Notification log
+      const dummyNotif = {
+        id: `notif-test-${Date.now()}`,
+        recipientEmail: testEmail,
+        contextPayload: { entityId: created.id, textContent: `Notice for ${testName}` },
+        createdAt: new Date().toISOString(),
+      };
+      fs.writeFileSync(notifPath, JSON.stringify([...origNotif, dummyNotif], null, 2), 'utf8');
+
+      // 4. Delivery log
+      const dummyDelivery = {
+        id: `deliv-test-${Date.now()}`,
+        recipientEmail: testEmail,
+        subscriberId: created.id,
+        sentAt: new Date().toISOString(),
+      };
+      fs.writeFileSync(deliveryPath, JSON.stringify([...origDelivery, dummyDelivery], null, 2), 'utf8');
+
+      // Execute complete deletion
+      const deleted = deleteCustomer(created.id);
+      assert.equal(deleted, true);
+
+      // Verify customer account is permanently erased
+      assert.equal(getServerCustomerById(created.id), null);
+
+      // Verify guest order was matched by phone & name and irreversibly anonymized
+      const updatedOrders = JSON.parse(fs.readFileSync(ordersPath, 'utf8'));
+      const targetOrder = updatedOrders.find((o: any) => o.id === guestOrder.id);
+      assert.ok(targetOrder, 'Order record must be preserved for statutory financial compliance');
+      assert.equal(targetOrder.customerName, 'Deleted Customer');
+      assert.equal(targetOrder.customerPhone, 'REDACTED');
+      assert.equal(targetOrder.shippingAddress.fullName, 'Deleted Customer');
+      assert.equal(targetOrder.shippingAddress.phone, 'REDACTED');
+      assert.equal(targetOrder.billingAddress.fullName, 'Deleted Customer');
+      assert.equal(targetOrder.billingAddress.phone, 'REDACTED');
+      // Payment status normalized to PAID because status is PAYMENT_RECEIVED
+      assert.equal(targetOrder.paymentStatus, 'PAID');
+
+      // Verify inquiry was cascaded and erased
+      const updatedInq = JSON.parse(fs.readFileSync(inqPath, 'utf8'));
+      assert.equal(updatedInq.some((i: any) => i.id === dummyInquiry.id), false);
+
+      // Verify notification log was cascaded and erased
+      const updatedNotif = JSON.parse(fs.readFileSync(notifPath, 'utf8'));
+      assert.equal(updatedNotif.some((n: any) => n.id === dummyNotif.id), false);
+
+      // Verify delivery log was cascaded and erased
+      const updatedDelivery = JSON.parse(fs.readFileSync(deliveryPath, 'utf8'));
+      assert.equal(updatedDelivery.some((d: any) => d.id === dummyDelivery.id), false);
+    } finally {
+      fs.writeFileSync(ordersPath, JSON.stringify(origOrders, null, 2), 'utf8');
+      fs.writeFileSync(inqPath, JSON.stringify(origInq, null, 2), 'utf8');
+      fs.writeFileSync(notifPath, JSON.stringify(origNotif, null, 2), 'utf8');
+      fs.writeFileSync(deliveryPath, JSON.stringify(origDelivery, null, 2), 'utf8');
+    }
+  });
+
+  test('getEffectivePaymentStatus prevents contradictory badge states across order lifecycle', () => {
+    assert.equal(getEffectivePaymentStatus({ status: 'PAYMENT_RECEIVED', paymentStatus: 'FAILED' }), 'PAID');
+    assert.equal(getEffectivePaymentStatus({ status: 'CONFIRMED', paymentStatus: 'PENDING' }), 'PAID');
+    assert.equal(getEffectivePaymentStatus({ status: 'DELIVERED', paymentStatus: 'FAILED' }), 'PAID');
+    assert.equal(getEffectivePaymentStatus({ status: 'PAYMENT_NOT_RECEIVED', paymentStatus: 'PAID' }), 'FAILED');
+    assert.equal(getEffectivePaymentStatus({ status: 'PENDING', paymentStatus: 'PENDING' }), 'PENDING');
   });
 });
 

@@ -55,7 +55,7 @@
     "seoTitle": "100% Kashmiri Honey – Pure Taste & Natural Sweetness | InfiniCharm",
     "seoDescription": "Pure Kashmiri honey with a rich taste and natural sweetness. A beautiful gift of nature for your everyday life.",
     "createdAt": "2026-11-12T13:10:42.620Z",
-    "updatedAt": "2026-11-21T17:48:02.594Z",
+    "updatedAt": "2026-11-22T02:12:38.987Z",
     "media": [
       {
         "id": "med-S-01-P-01-01",
@@ -89,7 +89,9 @@
         },
         "isActive": true
       }
-    ]
+    ],
+    "reviewCount": 0,
+    "rating": 0
   },
   {
     "id": "S-01-P-02",
@@ -177,7 +179,9 @@
         },
         "isActive": true
       }
-    ]
+    ],
+    "reviewCount": 0,
+    "rating": 0
   },
   {
     "id": "S-01-P-03",
@@ -265,7 +269,9 @@
         },
         "isActive": true
       }
-    ]
+    ],
+    "reviewCount": 0,
+    "rating": 0
   },
   {
     "id": "S-01-P-04",
@@ -353,6 +359,8 @@
         },
         "isActive": true
       }
-    ]
+    ],
+    "reviewCount": 0,
+    "rating": 0
   }
 ]

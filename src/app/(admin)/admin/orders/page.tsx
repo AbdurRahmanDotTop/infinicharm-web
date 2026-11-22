@@ -39,6 +39,7 @@ import {
   ORDER_STATUS_LABELS,
   isValidOrderTransition,
   getCourierTrackingUrl,
+  getEffectivePaymentStatus,
 } from '@/lib/services/orders';
 
 export default function AdminOrdersPage() {
@@ -746,11 +747,12 @@ export default function AdminOrdersPage() {
   // Filtered orders
   const filteredOrders = orders.filter((o) => {
     const matchesStatus = statusFilter === 'ALL' || o.status === statusFilter;
+    const effPayment = getEffectivePaymentStatus(o);
     const matchesPayment =
       paymentFilter === 'ALL' ||
-      (paymentFilter === 'PENDING' && o.paymentStatus === 'PENDING') ||
-      (paymentFilter === 'PAID' && o.paymentStatus === 'PAID') ||
-      (paymentFilter === 'FAILED' && o.paymentStatus === 'FAILED') ||
+      (paymentFilter === 'PENDING' && effPayment === 'PENDING') ||
+      (paymentFilter === 'PAID' && effPayment === 'PAID') ||
+      (paymentFilter === 'FAILED' && effPayment === 'FAILED') ||
       (paymentFilter === 'REVIEW' && o.manualApprovalStatus === 'PENDING_REVIEW');
 
     const cleanQ = searchQuery.trim().toLowerCase();
@@ -1028,17 +1030,22 @@ export default function AdminOrdersPage() {
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="font-semibold text-primary">{ord.paymentMethod}</span>
-                        <span
-                          className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                            ord.paymentStatus === 'PAID'
-                              ? 'bg-emerald-100 text-emerald-800'
-                              : ord.paymentStatus === 'PENDING'
-                              ? 'bg-amber-100 text-amber-800'
-                              : 'bg-rose-100 text-rose-800'
-                          }`}
-                        >
-                          {ord.paymentStatus}
-                        </span>
+                        {(() => {
+                          const effStatus = getEffectivePaymentStatus(ord);
+                          return (
+                            <span
+                              className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                                effStatus === 'PAID'
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : effStatus === 'PENDING'
+                                  ? 'bg-amber-100 text-amber-800'
+                                  : 'bg-rose-100 text-rose-800'
+                              }`}
+                            >
+                              {effStatus}
+                            </span>
+                          );
+                        })()}
                       </div>
 
                       {ord.utrNumber && (
@@ -1281,17 +1288,22 @@ export default function AdminOrdersPage() {
                         <td className="py-3.5 px-4">
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <span className="font-semibold text-primary">{ord.paymentMethod}</span>
-                            <span
-                              className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                                ord.paymentStatus === 'PAID'
-                                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300'
-                                  : ord.paymentStatus === 'PENDING'
-                                  ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300'
-                                  : 'bg-rose-100 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300'
-                              }`}
-                            >
-                              {ord.paymentStatus}
-                            </span>
+                            {(() => {
+                              const effStatus = getEffectivePaymentStatus(ord);
+                              return (
+                                <span
+                                  className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                                    effStatus === 'PAID'
+                                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300'
+                                      : effStatus === 'PENDING'
+                                      ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300'
+                                      : 'bg-rose-100 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300'
+                                  }`}
+                                >
+                                  {effStatus}
+                                </span>
+                              );
+                            })()}
                           </div>
 
                           {/* UTR chip & Review trigger */}
@@ -1773,13 +1785,20 @@ export default function AdminOrdersPage() {
                   <span className={`px-2.5 py-1 rounded-full font-bold border ${ORDER_STATUS_LABELS[inspectorOrder.status]?.badgeClass}`}>
                     Fulfillment: {inspectorOrder.status}
                   </span>
-                  <span className={`px-2.5 py-1 rounded-full font-bold ${
-                    inspectorOrder.paymentStatus === 'PAID'
-                      ? 'bg-emerald-100 text-emerald-800'
-                      : 'bg-amber-100 text-amber-800'
-                  }`}>
-                    Payment: {inspectorOrder.paymentStatus} ({inspectorOrder.paymentMethod})
-                  </span>
+                  {(() => {
+                    const effInspStatus = getEffectivePaymentStatus(inspectorOrder);
+                    return (
+                      <span className={`px-2.5 py-1 rounded-full font-bold ${
+                        effInspStatus === 'PAID'
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : effInspStatus === 'PENDING'
+                          ? 'bg-amber-100 text-amber-800'
+                          : 'bg-rose-100 text-rose-800'
+                      }`}>
+                        Payment: {effInspStatus} ({inspectorOrder.paymentMethod})
+                      </span>
+                    );
+                  })()}
                 </div>
 
                 {/* Items */}
