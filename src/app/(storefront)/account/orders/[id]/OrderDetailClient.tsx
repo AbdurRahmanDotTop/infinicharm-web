@@ -45,16 +45,16 @@ interface OrderDetailClientProps {
 }
 
 export default function OrderDetailClient({ orderId: initialOrderId }: OrderDetailClientProps) {
-  const [orderIdentifier, setOrderIdentifier] = useState<string>(initialOrderId);
-  
-  useEffect(() => {
+  const [orderIdentifier, setOrderIdentifier] = useState<string>(() => {
     if (typeof window !== 'undefined') {
       const match = window.location.pathname.match(/\/account\/orders\/([^/?#]+)/i);
-      if (match && match[1] && match[1] !== initialOrderId) {
-        setOrderIdentifier(decodeURIComponent(match[1].trim()));
+      if (match && match[1] && match[1] !== 'page') {
+        return decodeURIComponent(match[1].trim());
       }
     }
-  }, [initialOrderId]);
+    return initialOrderId;
+  });
+
   const router = useRouter();
 
   const [order, setOrder] = useState<Order | null>(null);
@@ -73,12 +73,16 @@ export default function OrderDetailClient({ orderId: initialOrderId }: OrderDeta
 
   useEffect(() => {
     let isMounted = true;
-    async function loadOrder() {
-      setIsLoading(true);
-      setErrorMsg(null);
+    let pollInterval: any = null;
+
+    async function loadOrder(isBackground = false) {
+      if (!isBackground) {
+        setIsLoading(true);
+        setErrorMsg(null);
+      }
       try {
         const clean = encodeURIComponent(orderIdentifier.trim());
-        const res = await fetch(`/api/orders/${clean}`, {
+        const res = await fetch(`/api/orders/${clean}?purpose=account`, {
           cache: 'no-store',
           credentials: 'same-origin',
         });
@@ -89,7 +93,13 @@ export default function OrderDetailClient({ orderId: initialOrderId }: OrderDeta
         if (res.ok && data.success && data.order) {
           setOrder(data.order);
           setPrivacyMeta(data.privacy || null);
+          setErrorMsg(null);
           setIsLoading(false);
+
+          // Stop polling if order has reached terminal state
+          if (['DELIVERED', 'CANCELLED', 'REFUNDED'].includes(data.order.status)) {
+            if (pollInterval) clearInterval(pollInterval);
+          }
           return;
         }
 
@@ -105,22 +115,28 @@ export default function OrderDetailClient({ orderId: initialOrderId }: OrderDeta
             );
             if (found && isMounted) {
               setOrder(found);
+              setErrorMsg(null);
               setIsLoading(false);
               return;
             }
           }
         }
 
-        setErrorMsg(data.error || `Order "${orderIdentifier}" could not be retrieved.`);
+        if (!isBackground || !order) {
+          setErrorMsg(data.error || `Order "${orderIdentifier}" could not be retrieved.`);
+        }
+        if (pollInterval) clearInterval(pollInterval);
         setIsLoading(false);
       } catch {
         if (!isMounted) return;
-        setErrorMsg('Network error while loading consignment details.');
+        if (!isBackground || !order) {
+          setErrorMsg('Network error while loading consignment details.');
+        }
         setIsLoading(false);
       }
     }
 
-    loadOrder();
+    loadOrder(false);
 
     let channel: BroadcastChannel | null = null;
     if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
@@ -132,25 +148,26 @@ export default function OrderDetailClient({ orderId: initialOrderId }: OrderDeta
             event.data?.type === 'ORDER_CREATED' ||
             event.data?.type === 'ORDER_DELETED'
           ) {
-            loadOrder();
+            loadOrder(true);
           }
         };
       } catch {}
     }
 
-    const handleSync = () => loadOrder();
+    const handleSync = () => loadOrder(true);
     window.addEventListener('infinicharm_orders_updated', handleSync);
     window.addEventListener('storage', handleSync);
 
-    const interval = setInterval(() => {
+    // Gentle 30-second background polling only (never unmounting UI)
+    pollInterval = setInterval(() => {
       if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
-        loadOrder();
+        loadOrder(true);
       }
-    }, 4000);
+    }, 30000);
 
     return () => {
       isMounted = false;
-      clearInterval(interval);
+      if (pollInterval) clearInterval(pollInterval);
       try {
         channel?.close();
       } catch {}

@@ -74,7 +74,7 @@ export default function AccountOrdersPage() {
       if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
         loadOrders(false);
       }
-    }, 4000);
+    }, 30000);
 
     return () => {
       clearInterval(interval);

@@ -308,14 +308,16 @@ function TrackOrderContent() {
     setTimeout(() => setCopiedKey(null), 2000);
   };
 
-  const performLookup = useCallback(async (identifier: string) => {
+  const performLookup = useCallback(async (identifier: string, isBackground = false) => {
     const raw = identifier.trim().toUpperCase();
     if (!raw) return;
     const clean = raw.includes(' ') && raw.startsWith('INF') ? raw.replace(/\s+/g, '-') : raw;
 
-    setErrorMsg(null);
-    setHasSearched(true);
-    setIsLoading(true);
+    if (!isBackground) {
+      setErrorMsg(null);
+      setHasSearched(true);
+      setIsLoading(true);
+    }
 
     try {
       const res = await fetch(`/api/orders/${encodeURIComponent(clean)}`, {
@@ -327,22 +329,26 @@ function TrackOrderContent() {
       if (res.ok && data.success && data.order) {
         setSearchedOrder(data.order);
         setPrivacyMeta(data.privacy || null);
-        setIsLoading(false);
+        if (!isBackground) setIsLoading(false);
         return;
       }
 
-      setSearchedOrder(null);
-      setPrivacyMeta(null);
-      setErrorMsg(
-        data.error ||
-          `No consignment found matching "${clean}". Please verify your Order Number or registered 10-digit mobile number.`
-      );
+      if (!isBackground) {
+        setSearchedOrder(null);
+        setPrivacyMeta(null);
+        setErrorMsg(
+          data.error ||
+            `No consignment found matching "${clean}". Please verify your Order Number or registered 10-digit mobile number.`
+        );
+      }
     } catch {
-      setSearchedOrder(null);
-      setPrivacyMeta(null);
-      setErrorMsg('Unable to connect to the live consignment server right now. Please try again.');
+      if (!isBackground) {
+        setSearchedOrder(null);
+        setPrivacyMeta(null);
+        setErrorMsg('Unable to connect to the live consignment server right now. Please try again.');
+      }
     } finally {
-      setIsLoading(false);
+      if (!isBackground) setIsLoading(false);
     }
   }, []);
 
@@ -422,12 +428,12 @@ function TrackOrderContent() {
     window.addEventListener('infinicharm_customer_updated', handleAuthSync);
     window.addEventListener('storage', handleAuthSync);
 
-    // Active polling if looking at an active order
+    // Gentle background polling only (never unmounting UI)
     const interval = setInterval(() => {
       if (typeof document !== 'undefined' && document.visibilityState === 'visible' && queryInput) {
-        performLookup(queryInput);
+        performLookup(queryInput, true);
       }
-    }, 4000);
+    }, 30000);
 
     return () => {
       clearInterval(interval);

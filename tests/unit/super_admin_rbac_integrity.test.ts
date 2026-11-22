@@ -76,14 +76,17 @@ describe('Super Admin Identity & Role Integrity Suite', () => {
 
     // Save exact customers fixture snapshot
     const snapshot = fs.readFileSync(customersJsonPath, 'utf8');
+    const ordersJsonPath = path.join(process.cwd(), 'src', 'data', 'orders.json');
+    const ordersSnapshot = fs.existsSync(ordersJsonPath) ? fs.readFileSync(ordersJsonPath, 'utf8') : '[]';
     try {
       // Deleting cust-founder-01 succeeds without throwing error or 403
       const deleted = deleteCustomer('cust-founder-01');
       assert.equal(deleted, true);
       assert.equal(getServerCustomerById('cust-founder-01'), null, 'cust-founder-01 must be deleted from active store');
     } finally {
-      // Restore customers fixture snapshot so all other tests have authentic data
+      // Restore customers and orders fixture snapshot so all other tests have authentic data
       fs.writeFileSync(customersJsonPath, snapshot, 'utf8');
+      fs.writeFileSync(ordersJsonPath, ordersSnapshot, 'utf8');
     }
   });
 

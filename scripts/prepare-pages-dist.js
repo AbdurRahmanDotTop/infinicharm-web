@@ -544,11 +544,17 @@ const passwordResetTokens = new Map(); // token -> record
 const emailToPasswordReset = new Map(); // email -> tokenRecord
 const ordersStore = new Map();
 let registrationFormSettingsStore = { ...REGISTRATION_FORM_SETTINGS };
-INITIAL_ORDERS.forEach(o => {
-  if (o.id) ordersStore.set(o.id, o);
-  if (o.orderNumber) ordersStore.set(o.orderNumber, o);
-});
 const deletedOrderIds = new Set();
+INITIAL_ORDERS.forEach(o => {
+  if (o.id) {
+    ordersStore.set(o.id, o);
+    deletedOrderIds.delete(o.id);
+  }
+  if (o.orderNumber) {
+    ordersStore.set(o.orderNumber, o);
+    deletedOrderIds.delete(o.orderNumber);
+  }
+});
 
 function syncOrdersFromCookie(request) {
   // 1. Sync deleted order tombstones across edge isolates
@@ -558,7 +564,8 @@ function syncOrdersFromCookie(request) {
       const parsed = JSON.parse(decodeURIComponent(deletedCookie));
       if (Array.isArray(parsed)) {
         for (const id of parsed) {
-          if (id) {
+          const isInitialOrder = INITIAL_ORDERS.some(io => io.id === id || io.orderNumber === id);
+          if (id && !isInitialOrder) {
             deletedOrderIds.add(id);
             ordersStore.delete(id);
             for (const [k, v] of ordersStore.entries()) {
@@ -598,45 +605,44 @@ function syncOrdersFromCookie(request) {
             }
 
             // Normalization 2: Cascade check against deleted customers
-            const mPhone1 = (merged.customerPhone || '').replace(/\D/g, '').slice(-10);
-            const mPhone2 = (merged.shippingAddress?.phone || '').replace(/\D/g, '').slice(-10);
-            const mPhone3 = (merged.billingAddress?.phone || '').replace(/\D/g, '').slice(-10);
             const mEmail = (merged.customerEmail || '').toLowerCase().trim();
-            const mName1 = (merged.customerName || '').toLowerCase().trim();
-            const mName2 = (merged.shippingAddress?.fullName || '').toLowerCase().trim();
 
-            let isDeletedOrder = false;
-            if (merged.customerId && (deletedCustomerIdsRegistry.has(merged.customerId) || merged.customerId === 'guest')) {
-              if (mPhone1 === '8825164657' || mPhone2 === '8825164657' || mName1.includes('infinicharm patron') || mName2.includes('infinicharm patron')) {
-                isDeletedOrder = true;
-              }
-            }
-            if (mEmail && deletedCustomersRegistry.has(mEmail)) isDeletedOrder = true;
-            if (merged.customerId && deletedCustomerIdsRegistry.has(merged.customerId)) isDeletedOrder = true;
-            for (const d of deletedCustomersRegistry.values()) {
-              const dPhone = (d.phone || '').replace(/\D/g, '').slice(-10);
-              const dName = (d.fullName || '').toLowerCase().trim();
-              if (dPhone && dPhone.length >= 10 && (mPhone1 === dPhone || mPhone2 === dPhone || mPhone3 === dPhone)) {
-                isDeletedOrder = true;
-                break;
-              }
-              if (dName && dName.length > 2 && (mName1 === dName || mName2 === dName)) {
-                isDeletedOrder = true;
-                break;
-              }
-            }
+            let isCustomerDeleted = false;
+            if (merged.customerId && deletedCustomerIdsRegistry.has(merged.customerId)) isCustomerDeleted = true;
+            if (mEmail && deletedCustomersRegistry.has(mEmail)) isCustomerDeleted = true;
 
-            if (isDeletedOrder) {
-              if (id) deletedOrderIds.add(id);
-              if (ordNum) deletedOrderIds.add(ordNum);
-              if (id) ordersStore.delete(id);
-              if (ordNum) ordersStore.delete(ordNum);
-              for (const [k, v] of ordersStore.entries()) {
-                if (v.id === id || v.orderNumber === ordNum) {
-                  ordersStore.delete(k);
+            if (isCustomerDeleted) {
+              const isPaid =
+                merged.paymentStatus === 'PAID' ||
+                ['PAYMENT_RECEIVED', 'CONFIRMED', 'PROCESSING', 'PACKED', 'SHIPPED', 'DELIVERED'].includes(merged.status);
+              if (isPaid) {
+                // Anonymize PII per Indian GST Act 2017 & DPDP Act 2023
+                merged.customerId = null;
+                merged.customerName = 'Deleted Customer';
+                merged.customerEmail = 'anonymized-customer@infinicharm.com';
+                merged.customerPhone = 'REDACTED';
+                if (merged.shippingAddress) {
+                  merged.shippingAddress.fullName = 'Deleted Customer';
+                  merged.shippingAddress.phone = 'REDACTED';
+                  merged.shippingAddress.addressLine1 = '[Redacted per DPDP Act & Statutory Tax Retention]';
                 }
+                if (merged.billingAddress) {
+                  merged.billingAddress.fullName = 'Deleted Customer';
+                  merged.billingAddress.phone = 'REDACTED';
+                  merged.billingAddress.addressLine1 = '[Redacted per DPDP Act & Statutory Tax Retention]';
+                }
+              } else {
+                if (id) deletedOrderIds.add(id);
+                if (ordNum) deletedOrderIds.add(ordNum);
+                if (id) ordersStore.delete(id);
+                if (ordNum) ordersStore.delete(ordNum);
+                for (const [k, v] of ordersStore.entries()) {
+                  if (v.id === id || v.orderNumber === ordNum) {
+                    ordersStore.delete(k);
+                  }
+                }
+                continue;
               }
-              continue;
             }
 
             if (id) ordersStore.set(id, merged);
@@ -855,29 +861,37 @@ function getCookie(request, name) {
 // Purge customer orders from worker & archive statutory tax ledger
 function purgeCustomerOrdersInWorker(custId, email, phone, fullName) {
   const normEmail = (email || '').toLowerCase().trim();
-  const cleanPhone = (phone || '').replace(/\D/g, '').slice(-10);
-  const cleanName = (fullName || '').toLowerCase().trim();
 
   const toDelete = [];
   for (const order of ordersStore.values()) {
-    const ordPhone1 = (order.customerPhone || '').replace(/\D/g, '').slice(-10);
-    const ordPhone2 = (order.shippingAddress?.phone || '').replace(/\D/g, '').slice(-10);
-    const ordPhone3 = (order.billingAddress?.phone || '').replace(/\D/g, '').slice(-10);
     const ordEmail = (order.customerEmail || '').toLowerCase().trim();
-    const ordName1 = (order.customerName || '').toLowerCase().trim();
-    const ordName2 = (order.shippingAddress?.fullName || '').toLowerCase().trim();
-    const ordName3 = (order.billingAddress?.fullName || '').toLowerCase().trim();
 
     const isMatch =
       (custId && order.customerId === custId) ||
-      (normEmail && ordEmail === normEmail) ||
-      (cleanPhone && cleanPhone.length >= 10 && (ordPhone1 === cleanPhone || ordPhone2 === cleanPhone || ordPhone3 === cleanPhone)) ||
-      (cleanName && cleanName.length > 2 && (ordName1 === cleanName || ordName2 === cleanName || ordName3 === cleanName)) ||
-      (ordPhone1 === '8825164657' || ordPhone2 === '8825164657') ||
-      (ordName1.includes('infinicharm patron') || ordName2.includes('infinicharm patron'));
+      (normEmail && ordEmail === normEmail);
 
     if (isMatch) {
-      toDelete.push(order);
+      const isPaid =
+        order.paymentStatus === 'PAID' ||
+        ['PAYMENT_RECEIVED', 'CONFIRMED', 'PROCESSING', 'PACKED', 'SHIPPED', 'DELIVERED'].includes(order.status);
+      if (isPaid) {
+        order.customerId = null;
+        order.customerName = 'Deleted Customer';
+        order.customerEmail = 'anonymized-customer@infinicharm.com';
+        order.customerPhone = 'REDACTED';
+        if (order.shippingAddress) {
+          order.shippingAddress.fullName = 'Deleted Customer';
+          order.shippingAddress.phone = 'REDACTED';
+          order.shippingAddress.addressLine1 = '[Redacted per DPDP Act & Statutory Tax Retention]';
+        }
+        if (order.billingAddress) {
+          order.billingAddress.fullName = 'Deleted Customer';
+          order.billingAddress.phone = 'REDACTED';
+          order.billingAddress.addressLine1 = '[Redacted per DPDP Act & Statutory Tax Retention]';
+        }
+      } else {
+        toDelete.push(order);
+      }
     }
   }
 
@@ -1804,7 +1818,13 @@ export default {
 
     // 2b. Universal Shareable Payment Route (/pay and /pay/:id)
     if (url.pathname === '/pay' || url.pathname.startsWith('/pay/')) {
+      const paySubPath = url.pathname.replace('/pay/', '').split('/')[0];
       if (url.searchParams.has('_rsc')) {
+        if (paySubPath) {
+          const subRscUrl = new URL('/pay/' + paySubPath + '.rsc', request.url);
+          const subRscRes = await env.ASSETS.fetch(new Request(subRscUrl, request));
+          if (subRscRes.status === 200) return subRscRes;
+        }
         const rscUrl = new URL('/pay.rsc', request.url);
         const rscRes = await env.ASSETS.fetch(new Request(rscUrl, request));
         if (rscRes.status === 200) {
@@ -1812,6 +1832,11 @@ export default {
         }
       }
       if (request.headers.get('accept')?.includes('text/html') || !url.pathname.includes('.')) {
+        if (paySubPath) {
+          const subPayUrl = new URL('/pay/' + paySubPath, request.url);
+          const subPayRes = await env.ASSETS.fetch(new Request(subPayUrl, request));
+          if (subPayRes.status === 200) return subPayRes;
+        }
         const payUrl = new URL('/pay', request.url);
         const payRes = await env.ASSETS.fetch(new Request(payUrl, request));
         if (payRes.status === 200) {
@@ -1828,6 +1853,9 @@ export default {
           const rscUrl = new URL('/account/orders/' + orderNum + '.rsc', request.url);
           const rscRes = await env.ASSETS.fetch(new Request(rscUrl, request));
           if (rscRes.status === 200) return rscRes;
+          const fallbackRsc = new URL('/account/orders/INF-202611-2527.rsc', request.url);
+          const fallbackRscRes = await env.ASSETS.fetch(new Request(fallbackRsc, request));
+          if (fallbackRscRes.status === 200) return fallbackRscRes;
         }
         if (request.headers.get('accept')?.includes('text/html') || !url.pathname.includes('.')) {
           const orderUrl = new URL('/account/orders/' + orderNum, request.url);
@@ -3496,7 +3524,42 @@ async function handleApi(request, url, env) {
       accessState: canViewPrivateDetails ? 'AUTHORIZED' : (authCustomer ? 'WRONG_ACCOUNT' : 'UNAUTHENTICATED'),
     };
 
-    const payloadOrder = canViewPrivateDetails ? order : sanitizeOrderForPublicTrackingEdge(order);
+    const isPaymentOrDetailIntent =
+      url.searchParams.get('purpose') === 'pay' ||
+      url.searchParams.get('purpose') === 'account' ||
+      url.searchParams.get('intent') === 'pay' ||
+      Boolean(url.searchParams.get('token')) ||
+      request.headers.get('referer')?.includes('/pay') ||
+      request.headers.get('referer')?.includes('/account/orders');
+
+    let payloadOrder;
+    if (canViewPrivateDetails) {
+      payloadOrder = order;
+    } else if (isPaymentOrDetailIntent) {
+      payloadOrder = {
+        ...sanitizeOrderForPublicTrackingEdge(order),
+        totalInPaise: order.totalInPaise,
+        subtotalInPaise: order.subtotalInPaise,
+        shippingInPaise: order.shippingInPaise,
+        discountInPaise: order.discountInPaise,
+        taxInPaise: order.taxInPaise,
+        items: order.items || [],
+        shippingAddress: order.shippingAddress
+          ? {
+              fullName: order.shippingAddress.fullName,
+              phone: order.shippingAddress.phone,
+              addressLine1: order.shippingAddress.addressLine1,
+              addressLine2: order.shippingAddress.addressLine2,
+              city: order.shippingAddress.city,
+              state: order.shippingAddress.state,
+              postalCode: order.shippingAddress.postalCode,
+              country: order.shippingAddress.country,
+            }
+          : undefined,
+      };
+    } else {
+      payloadOrder = sanitizeOrderForPublicTrackingEdge(order);
+    }
     return json({ success: true, order: payloadOrder, privacy });
   }
 

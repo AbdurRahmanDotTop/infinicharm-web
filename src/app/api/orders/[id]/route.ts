@@ -76,7 +76,43 @@ export async function GET(
           : 'UNAUTHENTICATED',
     };
 
-    const payloadOrder = canViewPrivateDetails ? order : sanitizeOrderForPublicTracking(order);
+    const isPaymentOrDetailIntent =
+      searchParams.get('purpose') === 'pay' ||
+      searchParams.get('purpose') === 'account' ||
+      searchParams.get('intent') === 'pay' ||
+      Boolean(searchParams.get('token')) ||
+      request.headers.get('referer')?.includes('/pay') ||
+      request.headers.get('referer')?.includes('/account/orders');
+
+    let payloadOrder;
+    if (canViewPrivateDetails) {
+      payloadOrder = order;
+    } else if (isPaymentOrDetailIntent) {
+      // Safe payload: authoritative financial amounts & item summary needed for payment settlement and order inspection
+      payloadOrder = {
+        ...sanitizeOrderForPublicTracking(order),
+        totalInPaise: order.totalInPaise,
+        subtotalInPaise: order.subtotalInPaise,
+        shippingInPaise: order.shippingInPaise,
+        discountInPaise: order.discountInPaise,
+        taxInPaise: order.taxInPaise,
+        items: order.items || [],
+        shippingAddress: order.shippingAddress
+          ? {
+              fullName: order.shippingAddress.fullName,
+              phone: order.shippingAddress.phone,
+              addressLine1: order.shippingAddress.addressLine1,
+              addressLine2: order.shippingAddress.addressLine2,
+              city: order.shippingAddress.city,
+              state: order.shippingAddress.state,
+              postalCode: order.shippingAddress.postalCode,
+              country: order.shippingAddress.country,
+            }
+          : undefined,
+      };
+    } else {
+      payloadOrder = sanitizeOrderForPublicTracking(order);
+    }
 
     return NextResponse.json(
       { success: true, order: payloadOrder, privacy },

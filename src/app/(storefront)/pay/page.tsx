@@ -147,14 +147,17 @@ function PaymentPageContent() {
       return;
     }
 
-    setLoading(true);
-    setNotFound(false);
-    setUtrError(null);
+    let pollInterval: any = null;
 
-    async function fetchOrderDetails() {
+    async function fetchOrderDetails(isBackground = false) {
+      if (!isBackground) {
+        setLoading(true);
+        setNotFound(false);
+        setUtrError(null);
+      }
       try {
-        const queryUrl = `/api/orders/${encodeURIComponent(effectiveId || decodedFromToken?.orderNumber || '')}${
-          effectiveToken ? `?token=${encodeURIComponent(effectiveToken)}` : ''
+        const queryUrl = `/api/orders/${encodeURIComponent(effectiveId || decodedFromToken?.orderNumber || '')}?purpose=pay${
+          effectiveToken ? `&token=${encodeURIComponent(effectiveToken)}` : ''
         }`;
         const res = await fetch(queryUrl, { cache: 'no-store' });
         if (!isMounted) return;
@@ -166,6 +169,9 @@ function PaymentPageContent() {
             setOrderId(data.order.orderNumber || data.order.id);
             if (data.order.utrNumber) {
               setUtrInput(data.order.utrNumber);
+            }
+            if (['PAID', 'DELIVERED', 'CANCELLED', 'REFUNDED'].includes(data.order.paymentStatus) || data.order.status === 'DELIVERED') {
+              if (pollInterval) clearInterval(pollInterval);
             }
             return;
           }
@@ -202,18 +208,19 @@ function PaymentPageContent() {
           return;
         }
 
-        if (isMounted) {
+        if (isMounted && (!isBackground || !order)) {
           setNotFound(true);
+          if (pollInterval) clearInterval(pollInterval);
         }
       } catch (err) {
         console.error('Error fetching order for payment page:', err);
-        if (isMounted && !decodedFromToken) setNotFound(true);
+        if (isMounted && !decodedFromToken && (!isBackground || !order)) setNotFound(true);
       } finally {
-        if (isMounted) setLoading(false);
+        if (isMounted && !isBackground) setLoading(false);
       }
     }
 
-    fetchOrderDetails();
+    fetchOrderDetails(false);
 
     let channel: BroadcastChannel | null = null;
     if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
@@ -229,22 +236,23 @@ function PaymentPageContent() {
                 if (updatedOrder.utrNumber) setUtrInput(updatedOrder.utrNumber);
               }
             } else {
-              fetchOrderDetails();
+              fetchOrderDetails(true);
             }
           }
         };
       } catch {}
     }
 
-    const interval = setInterval(() => {
+    // Gentle 30-second background polling only (never 4s aggressive reload)
+    pollInterval = setInterval(() => {
       if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
-        fetchOrderDetails();
+        fetchOrderDetails(true);
       }
-    }, 4000);
+    }, 30000);
 
     return () => {
       isMounted = false;
-      clearInterval(interval);
+      if (pollInterval) clearInterval(pollInterval);
       if (channel) {
         try {
           channel.close();
@@ -497,12 +505,12 @@ function PaymentPageContent() {
         {/* Top Header & Security Banner */}
         <div className="bg-white border border-stone-200 rounded-2xl p-5 md:p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+            <div className="flex flex-wrap items-center gap-2 mb-1">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
               <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
                 Official Secure Payment Desk
               </span>
-              <span className="text-[11px] font-medium text-muted hidden sm:inline">
+              <span className="text-[11px] font-medium text-muted">
                 • 256-Bit SSL Encrypted
               </span>
             </div>
@@ -586,7 +594,7 @@ function PaymentPageContent() {
           </div>
         )}
 
-        {/* Main Grid: Left = Payment Actions & QR; Right = Order Summary & UTR */}
+        {/* Main Grid: Left = Payment Actions & QR; Right = Order Summary, Destination & UTR */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* ================================================================= */}
           {/* LEFT COLUMN: UPI Gateway, Direct Intent & QR Code (7 cols)       */}
@@ -629,10 +637,10 @@ function PaymentPageContent() {
                         setShowDesktopPrompt(true);
                       }
                     }}
-                    className="w-full flex items-center justify-center gap-2.5 py-3.5 px-4 bg-primary text-white rounded-xl font-bold text-sm md:text-base hover:bg-primary/95 transition-all shadow-md active:scale-[0.99] text-center"
+                    className="w-full flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2.5 py-3.5 px-4 bg-primary text-white rounded-xl font-bold text-sm md:text-base hover:bg-primary/95 transition-all shadow-md active:scale-[0.99] text-center"
                   >
                     <span>⚡ Pay via UPI App</span>
-                    <span className="text-xs font-normal opacity-90 hidden sm:inline">
+                    <span className="text-xs font-normal opacity-90">
                       (GPay, PhonePe, Paytm, BHIM)
                     </span>
                   </a>
@@ -642,34 +650,34 @@ function PaymentPageContent() {
                     <span className="text-[11px] text-muted font-semibold block mb-2 text-center">
                       Or select your preferred UPI application directly:
                     </span>
-                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
                       <a
                         href={upiDetails.appUris.phonePe}
-                        className="flex items-center justify-center py-2 px-1 sm:px-2.5 bg-purple-50 hover:bg-purple-100 text-purple-900 border border-purple-200 rounded-lg text-[11px] sm:text-xs font-bold transition-all text-center truncate"
+                        className="flex items-center justify-center py-2.5 px-2 bg-purple-50 hover:bg-purple-100 text-purple-900 border border-purple-200 rounded-lg text-xs font-bold transition-all text-center"
                       >
                         PhonePe
                       </a>
                       <a
                         href={upiDetails.appUris.gPay}
-                        className="flex items-center justify-center py-2 px-1 sm:px-2.5 bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-200 rounded-lg text-[11px] sm:text-xs font-bold transition-all text-center truncate"
+                        className="flex items-center justify-center py-2.5 px-2 bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-200 rounded-lg text-xs font-bold transition-all text-center"
                       >
                         Google Pay
                       </a>
                       <a
                         href={upiDetails.appUris.paytm}
-                        className="flex items-center justify-center py-2 px-1 sm:px-2.5 bg-sky-50 hover:bg-sky-100 text-sky-900 border border-sky-200 rounded-lg text-[11px] sm:text-xs font-bold transition-all text-center truncate"
+                        className="flex items-center justify-center py-2.5 px-2 bg-sky-50 hover:bg-sky-100 text-sky-900 border border-sky-200 rounded-lg text-xs font-bold transition-all text-center"
                       >
                         Paytm
                       </a>
                       <a
                         href={upiDetails.appUris.bhim}
-                        className="flex items-center justify-center py-2 px-1 sm:px-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-200 rounded-lg text-[11px] sm:text-xs font-bold transition-all text-center truncate"
+                        className="flex items-center justify-center py-2.5 px-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-200 rounded-lg text-xs font-bold transition-all text-center"
                       >
                         BHIM UPI
                       </a>
                       <a
                         href={upiDetails.appUris.cred}
-                        className="flex items-center justify-center py-2 px-1 sm:px-2.5 bg-stone-100 hover:bg-stone-200 text-stone-900 border border-stone-300 rounded-lg text-[11px] sm:text-xs font-bold transition-all text-center truncate col-span-2 sm:col-span-1"
+                        className="flex items-center justify-center py-2.5 px-2 bg-stone-100 hover:bg-stone-200 text-stone-900 border border-stone-300 rounded-lg text-xs font-bold transition-all text-center col-span-2 sm:col-span-1"
                       >
                         CRED
                       </a>
@@ -697,15 +705,15 @@ function PaymentPageContent() {
               {/* Dynamic QR Code Section */}
               <div className="pt-2 border-t border-stone-100">
                 <div className="flex flex-col sm:flex-row items-center gap-6">
-                  <div className="relative p-3 bg-white border-2 border-dashed border-stone-300 rounded-2xl shadow-inner flex flex-col items-center">
+                  <div className="relative p-3 bg-white border-2 border-dashed border-stone-300 rounded-2xl shadow-inner flex flex-col items-center shrink-0">
                     {qrCodeDataUrl ? (
                       <img
                         src={qrCodeDataUrl}
                         alt={`InfiniCharm Dynamic UPI QR for ${activeOrderId}`}
-                        className="w-48 h-48 md:w-52 md:h-52 object-contain"
+                        className="w-44 h-44 sm:w-48 sm:h-48 md:w-52 md:h-52 object-contain"
                       />
                     ) : (
-                      <div className="w-48 h-48 md:w-52 md:h-52 bg-stone-100 animate-pulse rounded-lg flex items-center justify-center text-xs text-muted">
+                      <div className="w-44 h-44 sm:w-48 sm:h-48 md:w-52 md:h-52 bg-stone-100 animate-pulse rounded-lg flex items-center justify-center text-xs text-muted">
                         Generating Dynamic QR...
                       </div>
                     )}
@@ -714,7 +722,7 @@ function PaymentPageContent() {
                     </span>
                   </div>
 
-                  <div className="space-y-3 flex-1 text-center sm:text-left">
+                  <div className="space-y-3 flex-1 text-center sm:text-left min-w-0 w-full">
                     <h3 className="font-bold text-sm text-slate">
                       Scan with any UPI Application
                     </h3>
@@ -722,11 +730,11 @@ function PaymentPageContent() {
                       Point your phone camera or open Google Pay, PhonePe, Paytm, or BHIM to scan. The payable amount and order note will be populated automatically.
                     </p>
 
-                    <div className="text-[11px] bg-stone-50 p-2.5 rounded-lg border border-stone-200">
+                    <div className="text-[11px] bg-stone-50 p-2.5 rounded-lg border border-stone-200 overflow-hidden">
                       <span className="text-muted block text-[10px] font-bold uppercase">
                         Transaction Note auto-populated:
                       </span>
-                      <strong className="text-primary font-mono font-bold block truncate">
+                      <strong className="text-primary font-mono font-bold block break-all text-xs">
                         {upiDetails.transactionNote}
                       </strong>
                     </div>
@@ -735,7 +743,7 @@ function PaymentPageContent() {
                       <a
                         href={qrCodeDataUrl}
                         download={`infinicharm-qr-${activeOrderId}.png`}
-                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate hover:text-primary transition-colors py-1.5 px-3 bg-stone-100 rounded-lg border border-stone-200"
+                        className="inline-flex items-center justify-center gap-1.5 text-xs font-semibold text-slate hover:text-primary transition-colors py-2 px-3 bg-stone-100 rounded-lg border border-stone-200 w-full sm:w-auto"
                       >
                         📥 Download QR Code
                       </a>
@@ -750,50 +758,63 @@ function PaymentPageContent() {
                   Official Payee Information (Merchant Authority)
                 </span>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                  <div className="p-2.5 bg-stone-50 rounded-lg border border-stone-200 flex items-center justify-between">
-                    <div>
+                  <div className="p-2.5 bg-stone-50 rounded-lg border border-stone-200 flex items-center justify-between gap-2">
+                    <div className="min-w-0">
                       <span className="text-[10px] text-muted block">Official UPI ID (VPA):</span>
-                      <strong className="font-mono text-slate text-xs">{upiDetails.upiId}</strong>
+                      <strong className="font-mono text-slate text-xs break-all">{upiDetails.upiId}</strong>
                     </div>
                     <button
                       type="button"
                       onClick={() => handleCopy(upiDetails.upiId, 'vpa')}
-                      className="text-xs text-primary font-semibold hover:underline px-2 py-1"
+                      className="text-xs text-primary font-semibold hover:underline px-2 py-1 shrink-0 bg-white border border-stone-200 rounded"
                     >
-                      {copiedKey === 'vpa' ? '✓' : 'Copy'}
+                      {copiedKey === 'vpa' ? '✓ Copied' : 'Copy'}
                     </button>
                   </div>
 
-                  <div className="p-2.5 bg-stone-50 rounded-lg border border-stone-200 flex items-center justify-between">
-                    <div>
+                  <div className="p-2.5 bg-stone-50 rounded-lg border border-stone-200 flex items-center justify-between gap-2">
+                    <div className="min-w-0">
                       <span className="text-[10px] text-muted block">Payee / Mobile:</span>
-                      <strong className="text-slate text-xs">
+                      <strong className="text-slate text-xs break-words">
                         {upiDetails.upiNumber} • {upiDetails.payeeName}
                       </strong>
                     </div>
                     <button
                       type="button"
                       onClick={() => handleCopy(upiDetails.upiNumber, 'phone')}
-                      className="text-xs text-primary font-semibold hover:underline px-2 py-1"
+                      className="text-xs text-primary font-semibold hover:underline px-2 py-1 shrink-0 bg-white border border-stone-200 rounded"
                     >
-                      {copiedKey === 'phone' ? '✓' : 'Copy'}
+                      {copiedKey === 'phone' ? '✓ Copied' : 'Copy'}
                     </button>
                   </div>
 
-                  <div className="p-2.5 bg-stone-50 rounded-lg border border-stone-200 col-span-1 sm:col-span-2 flex items-center justify-between">
-                    <div>
-                      <span className="text-[10px] text-muted block">Bank Settlement:</span>
-                      <span className="text-xs text-slate">
-                        <strong>IndusInd Bank (Current)</strong> • A/C: <span className="font-mono">258825164657</span> • IFSC: <span className="font-mono">INDB0001548</span>
-                      </span>
+                  <div className="p-2.5 bg-stone-50 rounded-lg border border-stone-200 col-span-1 sm:col-span-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div className="min-w-0 space-y-0.5">
+                      <span className="text-[10px] text-muted block">Bank Settlement (IndusInd Bank Current Account):</span>
+                      <div className="text-xs text-slate flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <span>A/C: <strong className="font-mono">{DEFAULT_UPI_CREDENTIALS.accountNumber}</strong></span>
+                        <span className="text-stone-300">•</span>
+                        <span>IFSC: <strong className="font-mono">{DEFAULT_UPI_CREDENTIALS.ifscCode}</strong></span>
+                        <span className="text-stone-300">•</span>
+                        <span className="text-[11px] text-muted">{DEFAULT_UPI_CREDENTIALS.bankName}</span>
+                      </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handleCopy('258825164657', 'bank_ac')}
-                      className="text-xs text-primary font-semibold hover:underline px-2 py-1"
-                    >
-                      {copiedKey === 'bank_ac' ? '✓' : 'Copy A/C'}
-                    </button>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => handleCopy(DEFAULT_UPI_CREDENTIALS.accountNumber, 'bank_ac')}
+                        className="text-xs text-primary font-semibold hover:underline px-2 py-1 bg-white border border-stone-200 rounded"
+                      >
+                        {copiedKey === 'bank_ac' ? '✓ A/C' : 'Copy A/C'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleCopy(DEFAULT_UPI_CREDENTIALS.ifscCode, 'bank_ifsc')}
+                        className="text-xs text-primary font-semibold hover:underline px-2 py-1 bg-white border border-stone-200 rounded"
+                      >
+                        {copiedKey === 'bank_ifsc' ? '✓ IFSC' : 'Copy IFSC'}
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -844,9 +865,56 @@ function PaymentPageContent() {
           </div>
 
           {/* ================================================================= */}
-          {/* RIGHT COLUMN: Order Summary & UTR Self-Service Form (5 cols)     */}
+          {/* RIGHT COLUMN: Consignment Destination, Summary & UTR (5 cols)     */}
           {/* ================================================================= */}
           <div className="lg:col-span-5 space-y-6">
+            {/* Consignment Delivery Destination Card */}
+            <div className="bg-white border border-stone-200 rounded-2xl p-5 md:p-6 shadow-sm space-y-3">
+              <h3 className="font-bold text-sm text-slate border-b border-stone-100 pb-2.5 flex items-center justify-between">
+                <span>Consignment Delivery Destination</span>
+                <span className="text-[11px] font-bold uppercase tracking-wider text-primary bg-primary/5 px-2 py-0.5 rounded border border-primary/20">
+                  {order.shippingAddress?.city || 'East Champaran'}, {order.shippingAddress?.state || 'Bihar'}
+                </span>
+              </h3>
+              <div className="text-xs space-y-1.5 text-muted">
+                <div className="flex items-baseline justify-between">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted">Recipient:</span>
+                  <strong className="text-slate text-xs font-semibold">
+                    {order.shippingAddress?.fullName || order.customerName || 'Valued Customer'}
+                  </strong>
+                </div>
+                <div className="flex items-baseline justify-between">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted">Contact Phone:</span>
+                  <span className="font-mono text-slate">
+                    {order.shippingAddress?.phone || order.customerPhone || '8825164657'}
+                  </span>
+                </div>
+                <div className="pt-1 border-t border-stone-100 text-[11px] leading-relaxed">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted block mb-0.5">
+                    Shipping Address:
+                  </span>
+                  <p className="text-slate font-normal">
+                    {order.shippingAddress?.addressLine1 || 'Ward No. 07, Lahsaniya, Khoripakar'}
+                    {order.shippingAddress?.addressLine2 ? `, ${order.shippingAddress.addressLine2}` : ''}
+                    {', '}
+                    {order.shippingAddress?.city || 'East Champaran'}
+                    {', '}
+                    {order.shippingAddress?.state || 'Bihar'}
+                    {' – '}
+                    <strong className="font-mono">{order.shippingAddress?.postalCode || '845427'}</strong>
+                  </p>
+                </div>
+                {order.courierName && (
+                  <div className="pt-1.5 border-t border-stone-100 flex items-center justify-between text-[11px]">
+                    <span className="text-muted">Assigned Logistics:</span>
+                    <span className="font-semibold text-primary">
+                      {order.courierName} {order.trackingNumber ? `(${order.trackingNumber})` : ''}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+
             {/* Order Items & Financial Summary */}
             <div className="bg-white border border-stone-200 rounded-2xl p-5 md:p-6 shadow-sm space-y-4">
               <h3 className="font-bold text-sm text-slate border-b border-stone-100 pb-3 flex items-center justify-between">
@@ -858,16 +926,16 @@ function PaymentPageContent() {
 
               <div className="divide-y divide-stone-100 max-h-56 overflow-y-auto pr-1">
                 {order.items?.map((item, idx) => (
-                  <div key={idx} className="py-2.5 flex items-center justify-between text-xs">
-                    <div className="pr-2">
-                      <strong className="text-slate block font-medium truncate max-w-[200px]">
+                  <div key={idx} className="py-2.5 flex items-center justify-between text-xs gap-3">
+                    <div className="pr-1 min-w-0 flex-1">
+                      <strong className="text-slate block font-medium text-xs break-words">
                         {item.productTitle || (item as any).title}
                       </strong>
                       <span className="text-muted text-[11px]">
                         Qty: {item.quantity} × ₹{((item.priceInPaise || 0) / 100).toFixed(2)}
                       </span>
                     </div>
-                    <span className="font-mono font-semibold text-slate">
+                    <span className="font-mono font-semibold text-slate shrink-0">
                       ₹{(((item.quantity || 1) * (item.priceInPaise || 0)) / 100).toFixed(2)}
                     </span>
                   </div>

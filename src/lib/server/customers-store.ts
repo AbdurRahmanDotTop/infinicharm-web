@@ -524,13 +524,18 @@ export function deleteCustomer(id: string): boolean {
       const ordName2 = (ord.shippingAddress?.fullName || '').trim().toLowerCase();
       const ordName3 = (ord.billingAddress?.fullName || '').trim().toLowerCase();
 
-      const isCustomerMatch =
+      const isDirectMatch =
         (ord.customerId && ord.customerId === targetCust.id) ||
-        (ordEmail && ordEmail === cleanCustEmail) ||
-        (cleanCustPhone.length >= 10 && (ordPhone1 === cleanCustPhone || ordPhone2 === cleanCustPhone || ordPhone3 === cleanCustPhone)) ||
-        (cleanCustName.length > 2 && (ordName1 === cleanCustName || ordName2 === cleanCustName || ordName3 === cleanCustName)) ||
-        (ordPhone1 === '8825164657' || ordPhone2 === '8825164657') ||
-        (ordName1.includes('infinicharm patron') || ordName2.includes('infinicharm patron'));
+        (ordEmail && cleanCustEmail && ordEmail === cleanCustEmail);
+
+      const isGuestMatch =
+        (!ord.customerId || ord.customerId === 'guest') &&
+        cleanCustPhone.length >= 10 &&
+        (ordPhone1 === cleanCustPhone || ordPhone2 === cleanCustPhone || ordPhone3 === cleanCustPhone) &&
+        cleanCustName.length > 2 &&
+        (ordName1 === cleanCustName || ordName2 === cleanCustName || ordName3 === cleanCustName);
+
+      const isCustomerMatch = isDirectMatch || isGuestMatch;
 
       if (isCustomerMatch) {
         // Archive statutory financial transaction summary per Indian GST Act 2017 & Companies Act 2013 with PII removed

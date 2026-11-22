@@ -8,6 +8,7 @@ interface PageProps {
 export async function generateStaticParams() {
   return [
     { id: 'INF-202611-2527' },
+    { id: 'INF-202611-4435' },
   ];
 }
 
