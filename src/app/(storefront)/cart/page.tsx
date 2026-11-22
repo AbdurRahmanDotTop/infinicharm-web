@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useCart } from '@/lib/context/CartContext';
 import { formatPaiseToRupees } from '@/lib/utils/currency';
 import { Container } from '@/components/ui/Container';
+import { ProductRecommendations } from '@/components/shop/ProductRecommendations';
 import {
   ShoppingBag,
   Plus,
@@ -159,9 +160,17 @@ export default function CartPage() {
                       <Link href={`/product/${item.product.slug}`}>{item.product.title}</Link>
                     </h3>
                     <p className="text-xs text-muted truncate">{item.variant.title}</p>
-                    <p className="text-xs font-semibold text-primary">
-                      {formatPaiseToRupees(item.variant.priceInPaise)} each
-                    </p>
+                    <div className="flex items-baseline gap-1.5 flex-wrap">
+                      <span className="text-xs font-semibold text-primary">
+                        {formatPaiseToRupees(item.variant.priceInPaise)} each
+                      </span>
+                      {item.variant.compareAtPriceInPaise &&
+                        item.variant.compareAtPriceInPaise > item.variant.priceInPaise && (
+                          <span className="text-[11px] text-muted line-through font-mono">
+                            {formatPaiseToRupees(item.variant.compareAtPriceInPaise)}
+                          </span>
+                        )}
+                    </div>
                   </div>
                 </div>
 
@@ -278,6 +287,34 @@ export default function CartPage() {
                 </div>
               )}
 
+              {items.some(
+                (i) =>
+                  i.variant.compareAtPriceInPaise &&
+                  i.variant.compareAtPriceInPaise > i.variant.priceInPaise
+              ) && (
+                <div className="flex justify-between text-emerald-700 font-medium">
+                  <span>Catalogue Savings</span>
+                  <span>
+                    -
+                    {formatPaiseToRupees(
+                      items.reduce((acc, i) => {
+                        if (
+                          i.variant.compareAtPriceInPaise &&
+                          i.variant.compareAtPriceInPaise > i.variant.priceInPaise
+                        ) {
+                          return (
+                            acc +
+                            (i.variant.compareAtPriceInPaise - i.variant.priceInPaise) *
+                              i.quantity
+                          );
+                        }
+                        return acc;
+                      }, 0)
+                    )}
+                  </span>
+                </div>
+              )}
+
               <div className="flex justify-between">
                 <span>Standard Delivery</span>
                 <span className="font-semibold text-primary">
@@ -313,6 +350,17 @@ export default function CartPage() {
               <ShieldCheck className="w-4 h-4 text-accent" />
               <span>Direct dispatch from East Champaran, Bihar</span>
             </div>
+          </div>
+
+          {/* Cart Sidebar Recommendations */}
+          <div className="lg:col-span-4 mt-6">
+            <ProductRecommendations
+              title="Frequently Added Together"
+              subtitle="Curated complementary items for your bag"
+              badgeText="Up to 25% OFF"
+              limit={3}
+              layout="sidebar"
+            />
           </div>
         </div>
       </Container>

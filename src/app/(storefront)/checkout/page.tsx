@@ -37,6 +37,7 @@ import { Order, PaymentMethod, CustomerAddress, PaymentGatewayConfig, PublicAuth
 import { getPaymentGateways, fetchPaymentGateways, recordPaymentTransaction } from '@/lib/services/gateways';
 import { generateInitialOrderTimeline } from '@/lib/services/orders';
 import { PasswordInput } from '@/components/auth/PasswordInput';
+import { ProductRecommendations } from '@/components/shop/ProductRecommendations';
 import { ResendVerificationBox } from '@/components/auth/ResendVerificationBox';
 import { InlineOtpVerification } from '@/components/auth/InlineOtpVerification';
 import { persistClientCustomerSession } from '@/lib/auth/client-session';
@@ -52,6 +53,7 @@ export default function CheckoutPage() {
   const router = useRouter();
   const {
     items,
+    closeDrawer,
     subtotalInPaise,
     discountInPaise,
     shippingInPaise,
@@ -63,6 +65,11 @@ export default function CheckoutPage() {
     removeCoupon,
     clearCart,
   } = useCart();
+
+  // Close cart drawer on checkout mount so sidebar order summary is unobstructed
+  useEffect(() => {
+    closeDrawer();
+  }, [closeDrawer]);
 
   // Form states
   const [fullName, setFullName] = useState('');
@@ -2137,9 +2144,17 @@ export default function CheckoutPage() {
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold text-primary truncate">{item.product.title}</p>
                         <p className="text-[11px] text-muted">{item.variant.title} × {item.quantity}</p>
-                        <p className="text-xs font-bold text-primary mt-1">
-                          {formatPaiseToRupees(item.variant.priceInPaise * item.quantity)}
-                        </p>
+                        <div className="flex items-baseline gap-1.5 mt-1">
+                          <span className="text-xs font-bold text-primary">
+                            {formatPaiseToRupees(item.variant.priceInPaise * item.quantity)}
+                          </span>
+                          {item.variant.compareAtPriceInPaise &&
+                            item.variant.compareAtPriceInPaise > item.variant.priceInPaise && (
+                              <span className="text-[10px] text-muted line-through font-mono">
+                                {formatPaiseToRupees(item.variant.compareAtPriceInPaise * item.quantity)}
+                              </span>
+                            )}
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -2202,6 +2217,34 @@ export default function CheckoutPage() {
                     </div>
                   )}
 
+                  {items.some(
+                    (i) =>
+                      i.variant.compareAtPriceInPaise &&
+                      i.variant.compareAtPriceInPaise > i.variant.priceInPaise
+                  ) && (
+                    <div className="flex justify-between text-emerald-700 font-medium">
+                      <span>Catalogue Savings</span>
+                      <span>
+                        -
+                        {formatPaiseToRupees(
+                          items.reduce((acc, i) => {
+                            if (
+                              i.variant.compareAtPriceInPaise &&
+                              i.variant.compareAtPriceInPaise > i.variant.priceInPaise
+                            ) {
+                              return (
+                                acc +
+                                (i.variant.compareAtPriceInPaise - i.variant.priceInPaise) *
+                                  i.quantity
+                              );
+                            }
+                            return acc;
+                          }, 0)
+                        )}
+                      </span>
+                    </div>
+                  )}
+
                   <div className="flex justify-between">
                     <span>Standard Express Shipping</span>
                     <span className="font-semibold text-primary">
@@ -2243,6 +2286,15 @@ export default function CheckoutPage() {
                   By clicking Place Order, you confirm acceptance of InfiniCharm terms, privacy policy, and return guidelines.
                 </p>
               </div>
+
+              {/* Checkout Sidebar Recommendations (Frequently Added Together) */}
+              <ProductRecommendations
+                title="Frequently Added Together"
+                subtitle="Complete your order with genuine pantry essentials"
+                badgeText="Up to 25% OFF"
+                limit={3}
+                layout="sidebar"
+              />
             </div>
           </div>
         </form>

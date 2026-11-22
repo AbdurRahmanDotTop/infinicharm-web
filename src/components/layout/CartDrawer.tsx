@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useCart } from '@/lib/context/CartContext';
 import { formatPaiseToRupees } from '@/lib/utils/currency';
 import { X, ShoppingBag, Plus, Minus, Trash2, ArrowRight, Tag, Check, Truck } from 'lucide-react';
+import { ProductRecommendations } from '@/components/shop/ProductRecommendations';
 
 export function CartDrawer() {
   const {
@@ -68,6 +69,19 @@ export function CartDrawer() {
     100,
     Math.round((subtotalInPaise / freeShippingThresholdPaise) * 100)
   );
+
+  const totalItemSavingsInPaise = items.reduce((acc, item) => {
+    if (
+      item.variant.compareAtPriceInPaise &&
+      item.variant.compareAtPriceInPaise > item.variant.priceInPaise
+    ) {
+      return (
+        acc +
+        (item.variant.compareAtPriceInPaise - item.variant.priceInPaise) * item.quantity
+      );
+    }
+    return acc;
+  }, 0);
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
@@ -211,14 +225,33 @@ export function CartDrawer() {
                     </div>
 
                     <div className="text-right">
-                      <span className="text-xs font-bold text-neutral-900">
+                      <span className="text-xs font-bold text-neutral-900 block font-mono">
                         {formatPaiseToRupees(item.variant.priceInPaise * item.quantity)}
                       </span>
+                      {item.variant.compareAtPriceInPaise &&
+                        item.variant.compareAtPriceInPaise > item.variant.priceInPaise && (
+                          <span className="text-[10px] text-muted line-through block font-mono">
+                            {formatPaiseToRupees(item.variant.compareAtPriceInPaise * item.quantity)}
+                          </span>
+                        )}
                     </div>
                   </div>
                 </div>
               </div>
             ))
+          )}
+
+          {/* Complementary Recommendations (Adil Qadri & Ajmal Inspired) */}
+          {items.length > 0 && (
+            <div className="pt-4 mt-2">
+              <ProductRecommendations
+                title="Limited Time Offers"
+                subtitle="Frequently paired with your bag"
+                badgeText="Up to 25% OFF"
+                limit={3}
+                layout="drawer"
+              />
+            </div>
           )}
         </div>
 
@@ -283,6 +316,13 @@ export function CartDrawer() {
                 <span>Subtotal</span>
                 <span className="font-medium text-primary">{formatPaiseToRupees(subtotalInPaise)}</span>
               </div>
+
+              {totalItemSavingsInPaise > 0 && (
+                <div className="flex justify-between text-emerald-700 font-medium">
+                  <span>Catalogue Savings</span>
+                  <span>-{formatPaiseToRupees(totalItemSavingsInPaise)}</span>
+                </div>
+              )}
 
               {discountInPaise > 0 && (
                 <div className="flex justify-between text-emerald-700 font-medium">

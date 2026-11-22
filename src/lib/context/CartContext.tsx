@@ -26,7 +26,7 @@ interface CartContextType {
   totalItemsCount: number;
   freeShippingThresholdPaise: number;
   amountNeededForFreeShippingPaise: number;
-  addItem: (product: Product, variant: ProductVariant, quantity?: number) => void;
+  addItem: (product: Product, variant: ProductVariant, quantity?: number, openDrawer?: boolean) => void;
   removeItem: (variantId: string) => void;
   updateQuantity: (variantId: string, quantity: number) => void;
   clearCart: () => void;
@@ -248,7 +248,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     return freeShippingThresholdPaise - subtotalInPaise;
   }, [subtotalInPaise, freeShippingThresholdPaise]);
 
-  const addItem = (product: Product, variant: ProductVariant, quantity = 1) => {
+  const addItem = (product: Product, variant: ProductVariant, quantity = 1, openDrawer = true) => {
     setItems((prevItems) => {
       const existingIndex = prevItems.findIndex((item) => item.variantId === variant.id);
       if (existingIndex > -1) {
@@ -270,7 +270,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         },
       ];
     });
-    setIsDrawerOpen(true);
+    if (openDrawer) {
+      setIsDrawerOpen(true);
+    }
   };
 
   const removeItem = (variantId: string) => {

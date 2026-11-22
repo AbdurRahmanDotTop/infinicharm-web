@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { getProductBySlug, getAllProducts } from '@/lib/data/products';
 import { CATEGORIES } from '@/lib/constants/categories';
 import { formatPaiseToRupees } from '@/lib/utils/currency';
+import { getProductRecommendations } from '@/lib/services/recommendations';
 import { useCart } from '@/lib/context/CartContext';
 import { useWishlist } from '@/lib/context/WishlistContext';
 import { Container } from '@/components/ui/Container';
@@ -112,18 +113,12 @@ export default function ProductDetailClient({ initialSlug }: { initialSlug?: str
 
   const relatedProducts = useMemo(() => {
     if (!product) return [];
-    const pool = (catalogProducts.length > 0 ? catalogProducts : getAllProducts(false)).filter(
-      (p) => p.id !== product.id && p.status === 'PUBLISHED'
-    );
-    if (product.relatedProductIds && product.relatedProductIds.length > 0) {
-      const explicit = product.relatedProductIds
-        .map((id) => pool.find((p) => p.id === id))
-        .filter((p): p is Product => Boolean(p));
-      if (explicit.length > 0) return explicit;
-    }
-    const sameCategory = pool.filter((p) => p.categoryId === product.categoryId);
-    if (sameCategory.length > 0) return sameCategory.slice(0, 4);
-    return pool.slice(0, 4);
+    const pool = catalogProducts.length > 0 ? catalogProducts : getAllProducts(false);
+    return getProductRecommendations({
+      currentProductId: product.id,
+      limit: 4,
+      catalog: pool,
+    });
   }, [product, catalogProducts]);
 
   if (!product) {
@@ -648,22 +643,34 @@ export default function ProductDetailClient({ initialSlug }: { initialSlug?: str
               )}
 
               {/* Price Row */}
-              <div className="mt-4 flex items-baseline gap-3">
-                <span className="font-display text-3xl font-extrabold text-primary">
+              <div className="mt-4 flex flex-wrap items-baseline gap-3">
+                <span className="font-display text-3xl sm:text-4xl font-extrabold text-primary">
                   {formatPaiseToRupees(selectedVariant.priceInPaise)}
                 </span>
 
                 {selectedVariant.compareAtPriceInPaise &&
                   selectedVariant.compareAtPriceInPaise > selectedVariant.priceInPaise && (
-                    <span className="text-sm text-muted line-through">
-                      {formatPaiseToRupees(selectedVariant.compareAtPriceInPaise)}
-                    </span>
+                    <>
+                      <span className="text-base text-muted line-through font-mono">
+                        {formatPaiseToRupees(selectedVariant.compareAtPriceInPaise)}
+                      </span>
+                      <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200 shadow-2xs">
+                        Save {formatPaiseToRupees(selectedVariant.compareAtPriceInPaise - selectedVariant.priceInPaise)} ({discountPercent}% OFF)
+                      </span>
+                    </>
                   )}
 
                 <span className="text-[11px] text-muted font-normal">
                   (Inclusive of all taxes)
                 </span>
               </div>
+
+              {discountPercent > 0 && (
+                <div className="mt-2.5 inline-flex items-center gap-2 text-xs font-semibold text-accent bg-accent/5 px-3 py-1.5 rounded-xl border border-accent/20">
+                  <Sparkles className="w-3.5 h-3.5 text-accent shrink-0" />
+                  <span>Limited Period Direct Sourcing Offer • Instant Dispatch from East Champaran, Bihar</span>
+                </div>
+              )}
 
               {/* Stock Status Badge */}
               <div className="mt-3 flex items-center gap-2 text-xs">

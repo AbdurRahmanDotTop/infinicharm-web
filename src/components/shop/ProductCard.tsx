@@ -115,11 +115,19 @@ export function ProductCard({ product }: ProductCardProps) {
       {/* Pricing & Quick Add CTA */}
       <div className="p-4 sm:p-5 pt-0">
         <div className="pt-3 border-t border-border flex items-center justify-between gap-2">
-          <div>
+          <div className="min-w-0">
             <span className="text-[10px] text-muted block">From</span>
-            <span className="font-display text-base font-extrabold text-primary">
-              {defaultVariant ? formatPaiseToRupees(defaultVariant.priceInPaise) : '—'}
-            </span>
+            <div className="flex items-baseline gap-1.5 flex-wrap">
+              <span className="font-display text-base font-extrabold text-primary">
+                {defaultVariant ? formatPaiseToRupees(defaultVariant.priceInPaise) : '—'}
+              </span>
+              {defaultVariant?.compareAtPriceInPaise &&
+                defaultVariant.compareAtPriceInPaise > defaultVariant.priceInPaise && (
+                  <span className="text-xs text-muted line-through font-mono">
+                    {formatPaiseToRupees(defaultVariant.compareAtPriceInPaise)}
+                  </span>
+                )}
+            </div>
           </div>
 
           <button
