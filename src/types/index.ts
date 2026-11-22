@@ -296,6 +296,8 @@ export interface OrderTimelineEvent {
   type?: 'PAYMENT' | 'FULFILLMENT' | 'LOGISTICS' | 'EXCEPTION' | 'RETURN';
 }
 
+export type AddressType = 'HOME' | 'OFFICE' | 'OTHER';
+
 export interface CustomerAddress {
   id: string;
   customerId: string;
@@ -309,6 +311,8 @@ export interface CustomerAddress {
   country: string;
   isDefaultShipping: boolean;
   isDefaultBilling: boolean;
+  type?: AddressType | string;
+  label?: string;
 }
 
 export type CustomerStatus = 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';

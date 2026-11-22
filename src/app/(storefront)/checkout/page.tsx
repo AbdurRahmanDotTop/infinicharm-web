@@ -28,12 +28,14 @@ import {
   ExternalLink,
   Globe,
   Smartphone,
+  Phone,
+  Home,
   UserCheck,
   UserPlus,
   LogIn,
   Info,
 } from 'lucide-react';
-import { Order, PaymentMethod, CustomerAddress, PaymentGatewayConfig, PublicAuthSettings } from '@/types';
+import { Order, PaymentMethod, CustomerAddress, AddressType, PaymentGatewayConfig, PublicAuthSettings } from '@/types';
 import { getPaymentGateways, fetchPaymentGateways, recordPaymentTransaction } from '@/lib/services/gateways';
 import { generateInitialOrderTimeline } from '@/lib/services/orders';
 import { PasswordInput } from '@/components/auth/PasswordInput';
@@ -88,6 +90,9 @@ export default function CheckoutPage() {
   const [savedAddresses, setSavedAddresses] = useState<CustomerAddress[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
   const [saveNewAddressToAccount, setSaveNewAddressToAccount] = useState<boolean>(true);
+  const [addressType, setAddressType] = useState<AddressType>('HOME');
+  const [addressLabel, setAddressLabel] = useState<string>('');
+  const [makeDefaultShipping, setMakeDefaultShipping] = useState<boolean>(false);
 
   // Checkout Auth & WooCommerce-style Inline Login / Account Creation
   const [authPolicy, setAuthPolicy] = useState<PublicAuthSettings | null>(null);
@@ -296,13 +301,16 @@ export default function CheckoutPage() {
                   data.customer.addresses[0];
                 if (def) {
                   setSelectedAddressId(def.id);
-                  setFullName((prev) => prev || def.fullName);
-                  setPhone((prev) => prev || def.phone);
-                  setAddressLine1((prev) => prev || def.addressLine1);
-                  setAddressLine2((prev) => prev || def.addressLine2 || '');
-                  setPinCode((prev) => prev || def.postalCode);
-                  setCity((prev) => prev || def.city);
-                  setStateName((prev) => prev || def.state);
+                  setFullName(def.fullName || data.customer.fullName || '');
+                  setPhone(def.phone || data.customer.phone || '');
+                  setAddressLine1(def.addressLine1);
+                  setAddressLine2(def.addressLine2 || '');
+                  setPinCode(def.postalCode);
+                  setCity(def.city);
+                  setStateName(def.state);
+                  setAddressType((def.type as AddressType) || 'HOME');
+                  setAddressLabel(def.label || '');
+                  setMakeDefaultShipping(Boolean(def.isDefaultShipping));
                 }
               }
               return;
@@ -325,13 +333,16 @@ export default function CheckoutPage() {
           const def = addrs.find((a) => a.isDefaultShipping) || addrs[0];
           if (def && !preserveExistingInputs) {
             setSelectedAddressId(def.id);
-            setFullName((prev) => prev || def.fullName);
-            setPhone((prev) => prev || def.phone);
-            setAddressLine1((prev) => prev || def.addressLine1);
-            setAddressLine2((prev) => prev || def.addressLine2 || '');
-            setPinCode((prev) => prev || def.postalCode);
-            setCity((prev) => prev || def.city);
-            setStateName((prev) => prev || def.state);
+            setFullName(def.fullName);
+            setPhone(def.phone);
+            setAddressLine1(def.addressLine1);
+            setAddressLine2(def.addressLine2 || '');
+            setPinCode(def.postalCode);
+            setCity(def.city);
+            setStateName(def.state);
+            setAddressType((def.type as AddressType) || 'HOME');
+            setAddressLabel(def.label || '');
+            setMakeDefaultShipping(Boolean(def.isDefaultShipping));
           }
         }
 
@@ -629,6 +640,9 @@ export default function CheckoutPage() {
     setPinCode(addr.postalCode);
     setCity(addr.city);
     setStateName(addr.state);
+    setAddressType((addr.type as AddressType) || 'HOME');
+    setAddressLabel(addr.label || '');
+    setMakeDefaultShipping(Boolean(addr.isDefaultShipping));
   };
 
   const handleUseNewAddress = () => {
@@ -638,6 +652,10 @@ export default function CheckoutPage() {
     setPinCode('');
     setCity('');
     setStateName('');
+    setAddressType('HOME');
+    setAddressLabel('');
+    setMakeDefaultShipping(false);
+    setSaveNewAddressToAccount(true);
   };
 
   const handleInlineLoginSubmit = async () => {
@@ -805,28 +823,6 @@ export default function CheckoutPage() {
       return;
     }
 
-    // Auto-save address to account if requested and new
-    if (saveNewAddressToAccount && resolvedCustomerId !== 'guest' && !selectedAddressId) {
-      try {
-        fetch('/api/customers/me/addresses', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            fullName: fullName.trim(),
-            phone: phone.trim(),
-            addressLine1: addressLine1.trim(),
-            addressLine2: addressLine2.trim() || undefined,
-            city: city.trim(),
-            state: stateName.trim(),
-            postalCode: pinCode.trim(),
-            country: 'India',
-            isDefaultShipping: savedAddresses.length === 0,
-            isDefaultBilling: savedAddresses.length === 0,
-          }),
-        }).catch(() => {});
-      } catch {}
-    }
-
     // Validation for Custom UPI: Must provide valid UTR (single or comma-separated)
     let parsedUtrCleaned: string | undefined = undefined;
     if (paymentMethod === 'CUSTOM_UPI') {
@@ -904,7 +900,9 @@ export default function CheckoutPage() {
         state: stateName.trim(),
         postalCode: pinCode.trim(),
         country: 'India',
-        isDefaultShipping: true,
+        type: addressType,
+        label: addressLabel.trim() || (addressType === 'OFFICE' ? 'Office' : addressType === 'OTHER' ? 'Other' : 'Home'),
+        isDefaultShipping: Boolean(makeDefaultShipping) || !selectedAddressId,
         isDefaultBilling: true,
       },
       billingAddress: {
@@ -980,7 +978,12 @@ export default function CheckoutPage() {
       const orderRes = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(orderData),
+        body: JSON.stringify({
+          ...orderData,
+          saveAddressToBook: saveNewAddressToAccount,
+          makeDefaultShipping: makeDefaultShipping,
+          isOrderConfirmation: true,
+        }),
       });
       const orderResData = await orderRes.json();
 
@@ -992,6 +995,27 @@ export default function CheckoutPage() {
 
       if (orderResData.order) {
         savedServerOrder = orderResData.order;
+      }
+
+      if (orderResData.customer) {
+        if (Array.isArray(orderResData.customer.addresses)) {
+          localStorage.setItem('infinicharm_customer_addresses', JSON.stringify(orderResData.customer.addresses));
+          setSavedAddresses(orderResData.customer.addresses);
+        }
+        const storedUser = localStorage.getItem('infinicharm_customer_user');
+        if (storedUser) {
+          try {
+            const u = JSON.parse(storedUser);
+            localStorage.setItem('infinicharm_customer_user', JSON.stringify({
+              ...u,
+              fullName: orderResData.customer.fullName || u.fullName,
+              name: orderResData.customer.fullName || u.name,
+              phone: orderResData.customer.phone || u.phone,
+            }));
+          } catch {}
+        }
+        window.dispatchEvent(new Event('infinicharm_customer_addresses_updated'));
+        window.dispatchEvent(new Event('infinicharm_customer_updated'));
       }
 
       // 2. Local storage sync & cross-tab notification
@@ -1315,60 +1339,80 @@ export default function CheckoutPage() {
 
                 {/* Saved Address Book Selector (Shopify / WooCommerce Style) */}
                 {savedAddresses.length > 0 && (
-                  <div className="p-4 rounded-2xl bg-surface-dim/60 border border-border/80 space-y-3">
-                    <div className="flex items-center justify-between">
+                  <div className="p-4 sm:p-5 rounded-2xl bg-surface-dim/60 border border-border/80 space-y-3.5">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
                       <span className="font-semibold text-primary text-xs flex items-center gap-1.5">
                         <MapPin className="w-3.5 h-3.5 text-accent" />
-                        <span>Choose From Saved Addresses</span>
+                        <span>Choose From Saved Delivery Addresses</span>
                       </span>
                       <Link
                         href="/account/addresses"
                         className="text-[11px] font-semibold text-accent hover:underline"
                       >
-                        Manage Address Book
+                        Manage Address Book &rarr;
                       </Link>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {savedAddresses.map((addr) => {
                         const isSelected = selectedAddressId === addr.id;
+                        const aType = (addr.type as AddressType) || 'HOME';
                         return (
                           <div
                             key={addr.id}
+                            data-testid={`checkout-saved-address-${addr.id}`}
+                            role="button"
+                            tabIndex={0}
                             onClick={() => handleSelectSavedAddress(addr)}
-                            className={`p-3 rounded-xl border cursor-pointer transition-all text-xs space-y-1 ${
+                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleSelectSavedAddress(addr); }}
+                            className={`p-3.5 rounded-xl border cursor-pointer transition-all text-xs space-y-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
                               isSelected
                                 ? 'border-accent bg-accent/10 ring-1 ring-accent'
                                 : 'border-border bg-surface hover:border-accent/40'
                             }`}
                           >
-                            <div className="flex items-center justify-between">
-                              <span className="font-bold text-primary truncate">{addr.fullName}</span>
+                            <div className="flex items-center justify-between gap-1 flex-wrap">
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <span className="font-bold text-primary truncate max-w-[130px]">{addr.fullName}</span>
+                                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-accent bg-accent/10 px-2 py-0.5 rounded-full shrink-0">
+                                  {aType === 'OFFICE' ? <Building className="w-2.5 h-2.5" /> : aType === 'OTHER' ? <MapPin className="w-2.5 h-2.5" /> : <Home className="w-2.5 h-2.5" />}
+                                  <span>{addr.label || (aType === 'OFFICE' ? 'Office' : aType === 'OTHER' ? 'Other' : 'Home')}</span>
+                                </span>
+                              </div>
                               {addr.isDefaultShipping && (
-                                <span className="text-[9px] font-bold bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded-full shrink-0">
+                                <span className="text-[9px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full shrink-0 uppercase tracking-wider">
                                   Default
                                 </span>
                               )}
                             </div>
+                            <p className="text-[11px] text-muted flex items-center gap-1">
+                              <Phone className="w-3 h-3 text-accent shrink-0" />
+                              <span>{addr.phone}</span>
+                            </p>
                             <p className="text-muted line-clamp-1">{addr.addressLine1}</p>
                             <p className="text-[11px] text-muted">
-                              {addr.city}, {addr.state} - {addr.postalCode}
+                              {addr.city}, {addr.state} - <span className="font-semibold text-primary">{addr.postalCode}</span>
                             </p>
                           </div>
                         );
                       })}
                     </div>
 
-                    <div className="flex items-center justify-between pt-1">
+                    <div className="flex items-center justify-between pt-1 flex-wrap gap-2">
                       <button
                         type="button"
+                        data-testid="checkout-use-new-address-btn"
                         onClick={handleUseNewAddress}
-                        className="text-[11px] font-semibold text-accent hover:underline"
+                        className={`text-xs font-semibold px-3 py-1.5 rounded-xl border transition-colors ${
+                          !selectedAddressId
+                            ? 'bg-accent text-white border-accent'
+                            : 'bg-surface hover:bg-surface-dim text-accent border-accent/40 hover:underline'
+                        }`}
                       >
-                        + Use a different delivery address
+                        + Deliver to a different address
                       </button>
                       {selectedAddressId && (
-                        <span className="text-[10px] text-muted">Selected address auto-filled below (editable)</span>
+                        <span className="text-[11px] text-muted">Selected address auto-filled below (editable)</span>
                       )}
                     </div>
                   </div>
@@ -1547,17 +1591,101 @@ export default function CheckoutPage() {
                     />
                   </div>
 
-                  {!selectedAddressId && customerId !== 'guest' && (
-                    <div className="sm:col-span-2 pt-1">
-                      <label className="flex items-center gap-2 cursor-pointer text-xs text-muted">
-                        <input
-                          type="checkbox"
-                          checked={saveNewAddressToAccount}
-                          onChange={(e) => setSaveNewAddressToAccount(e.target.checked)}
-                          className="w-4 h-4 text-accent rounded accent-accent"
-                        />
-                        <span className="font-medium text-primary">Save this address to my account for 1-click checkout in the future</span>
-                      </label>
+                  {customerId !== 'guest' && (
+                    <div className="sm:col-span-2 pt-3 border-t border-border/80 space-y-3">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                        <span className="font-semibold text-primary text-xs">Address Category &amp; Nickname</span>
+                        <div className="flex items-center gap-1.5" role="group" aria-label="Address Category">
+                          <button
+                            type="button"
+                            data-testid="checkout-addr-type-home"
+                            onClick={() => {
+                              setAddressType('HOME');
+                              if (!addressLabel || addressLabel === 'Office' || addressLabel === 'Other') setAddressLabel('Home');
+                            }}
+                            className={`px-3 py-1 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors border ${
+                              addressType === 'HOME'
+                                ? 'bg-accent text-white border-accent shadow-xs'
+                                : 'bg-surface-dim text-muted border-border hover:text-primary'
+                            }`}
+                          >
+                            <Home className="w-3.5 h-3.5" />
+                            <span>Home</span>
+                          </button>
+                          <button
+                            type="button"
+                            data-testid="checkout-addr-type-office"
+                            onClick={() => {
+                              setAddressType('OFFICE');
+                              if (!addressLabel || addressLabel === 'Home' || addressLabel === 'Other') setAddressLabel('Office');
+                            }}
+                            className={`px-3 py-1 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors border ${
+                              addressType === 'OFFICE'
+                                ? 'bg-accent text-white border-accent shadow-xs'
+                                : 'bg-surface-dim text-muted border-border hover:text-primary'
+                            }`}
+                          >
+                            <Building className="w-3.5 h-3.5" />
+                            <span>Office</span>
+                          </button>
+                          <button
+                            type="button"
+                            data-testid="checkout-addr-type-other"
+                            onClick={() => {
+                              setAddressType('OTHER');
+                              if (!addressLabel || addressLabel === 'Home' || addressLabel === 'Office') setAddressLabel('Other');
+                            }}
+                            className={`px-3 py-1 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors border ${
+                              addressType === 'OTHER'
+                                ? 'bg-accent text-white border-accent shadow-xs'
+                                : 'bg-surface-dim text-muted border-border hover:text-primary'
+                            }`}
+                          >
+                            <MapPin className="w-3.5 h-3.5" />
+                            <span>Other</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
+                        <div>
+                          <label className="block text-[11px] font-medium text-muted mb-1">
+                            Address Nickname / Label (Optional)
+                          </label>
+                          <input
+                            type="text"
+                            data-testid="checkout-address-label-input"
+                            value={addressLabel}
+                            onChange={(e) => setAddressLabel(e.target.value)}
+                            placeholder={addressType === 'OFFICE' ? 'Office' : addressType === 'OTHER' ? 'Other' : 'Home'}
+                            className="w-full px-3.5 py-2 bg-surface-dim border border-border rounded-xl text-primary text-xs focus:outline-none focus:border-accent"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5 pt-1 sm:pt-4">
+                          <label className="flex items-center gap-2 cursor-pointer text-xs text-muted">
+                            <input
+                              type="checkbox"
+                              data-testid="checkout-save-address-checkbox"
+                              checked={saveNewAddressToAccount}
+                              onChange={(e) => setSaveNewAddressToAccount(e.target.checked)}
+                              className="w-4 h-4 text-accent rounded accent-accent"
+                            />
+                            <span className="font-medium text-primary">Save address to account for 1-click checkout</span>
+                          </label>
+
+                          <label className="flex items-center gap-2 cursor-pointer text-xs text-muted">
+                            <input
+                              type="checkbox"
+                              data-testid="checkout-make-default-shipping-checkbox"
+                              checked={makeDefaultShipping}
+                              onChange={(e) => setMakeDefaultShipping(e.target.checked)}
+                              className="w-4 h-4 text-accent rounded accent-accent"
+                            />
+                            <span className="font-medium text-primary">Make this my primary default delivery address</span>
+                          </label>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>

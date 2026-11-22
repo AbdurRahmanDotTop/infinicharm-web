@@ -67,6 +67,8 @@ export async function POST(req: NextRequest) {
       state,
       postalCode,
       country: country || 'India',
+      type: body.type || 'HOME',
+      label: body.label || (body.type === 'OFFICE' ? 'Office' : body.type === 'OTHER' ? 'Other' : 'Home'),
       isDefaultShipping: !!isDefaultShipping,
       isDefaultBilling: !!isDefaultBilling,
     });

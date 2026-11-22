@@ -79,6 +79,7 @@ export default function AccountPage() {
 
     const handleSync = () => fetchCustomerData();
     window.addEventListener('infinicharm_customer_updated', handleSync);
+    window.addEventListener('infinicharm_customer_addresses_updated', handleSync);
     window.addEventListener('infinicharm_orders_updated', handleSync);
 
     let channel: BroadcastChannel | null = null;
@@ -99,6 +100,7 @@ export default function AccountPage() {
 
     return () => {
       window.removeEventListener('infinicharm_customer_updated', handleSync);
+      window.removeEventListener('infinicharm_customer_addresses_updated', handleSync);
       window.removeEventListener('infinicharm_orders_updated', handleSync);
       clearInterval(interval);
       if (channel) {
@@ -117,11 +119,24 @@ export default function AccountPage() {
     window.location.href = '/login';
   };
 
+  const effectiveAddresses =
+    Array.isArray(customer?.addresses) && customer.addresses.length > 0
+      ? customer.addresses
+      : (typeof window !== 'undefined'
+          ? (() => {
+              try {
+                return JSON.parse(localStorage.getItem('infinicharm_customer_addresses') || '[]');
+              } catch {
+                return [];
+              }
+            })()
+          : []);
+
   const defaultShipping =
-    customer?.addresses?.find((a) => a.isDefaultShipping) ||
-    customer?.addresses?.[0];
+    effectiveAddresses.find((a: any) => a.isDefaultShipping) ||
+    effectiveAddresses[0];
   const defaultBilling =
-    customer?.addresses?.find((a) => a.isDefaultBilling) || defaultShipping;
+    effectiveAddresses.find((a: any) => a.isDefaultBilling) || defaultShipping;
 
   const activeOrdersCount = orders.filter(
     (o) => !['DELIVERED', 'CANCELLED', 'REFUNDED'].includes(o.status)
@@ -233,7 +248,7 @@ export default function AccountPage() {
             <div className="min-w-0">
               <p className="text-[11px] text-muted font-medium uppercase tracking-wider">Address Book</p>
               <h3 className="font-display text-xl font-bold text-primary">
-                {customer?.addresses?.length ?? 0} Saved
+                {effectiveAddresses.length} Saved
               </h3>
             </div>
           </Link>
@@ -276,10 +291,17 @@ export default function AccountPage() {
 
             {defaultShipping ? (
               <div className="bg-surface-dim/60 p-5 rounded-2xl border border-border/80 text-xs space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-primary text-sm">
-                    {defaultShipping.fullName}
-                  </span>
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-primary text-sm">
+                      {defaultShipping.fullName}
+                    </span>
+                    {(defaultShipping.label || defaultShipping.type) && (
+                      <span className="px-2 py-0.5 rounded-full bg-accent/10 text-accent text-[10px] font-semibold">
+                        {defaultShipping.label || (defaultShipping.type === 'OFFICE' ? 'Office' : defaultShipping.type === 'OTHER' ? 'Other' : 'Home')}
+                      </span>
+                    )}
+                  </div>
                   <div className="flex items-center gap-2">
                     <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
                       Default Shipping

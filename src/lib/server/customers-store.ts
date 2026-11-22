@@ -886,7 +886,7 @@ export function updateCustomerPassword(
  */
 export function manageCustomerAddress(
   customerId: string,
-  action: 'ADD' | 'UPDATE' | 'DELETE' | 'SET_DEFAULT_SHIPPING' | 'SET_DEFAULT_BILLING',
+  action: 'ADD' | 'UPDATE' | 'DELETE' | 'SET_DEFAULT_SHIPPING' | 'SET_DEFAULT_BILLING' | 'RENAME',
   addressData?: Partial<CustomerAddress> & { id?: string }
 ): CustomerAddress[] | null {
   const raw = readRawCustomers();
@@ -896,6 +896,10 @@ export function manageCustomerAddress(
   let addresses = [...cust.addresses];
 
   if (action === 'ADD') {
+    const determinedType = addressData?.type || 'HOME';
+    const determinedLabel = addressData?.label || (determinedType === 'OFFICE' ? 'Office' : determinedType === 'OTHER' ? 'Other' : 'Home');
+    const isFirst = addresses.length === 0;
+
     const newAddr: CustomerAddress = {
       id: addressData?.id || `addr-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`,
       customerId,
@@ -907,8 +911,10 @@ export function manageCustomerAddress(
       state: addressData?.state || '',
       postalCode: addressData?.postalCode || '',
       country: addressData?.country || 'India',
-      isDefaultShipping: addressData?.isDefaultShipping || addresses.length === 0,
-      isDefaultBilling: addressData?.isDefaultBilling || addresses.length === 0,
+      type: determinedType,
+      label: determinedLabel,
+      isDefaultShipping: addressData?.isDefaultShipping ?? isFirst,
+      isDefaultBilling: addressData?.isDefaultBilling ?? isFirst,
     };
 
     if (newAddr.isDefaultShipping) {
@@ -919,7 +925,7 @@ export function manageCustomerAddress(
     }
 
     addresses.push(newAddr);
-  } else if (action === 'UPDATE' && addressData?.id) {
+  } else if ((action === 'UPDATE' || action === 'RENAME') && addressData?.id) {
     const idx = addresses.findIndex((a) => a.id === addressData.id);
     if (idx !== -1) {
       if (addressData.isDefaultShipping) {
@@ -960,6 +966,170 @@ export function manageCustomerAddress(
   writeRawCustomers(raw);
 
   return addresses;
+}
+
+export interface AutoSaveCustomerOrderDetailsParams {
+  customerId?: string;
+  customerEmail?: string;
+  customerPhone?: string;
+  customerName?: string;
+  shippingAddress: Partial<CustomerAddress>;
+  billingAddress?: Partial<CustomerAddress>;
+  saveAddressToBook?: boolean;
+  addressType?: string;
+  addressLabel?: string;
+  makeDefaultShipping?: boolean;
+  makeDefaultBilling?: boolean;
+}
+
+/**
+ * Automatically saves customer checkout details and delivery address to their account
+ * upon successful order placement, strictly avoiding overwriting existing addresses.
+ */
+export function autoSaveCustomerOrderDetails(params: AutoSaveCustomerOrderDetailsParams): {
+  customer: Customer | null;
+  savedAddress: CustomerAddress | null;
+  isNewAddress: boolean;
+} {
+  const raw = readRawCustomers();
+  const cleanId = (params.customerId || '').trim();
+  const cleanEmail = (params.customerEmail || '').toLowerCase().trim();
+  const cleanPhone = (params.customerPhone || '').replace(/\D/g, '');
+
+  let cust: Customer | undefined;
+  if (cleanId && cleanId !== 'guest') {
+    cust = raw.find((c) => c.id === cleanId);
+  }
+  if (!cust && cleanEmail) {
+    cust = raw.find((c) => c.email.toLowerCase().trim() === cleanEmail);
+  }
+  if (!cust && cleanPhone && cleanPhone.length === 10) {
+    cust = raw.find((c) => c.phone && c.phone.replace(/\D/g, '') === cleanPhone);
+  }
+
+  if (!cust) {
+    return { customer: null, savedAddress: null, isNewAddress: false };
+  }
+
+  let modified = false;
+
+  // 1. Automatically update customer name and phone if missing or generic
+  if (
+    params.customerName &&
+    params.customerName.trim() &&
+    (!cust.fullName || cust.fullName === 'Valued Patron' || cust.fullName === 'Valued Customer')
+  ) {
+    cust.fullName = params.customerName.trim();
+    modified = true;
+  }
+  if (
+    params.customerPhone &&
+    cleanPhone.length === 10 &&
+    (!cust.phone || cust.phone.replace(/\D/g, '').length < 10)
+  ) {
+    cust.phone = params.customerPhone.trim();
+    modified = true;
+  }
+
+  let savedAddress: CustomerAddress | null = null;
+  let isNew = false;
+
+  // 2. Automatically save address to Address Book if valid shipping address provided
+  const ship = params.shippingAddress;
+  if (params.saveAddressToBook !== false && ship && ship.addressLine1 && ship.postalCode) {
+    if (!Array.isArray(cust.addresses)) {
+      cust.addresses = [];
+    }
+
+    const normLine1 = ship.addressLine1.toLowerCase().trim();
+    const normPostal = ship.postalCode.replace(/\D/g, '').trim();
+    const normCity = (ship.city || '').toLowerCase().trim();
+
+    // Check if an existing address matches (same street line and postal code)
+    const existingIndex = cust.addresses.findIndex((a) => {
+      const aLine1 = (a.addressLine1 || '').toLowerCase().trim();
+      const aPostal = (a.postalCode || '').replace(/\D/g, '').trim();
+      const aCity = (a.city || '').toLowerCase().trim();
+      return aLine1 === normLine1 && aPostal === normPostal && (!normCity || aCity === normCity);
+    });
+
+    if (existingIndex !== -1) {
+      // Update existing address details without creating duplicate
+      const existing = cust.addresses[existingIndex];
+      const updated: CustomerAddress = {
+        ...existing,
+        fullName: ship.fullName ? ship.fullName.trim() : existing.fullName,
+        phone: ship.phone ? ship.phone.trim() : existing.phone,
+        addressLine2: ship.addressLine2 !== undefined ? ship.addressLine2.trim() : existing.addressLine2,
+        city: ship.city ? ship.city.trim() : existing.city,
+        state: ship.state ? ship.state.trim() : existing.state,
+        country: ship.country || existing.country || 'India',
+        type: params.addressType || ship.type || existing.type || 'HOME',
+        label: params.addressLabel || ship.label || existing.label || 'Home',
+      };
+      if (params.makeDefaultShipping) {
+        cust.addresses.forEach((a) => { a.isDefaultShipping = false; });
+        updated.isDefaultShipping = true;
+      }
+      if (params.makeDefaultBilling) {
+        cust.addresses.forEach((a) => { a.isDefaultBilling = false; });
+        updated.isDefaultBilling = true;
+      }
+      cust.addresses[existingIndex] = updated;
+      savedAddress = updated;
+      isNew = false;
+      modified = true;
+    } else {
+      // Save as a brand new separate address (Support multiple addresses without overwriting)
+      const determinedType = params.addressType || ship.type || 'HOME';
+      const determinedLabel =
+        params.addressLabel ||
+        ship.label ||
+        (determinedType === 'OFFICE' ? 'Office' : determinedType === 'OTHER' ? 'Other' : 'Home');
+      const isFirst = cust.addresses.length === 0;
+      const makeDefShipping = params.makeDefaultShipping ?? isFirst;
+      const makeDefBilling = params.makeDefaultBilling ?? isFirst;
+
+      if (makeDefShipping) {
+        cust.addresses.forEach((a) => { a.isDefaultShipping = false; });
+      }
+      if (makeDefBilling) {
+        cust.addresses.forEach((a) => { a.isDefaultBilling = false; });
+      }
+
+      const newAddr: CustomerAddress = {
+        id:
+          ship.id && !ship.id.startsWith('addr-draft-')
+            ? ship.id
+            : `addr-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`,
+        customerId: cust.id,
+        fullName: String(ship.fullName || cust.fullName).trim(),
+        phone: String(ship.phone || cust.phone || '').trim(),
+        addressLine1: String(ship.addressLine1).trim(),
+        addressLine2: ship.addressLine2 ? String(ship.addressLine2).trim() : '',
+        city: String(ship.city || '').trim(),
+        state: String(ship.state || '').trim(),
+        postalCode: String(ship.postalCode).trim(),
+        country: ship.country || 'India',
+        type: determinedType,
+        label: determinedLabel,
+        isDefaultShipping: makeDefShipping,
+        isDefaultBilling: makeDefBilling,
+      };
+
+      cust.addresses.push(newAddr);
+      savedAddress = newAddr;
+      isNew = true;
+      modified = true;
+    }
+  }
+
+  if (modified) {
+    cust.updatedAt = new Date().toISOString();
+    writeRawCustomers(raw);
+  }
+
+  return { customer: cust, savedAddress, isNewAddress: isNew };
 }
 
 /**

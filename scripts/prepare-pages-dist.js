@@ -1056,9 +1056,24 @@ function makeCustomerSyncCookies() {
       deletedAt: d.deletedAt
     }));
 
-  const initialIds = new Set(INITIAL_CUSTOMERS.map(c => c.id));
+  const initialMap = new Map(INITIAL_CUSTOMERS.map(c => [c.id, c]));
   const dynamicCustomers = Array.from(registeredCustomers.values())
-    .filter(c => !initialIds.has(c.id) && !deletedCustomersRegistry.has((c.email || '').toLowerCase().trim()))
+    .filter(c => {
+      const email = (c.email || '').toLowerCase().trim();
+      if (deletedCustomersRegistry.has(email)) return false;
+      const initial = initialMap.get(c.id);
+      if (!initial) return true; // dynamic customer
+      // Include initial customer if their addresses or profile details were modified
+      const hasAddresses = Array.isArray(c.addresses) && c.addresses.length > 0;
+      const initialAddresses = Array.isArray(initial.addresses) && initial.addresses.length > 0;
+      if (hasAddresses !== initialAddresses || (hasAddresses && JSON.stringify(c.addresses) !== JSON.stringify(initial.addresses))) {
+        return true;
+      }
+      if (c.phone !== initial.phone || (c.fullName || c.name) !== (initial.fullName || initial.name)) {
+        return true;
+      }
+      return false;
+    })
     .map(c => ({
       id: c.id,
       email: c.email,
@@ -1096,26 +1111,53 @@ function getAuthenticatedCustomer(request) {
     cust = [...registeredCustomers.values()].find(c => c.id === custId);
   }
 
-  if (!cust) {
-    const rawData = getCookie(request, 'infinicharm_customer_data');
-    if (rawData) {
-      try {
-        const parsed = JSON.parse(rawData);
-        const cEmail = (parsed?.email || '').toLowerCase().trim();
-        const cId = parsed?.id || custId;
+  const rawData = getCookie(request, 'infinicharm_customer_data');
+  let parsedFromCookie = null;
+  if (rawData) {
+    try {
+      parsedFromCookie = JSON.parse(rawData);
+    } catch {}
+  }
 
-        // Never resurrect a deleted customer
-        if ((cEmail && deletedCustomersRegistry.has(cEmail)) || (cId && deletedCustomerIdsRegistry.has(cId))) {
-          return null;
-        }
+  if (!cust && parsedFromCookie) {
+    const cEmail = (parsedFromCookie?.email || '').toLowerCase().trim();
+    const cId = parsedFromCookie?.id || custId;
 
-        // Only resolve if customer already exists in registeredCustomers
-        if (cEmail && registeredCustomers.has(cEmail)) {
-          cust = registeredCustomers.get(cEmail);
-        } else if (cId) {
-          cust = [...registeredCustomers.values()].find(c => c.id === cId) || null;
-        }
-      } catch {}
+    // Never resurrect a deleted customer
+    if ((cEmail && deletedCustomersRegistry.has(cEmail)) || (cId && deletedCustomerIdsRegistry.has(cId))) {
+      return null;
+    }
+
+    // Resolve if customer already exists in registeredCustomers
+    if (cEmail && registeredCustomers.has(cEmail)) {
+      cust = registeredCustomers.get(cEmail);
+    } else if (cId) {
+      cust = [...registeredCustomers.values()].find(c => c.id === cId) || null;
+    }
+
+    // Hydrate dynamically registered customer from valid session cookie if missing in this worker isolate
+    if (!cust && cEmail) {
+      cust = {
+        id: cId || ('cust-' + Date.now()),
+        email: cEmail,
+        fullName: parsedFromCookie.fullName || parsedFromCookie.name || '',
+        name: parsedFromCookie.fullName || parsedFromCookie.name || '',
+        phone: parsedFromCookie.phone || '',
+        role: parsedFromCookie.role || 'CUSTOMER',
+        status: parsedFromCookie.status || 'ACTIVE',
+        emailVerified: Boolean(parsedFromCookie.emailVerified),
+        addresses: Array.isArray(parsedFromCookie.addresses) ? parsedFromCookie.addresses : [],
+        wishlistProductIds: Array.isArray(parsedFromCookie.wishlistProductIds) ? parsedFromCookie.wishlistProductIds : [],
+        preferences: parsedFromCookie.preferences || {
+          newsletterSubscribed: true,
+          smsAlerts: true,
+          orderUpdatesWhatsapp: true,
+          preferredCurrency: 'INR',
+          language: 'en'
+        },
+        createdAt: parsedFromCookie.createdAt || new Date().toISOString()
+      };
+      registeredCustomers.set(cEmail, cust);
     }
   }
 
@@ -1125,6 +1167,29 @@ function getAuthenticatedCustomer(request) {
   }
 
   if (!Array.isArray(cust.addresses)) cust.addresses = [];
+
+  // Merge addresses from infinicharm_customer_data cookie if cookie has newer or additional addresses
+  if (parsedFromCookie && Array.isArray(parsedFromCookie.addresses) && parsedFromCookie.addresses.length > 0) {
+    const existingIds = new Set(cust.addresses.map(a => a.id));
+    for (const cookieAddr of parsedFromCookie.addresses) {
+      if (cookieAddr && cookieAddr.id && !existingIds.has(cookieAddr.id)) {
+        cust.addresses.push(cookieAddr);
+        existingIds.add(cookieAddr.id);
+      }
+    }
+    if (cust.addresses.length === 0 && parsedFromCookie.addresses.length > 0) {
+      cust.addresses = [...parsedFromCookie.addresses];
+    }
+    if (!cust.phone && parsedFromCookie.phone) {
+      cust.phone = parsedFromCookie.phone;
+    }
+    if ((!cust.fullName || cust.fullName === cust.email.split('@')[0]) && parsedFromCookie.fullName) {
+      cust.fullName = parsedFromCookie.fullName;
+      cust.name = parsedFromCookie.fullName;
+    }
+    registeredCustomers.set(cust.email.toLowerCase().trim(), cust);
+  }
+
   if (!Array.isArray(cust.wishlistProductIds)) cust.wishlistProductIds = [];
   try {
     const validIds = new Set(Array.from(productsStore.values()).filter(p => !deletedProductIds.has(p.id) && p.status === 'PUBLISHED').map(p => p.id));
@@ -2539,7 +2604,7 @@ async function handleApi(request, url, env) {
           createdAt: customer.createdAt
         },
         message: 'Profile updated successfully.'
-      }, 200, [cookie]);
+      }, 200, [cookie, ...makeCustomerSyncCookies()]);
     }
   }
 
@@ -2569,7 +2634,7 @@ async function handleApi(request, url, env) {
     return jsonWithCookies({
       success: true,
       message: 'Password changed successfully. Your account is secured.'
-    }, 200, [cookie]);
+    }, 200, [cookie, ...makeCustomerSyncCookies()]);
   }
 
   // Customer Addresses Collection
@@ -2586,10 +2651,12 @@ async function handleApi(request, url, env) {
 
     if (method === 'POST') {
       const body = await request.clone().json().catch(() => ({}));
-      const { fullName, phone, addressLine1, addressLine2, city, state, postalCode, country, isDefaultShipping, isDefaultBilling } = body;
+      const { fullName, phone, addressLine1, addressLine2, city, state, postalCode, country, isDefaultShipping, isDefaultBilling, type, label } = body;
       if (!fullName || !phone || !addressLine1 || !city || !state || !postalCode) {
         return json({ success: false, error: 'All mandatory address fields must be filled.' }, 400);
       }
+      const addrType = type || 'HOME';
+      const addrLabel = label ? String(label).trim() : (addrType === 'OFFICE' ? 'Office' : addrType === 'OTHER' ? 'Other' : 'Home');
       const newAddr = {
         id: 'addr-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
         customerId: customer.id,
@@ -2601,6 +2668,8 @@ async function handleApi(request, url, env) {
         state: String(state).trim(),
         postalCode: String(postalCode).trim(),
         country: country || 'India',
+        type: addrType,
+        label: addrLabel,
         isDefaultShipping: Boolean(isDefaultShipping) || customer.addresses.length === 0,
         isDefaultBilling: Boolean(isDefaultBilling) || customer.addresses.length === 0
       };
@@ -2618,7 +2687,7 @@ async function handleApi(request, url, env) {
         addresses: customer.addresses,
         address: newAddr,
         message: 'Address added successfully.'
-      }, 201, [cookie]);
+      }, 201, [cookie, ...makeCustomerSyncCookies()]);
     }
   }
 
@@ -2652,7 +2721,7 @@ async function handleApi(request, url, env) {
         success: true,
         addresses: customer.addresses,
         message: 'Address updated successfully.'
-      }, 200, [cookie]);
+      }, 200, [cookie, ...makeCustomerSyncCookies()]);
     }
 
     if (method === 'DELETE') {
@@ -2667,7 +2736,7 @@ async function handleApi(request, url, env) {
         success: true,
         addresses: customer.addresses,
         message: 'Address deleted successfully.'
-      }, 200, [cookie]);
+      }, 200, [cookie, ...makeCustomerSyncCookies()]);
     }
 
     if (method === 'PATCH') {
@@ -2682,13 +2751,17 @@ async function handleApi(request, url, env) {
         customer.addresses.forEach(a => { a.isDefaultBilling = false; });
         target.isDefaultBilling = true;
       }
+      if (body.action === 'RENAME' || body.label !== undefined) {
+        if (body.label) target.label = String(body.label).trim();
+        if (body.type) target.type = body.type;
+      }
       registeredCustomers.set(customer.email, customer);
       const cookie = makeCustomerDataCookie(customer);
       return jsonWithCookies({
         success: true,
         addresses: customer.addresses,
-        message: 'Default address updated.'
-      }, 200, [cookie]);
+        message: 'Address updated successfully.'
+      }, 200, [cookie, ...makeCustomerSyncCookies()]);
     }
   }
 
@@ -2884,7 +2957,96 @@ async function handleApi(request, url, env) {
         ordersStore.set(existingOrder.id, mergedOrder);
         if (existingOrder.orderNumber) ordersStore.set(existingOrder.orderNumber, mergedOrder);
         cookiesToSet.push(makeOrdersSyncCookies());
-        return jsonWithCookies({ success: true, order: mergedOrder, isIdempotent: true }, 200, cookiesToSet);
+
+        let updatedCustomerPayload = null;
+        const effectiveCust = customer || (mergedOrder.customerId !== 'guest' ? registeredCustomers.get(mergedOrder.customerEmail?.toLowerCase()) : null);
+        const isConfirmedPlacement = Boolean(body.isOrderConfirmation || body.utrNumber || body.paymentStatus === 'PAID');
+
+        if (effectiveCust && isConfirmedPlacement && (body.shippingAddress || mergedOrder.shippingAddress) && body.saveAddressToBook !== false) {
+          if (!effectiveCust.addresses) effectiveCust.addresses = [];
+          const targetShipping = body.shippingAddress || mergedOrder.shippingAddress;
+
+          const shippingPhone = String(targetShipping.phone || body.customerPhone || '').replace(/\D/g, '');
+          if (shippingPhone && !effectiveCust.phone) {
+            effectiveCust.phone = shippingPhone;
+          }
+
+          const shippingName = String(targetShipping.fullName || body.customerName || '').trim();
+          if (shippingName && (!effectiveCust.fullName || effectiveCust.fullName === (effectiveCust.email || '').split('@')[0])) {
+            effectiveCust.fullName = shippingName;
+            effectiveCust.name = shippingName;
+          }
+
+          const normLine1 = String(targetShipping.addressLine1 || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+          const normPin = String(targetShipping.postalCode || '').replace(/\D/g, '');
+
+          const existingAddrIndex = effectiveCust.addresses.findIndex(a => {
+            const aLine1 = (a.addressLine1 || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+            const aPin = (a.postalCode || '').replace(/\D/g, '');
+            return aLine1 === normLine1 && aPin === normPin;
+          });
+
+          const addrType = targetShipping.type || body.addressType || 'HOME';
+          const addrLabel = targetShipping.label || body.addressLabel || (addrType === 'OFFICE' ? 'Office' : addrType === 'OTHER' ? 'Other' : 'Home');
+          const makeDefault = Boolean(body.makeDefaultShipping) || effectiveCust.addresses.length === 0;
+
+          if (existingAddrIndex >= 0) {
+            const ex = effectiveCust.addresses[existingAddrIndex];
+            effectiveCust.addresses[existingAddrIndex] = {
+              ...ex,
+              fullName: shippingName || ex.fullName,
+              phone: shippingPhone || ex.phone,
+              addressLine2: targetShipping.addressLine2 ? String(targetShipping.addressLine2).trim() : ex.addressLine2,
+              type: addrType || ex.type || 'HOME',
+              label: addrLabel || ex.label,
+              isDefaultShipping: makeDefault || ex.isDefaultShipping || effectiveCust.addresses.length === 1
+            };
+            if (makeDefault) {
+              effectiveCust.addresses.forEach((a, idx) => {
+                if (idx !== existingAddrIndex) a.isDefaultShipping = false;
+              });
+            }
+          } else {
+            if (makeDefault) {
+              effectiveCust.addresses.forEach(a => { a.isDefaultShipping = false; });
+            }
+            const newAddr = {
+              id: 'addr-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+              customerId: effectiveCust.id,
+              fullName: shippingName || effectiveCust.fullName,
+              phone: shippingPhone || effectiveCust.phone || '',
+              addressLine1: String(targetShipping.addressLine1).trim(),
+              addressLine2: targetShipping.addressLine2 ? String(targetShipping.addressLine2).trim() : '',
+              city: String(targetShipping.city).trim(),
+              state: String(targetShipping.state).trim(),
+              postalCode: String(targetShipping.postalCode).trim(),
+              country: targetShipping.country || 'India',
+              type: addrType,
+              label: addrLabel,
+              isDefaultShipping: makeDefault,
+              isDefaultBilling: effectiveCust.addresses.length === 0
+            };
+            effectiveCust.addresses.push(newAddr);
+          }
+
+          registeredCustomers.set(effectiveCust.email.toLowerCase().trim(), effectiveCust);
+          cookiesToSet.push(makeCustomerDataCookie(effectiveCust));
+          cookiesToSet.push(...makeCustomerSyncCookies());
+          updatedCustomerPayload = {
+            id: effectiveCust.id,
+            email: effectiveCust.email,
+            fullName: effectiveCust.fullName,
+            phone: effectiveCust.phone,
+            addresses: effectiveCust.addresses
+          };
+        }
+
+        return jsonWithCookies({
+          success: true,
+          order: mergedOrder,
+          customer: updatedCustomerPayload,
+          isIdempotent: true
+        }, 200, cookiesToSet);
       }
 
       const newOrder = {
@@ -2904,31 +3066,83 @@ async function handleApi(request, url, env) {
       ordersStore.set(orderId, newOrder);
       if (newOrder.orderNumber) ordersStore.set(newOrder.orderNumber, newOrder);
 
+      let updatedCustomerPayload = null;
       if (customer && body.shippingAddress && body.shippingAddress.addressLine1) {
         if (!Array.isArray(customer.addresses)) customer.addresses = [];
-        const existingAddr = customer.addresses.find(a => 
-          a.addressLine1.toLowerCase().trim() === String(body.shippingAddress.addressLine1).toLowerCase().trim() &&
-          String(a.postalCode).trim() === String(body.shippingAddress.postalCode).trim()
-        );
-        if (!existingAddr) {
+
+        const shippingPhone = String(body.shippingAddress.phone || body.customerPhone || '').trim();
+        if (shippingPhone && !customer.phone) {
+          customer.phone = shippingPhone;
+        }
+
+        const shippingName = String(body.shippingAddress.fullName || body.customerName || '').trim();
+        if (shippingName && (!customer.fullName || customer.fullName === (customer.email || '').split('@')[0])) {
+          customer.fullName = shippingName;
+          customer.name = shippingName;
+        }
+
+        const normLine1 = String(body.shippingAddress.addressLine1).toLowerCase().replace(/[^a-z0-9]/g, '');
+        const normPin = String(body.shippingAddress.postalCode).replace(/\D/g, '');
+
+        const existingAddrIndex = customer.addresses.findIndex(a => {
+          const aLine1 = (a.addressLine1 || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+          const aPin = (a.postalCode || '').replace(/\D/g, '');
+          return aLine1 === normLine1 && aPin === normPin;
+        });
+
+        const addrType = body.shippingAddress.type || 'HOME';
+        const addrLabel = body.shippingAddress.label || (addrType === 'OFFICE' ? 'Office' : addrType === 'OTHER' ? 'Other' : 'Home');
+        const makeDefault = Boolean(body.makeDefaultShipping) || customer.addresses.length === 0;
+
+        if (existingAddrIndex >= 0) {
+          const ex = customer.addresses[existingAddrIndex];
+          customer.addresses[existingAddrIndex] = {
+            ...ex,
+            fullName: shippingName || ex.fullName,
+            phone: shippingPhone || ex.phone,
+            addressLine2: body.shippingAddress.addressLine2 ? String(body.shippingAddress.addressLine2).trim() : ex.addressLine2,
+            type: addrType || ex.type || 'HOME',
+            label: addrLabel || ex.label,
+            isDefaultShipping: makeDefault || ex.isDefaultShipping || customer.addresses.length === 1
+          };
+          if (makeDefault) {
+            customer.addresses.forEach((a, idx) => {
+              if (idx !== existingAddrIndex) a.isDefaultShipping = false;
+            });
+          }
+        } else {
+          if (makeDefault) {
+            customer.addresses.forEach(a => { a.isDefaultShipping = false; });
+          }
           const newAddr = {
             id: 'addr-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
             customerId: customer.id,
-            fullName: String(body.shippingAddress.fullName || customer.fullName).trim(),
-            phone: String(body.shippingAddress.phone || customer.phone || '').trim(),
+            fullName: shippingName || customer.fullName,
+            phone: shippingPhone || customer.phone || '',
             addressLine1: String(body.shippingAddress.addressLine1).trim(),
             addressLine2: body.shippingAddress.addressLine2 ? String(body.shippingAddress.addressLine2).trim() : '',
             city: String(body.shippingAddress.city).trim(),
             state: String(body.shippingAddress.state).trim(),
             postalCode: String(body.shippingAddress.postalCode).trim(),
             country: body.shippingAddress.country || 'India',
-            isDefaultShipping: customer.addresses.length === 0,
+            type: addrType,
+            label: addrLabel,
+            isDefaultShipping: makeDefault,
             isDefaultBilling: customer.addresses.length === 0
           };
           customer.addresses.push(newAddr);
-          registeredCustomers.set(customer.email, customer);
-          cookiesToSet.push(makeCustomerDataCookie(customer));
         }
+
+        registeredCustomers.set(customer.email.toLowerCase().trim(), customer);
+        cookiesToSet.push(makeCustomerDataCookie(customer));
+        cookiesToSet.push(...makeCustomerSyncCookies());
+        updatedCustomerPayload = {
+          id: customer.id,
+          email: customer.email,
+          fullName: customer.fullName,
+          phone: customer.phone,
+          addresses: customer.addresses
+        };
       }
 
       // Dispatch Order Notification to configured Admin email(s) and Customer
@@ -3036,7 +3250,7 @@ async function handleApi(request, url, env) {
       }
 
       cookiesToSet.push(makeOrdersSyncCookies());
-      return jsonWithCookies({ success: true, order: newOrder }, 201, cookiesToSet);
+      return jsonWithCookies({ success: true, order: newOrder, customer: updatedCustomerPayload }, 201, cookiesToSet);
     }
 
     const q = url.searchParams.get('q')?.toLowerCase();

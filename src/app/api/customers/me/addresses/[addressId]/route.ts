@@ -99,13 +99,17 @@ export async function PATCH(
     }
 
     const body = await req.json();
-    const { action } = body; // 'SET_DEFAULT_SHIPPING' or 'SET_DEFAULT_BILLING'
+    const { action, label, type } = body;
 
-    if (action !== 'SET_DEFAULT_SHIPPING' && action !== 'SET_DEFAULT_BILLING') {
+    if (action !== 'SET_DEFAULT_SHIPPING' && action !== 'SET_DEFAULT_BILLING' && action !== 'RENAME') {
       return NextResponse.json({ success: false, error: 'Invalid patch action.' }, { status: 400 });
     }
 
-    const updated = manageCustomerAddress(customer.id, action, { id: addressId });
+    const updated = manageCustomerAddress(customer.id, action, {
+      id: addressId,
+      label,
+      type,
+    });
     return NextResponse.json({
       success: true,
       addresses: updated,

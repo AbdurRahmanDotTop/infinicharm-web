@@ -47,7 +47,7 @@
     ],
     "wishlistProductIds": [],
     "createdAt": "2026-11-01T08:00:00.000Z",
-    "updatedAt": "2026-11-21T16:00:00.000Z"
+    "updatedAt": "2026-11-22T14:47:18.399Z"
   },
   {
     "id": "cust-founder-01",
@@ -114,7 +114,7 @@
     },
     "addresses": [
       {
-        "id": "addr-cust1-primary",
+        "id": "addr-1795359119492-368",
         "customerId": "cust-01",
         "fullName": "AbdurRahman Ibn Ghufran",
         "phone": "8825164657",
@@ -124,6 +124,8 @@
         "state": "Bihar",
         "postalCode": "845427",
         "country": "India",
+        "type": "HOME",
+        "label": "Home",
         "isDefaultShipping": true,
         "isDefaultBilling": true
       }
@@ -132,7 +134,7 @@
       "S-01-P-01"
     ],
     "createdAt": "2026-11-01T08:00:00.000Z",
-    "updatedAt": "2026-11-22T11:59:03.754Z",
-    "lastLoginAt": "2026-11-22T11:59:03.599Z"
+    "updatedAt": "2026-11-22T14:51:59.492Z",
+    "lastLoginAt": "2026-11-22T14:51:11.293Z"
   }
 ]

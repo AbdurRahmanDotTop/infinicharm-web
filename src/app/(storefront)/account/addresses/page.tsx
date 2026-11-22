@@ -18,7 +18,7 @@ import {
   Home,
   Star,
 } from 'lucide-react';
-import { CustomerAddress } from '@/types';
+import { CustomerAddress, AddressType } from '@/types';
 
 const STORAGE_KEY = 'infinicharm_customer_addresses';
 
@@ -39,6 +39,8 @@ export default function AccountAddressesPage() {
   const [pinCode, setPinCode] = useState('');
   const [city, setCity] = useState('');
   const [stateName, setStateName] = useState('');
+  const [addressType, setAddressType] = useState<AddressType>('HOME');
+  const [addressLabel, setAddressLabel] = useState('');
   const [isDefaultShipping, setIsDefaultShipping] = useState(false);
   const [isDefaultBilling, setIsDefaultBilling] = useState(false);
 
@@ -96,6 +98,8 @@ export default function AccountAddressesPage() {
     setPinCode('');
     setCity('');
     setStateName('');
+    setAddressType('HOME');
+    setAddressLabel('Home');
     setIsDefaultShipping(addresses.length === 0);
     setIsDefaultBilling(addresses.length === 0);
     setErrorMsg(null);
@@ -111,6 +115,8 @@ export default function AccountAddressesPage() {
     setPinCode(addr.postalCode);
     setCity(addr.city);
     setStateName(addr.state);
+    setAddressType((addr.type as AddressType) || 'HOME');
+    setAddressLabel(addr.label || (addr.type === 'OFFICE' ? 'Office' : addr.type === 'OTHER' ? 'Other' : 'Home'));
     setIsDefaultShipping(addr.isDefaultShipping);
     setIsDefaultBilling(addr.isDefaultBilling);
     setErrorMsg(null);
@@ -127,22 +133,26 @@ export default function AccountAddressesPage() {
     }
 
     try {
+      const payload = {
+        fullName: fullName.trim(),
+        phone: phone.trim(),
+        addressLine1: addressLine1.trim(),
+        addressLine2: addressLine2.trim() || undefined,
+        city: city.trim(),
+        state: stateName.trim(),
+        postalCode: pinCode.trim(),
+        country: 'India',
+        type: addressType,
+        label: addressLabel.trim() || (addressType === 'OFFICE' ? 'Office' : addressType === 'OTHER' ? 'Other' : 'Home'),
+        isDefaultShipping,
+        isDefaultBilling,
+      };
+
       if (editingId) {
         const res = await fetch(`/api/customers/me/addresses/${editingId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            fullName: fullName.trim(),
-            phone: phone.trim(),
-            addressLine1: addressLine1.trim(),
-            addressLine2: addressLine2.trim() || undefined,
-            city: city.trim(),
-            state: stateName.trim(),
-            postalCode: pinCode.trim(),
-            country: 'India',
-            isDefaultShipping,
-            isDefaultBilling,
-          }),
+          body: JSON.stringify(payload),
         });
 
         const data = await res.json();
@@ -153,18 +163,7 @@ export default function AccountAddressesPage() {
         const res = await fetch('/api/customers/me/addresses', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            fullName: fullName.trim(),
-            phone: phone.trim(),
-            addressLine1: addressLine1.trim(),
-            addressLine2: addressLine2.trim() || undefined,
-            city: city.trim(),
-            state: stateName.trim(),
-            postalCode: pinCode.trim(),
-            country: 'India',
-            isDefaultShipping,
-            isDefaultBilling,
-          }),
+          body: JSON.stringify(payload),
         });
 
         const data = await res.json();
@@ -301,11 +300,16 @@ export default function AccountAddressesPage() {
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-2">
                     <div className="w-8 h-8 rounded-full bg-surface-dim flex items-center justify-center text-accent">
-                      <MapPin className="w-4 h-4" />
+                      {addr.type === 'OFFICE' ? <Building className="w-4 h-4" /> : addr.type === 'OTHER' ? <MapPin className="w-4 h-4" /> : <Home className="w-4 h-4" />}
                     </div>
                     <div>
-                      <h3 className="font-bold text-primary text-sm">{addr.fullName}</h3>
-                      <p className="text-[11px] text-muted flex items-center gap-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="font-bold text-primary text-sm">{addr.fullName}</h3>
+                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-accent bg-accent/10 px-2 py-0.5 rounded-full">
+                          <span>{addr.label || (addr.type === 'OFFICE' ? 'Office' : addr.type === 'OTHER' ? 'Other' : 'Home')}</span>
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-muted flex items-center gap-1 mt-0.5">
                         <Phone className="w-3 h-3 text-accent" />
                         <span>{addr.phone}</span>
                       </p>
@@ -445,6 +449,66 @@ export default function AccountAddressesPage() {
                       className="w-full px-3.5 py-2.5 bg-surface-dim border border-border rounded-xl text-primary focus:outline-none focus:border-accent"
                     />
                   </div>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1.5 flex-wrap gap-2">
+                    <label className="block font-semibold text-primary">Address Category &amp; Nickname</label>
+                    <div className="flex items-center gap-1.5" role="group" aria-label="Address Category">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAddressType('HOME');
+                          if (!addressLabel || addressLabel === 'Office' || addressLabel === 'Other') setAddressLabel('Home');
+                        }}
+                        className={`px-3 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors border ${
+                          addressType === 'HOME'
+                            ? 'bg-accent text-white border-accent'
+                            : 'bg-surface-dim text-muted border-border hover:text-primary'
+                        }`}
+                      >
+                        <Home className="w-3.5 h-3.5" />
+                        <span>Home</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAddressType('OFFICE');
+                          if (!addressLabel || addressLabel === 'Home' || addressLabel === 'Other') setAddressLabel('Office');
+                        }}
+                        className={`px-3 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors border ${
+                          addressType === 'OFFICE'
+                            ? 'bg-accent text-white border-accent'
+                            : 'bg-surface-dim text-muted border-border hover:text-primary'
+                        }`}
+                      >
+                        <Building className="w-3.5 h-3.5" />
+                        <span>Office</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAddressType('OTHER');
+                          if (!addressLabel || addressLabel === 'Home' || addressLabel === 'Office') setAddressLabel('Other');
+                        }}
+                        className={`px-3 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors border ${
+                          addressType === 'OTHER'
+                            ? 'bg-accent text-white border-accent'
+                            : 'bg-surface-dim text-muted border-border hover:text-primary'
+                        }`}
+                      >
+                        <MapPin className="w-3.5 h-3.5" />
+                        <span>Other</span>
+                      </button>
+                    </div>
+                  </div>
+                  <input
+                    type="text"
+                    value={addressLabel}
+                    onChange={(e) => setAddressLabel(e.target.value)}
+                    placeholder="e.g. My Apartment, Work HQ, Parents' Home"
+                    className="w-full px-3.5 py-2.5 bg-surface-dim border border-border rounded-xl text-primary focus:outline-none focus:border-accent"
+                  />
                 </div>
 
                 <div>

@@ -11,7 +11,11 @@ import {
 } from '@/lib/server/coupons-store';
 import { getServerProducts, updateServerProductStock } from '@/lib/server/products-store';
 import { getServerCategories } from '@/lib/server/categories-store';
-import { resolveAuthenticatedCustomer } from '@/lib/server/customers-store';
+import {
+  resolveAuthenticatedCustomer,
+  autoSaveCustomerOrderDetails,
+  sanitizeCustomer,
+} from '@/lib/server/customers-store';
 import { getAuthSettings } from '@/lib/server/auth-settings-store';
 import { validateOrderPaymentMethod } from '@/lib/server/gateways-store';
 import { generateInitialOrderTimeline, isOrderOwnedByCustomer } from '@/lib/services/orders';
@@ -122,8 +126,40 @@ export async function POST(request: NextRequest) {
             : existingOrder.manualApprovalStatus,
         };
         const saved = saveServerOrder(mergedOrder);
+
+        // Auto-save customer details & delivery address upon order confirmation with UTR or payment
+        let updatedCustomer = null;
+        const authCustomer = resolveAuthenticatedCustomer(request);
+        const effectiveCustId = authCustomer?.id || (mergedOrder.customerId !== 'guest' ? mergedOrder.customerId : (body.customerId !== 'guest' ? body.customerId : null));
+        const effectiveEmail = authCustomer?.email || mergedOrder.customerEmail || body.customerEmail;
+        const effectivePhone = authCustomer?.phone || mergedOrder.customerPhone || body.customerPhone;
+        const isConfirmedPlacement = Boolean((body as any).isOrderConfirmation || body.utrNumber || body.paymentStatus === 'PAID');
+
+        if (effectiveCustId && effectiveCustId !== 'guest' && isConfirmedPlacement && (body.shippingAddress || mergedOrder.shippingAddress) && (body as any).saveAddressToBook !== false) {
+          try {
+            const autoSaveRes = autoSaveCustomerOrderDetails({
+              customerId: effectiveCustId,
+              customerEmail: effectiveEmail,
+              customerPhone: effectivePhone,
+              customerName: body.shippingAddress?.fullName || (body as any).customerName || mergedOrder.customerName,
+              shippingAddress: (body.shippingAddress || mergedOrder.shippingAddress) as any,
+              billingAddress: (body.billingAddress || mergedOrder.billingAddress) as any,
+              saveAddressToBook: (body as any).saveAddressToBook !== false,
+              addressType: (body as any).addressType || (body.shippingAddress as any)?.type || 'HOME',
+              addressLabel: (body as any).addressLabel || (body.shippingAddress as any)?.label,
+              makeDefaultShipping: Boolean((body as any).makeDefaultShipping),
+              makeDefaultBilling: Boolean((body as any).makeDefaultBilling),
+            });
+            if (autoSaveRes.customer) {
+              updatedCustomer = sanitizeCustomer(autoSaveRes.customer);
+            }
+          } catch (autoSaveErr) {
+            console.error('[API Orders Route] Existing order auto-save customer details error:', autoSaveErr);
+          }
+        }
+
         return NextResponse.json(
-          { success: true, order: saved, isIdempotent: true },
+          { success: true, order: saved, customer: updatedCustomer, isIdempotent: true },
           { status: 200 }
         );
       }
@@ -405,6 +441,31 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // Auto-save customer details & delivery address to customer's account upon successful order placement
+    let updatedCustomer = null;
+    if (effectiveCustomerId && effectiveCustomerId !== 'guest') {
+      try {
+        const autoSaveRes = autoSaveCustomerOrderDetails({
+          customerId: effectiveCustomerId,
+          customerEmail: effectiveEmail,
+          customerPhone: effectivePhone,
+          customerName: body.shippingAddress?.fullName || (body as any).customerName,
+          shippingAddress: body.shippingAddress as any,
+          billingAddress: body.billingAddress as any,
+          saveAddressToBook: (body as any).saveAddressToBook !== false,
+          addressType: (body as any).addressType || (body.shippingAddress as any)?.type || 'HOME',
+          addressLabel: (body as any).addressLabel || (body.shippingAddress as any)?.label,
+          makeDefaultShipping: Boolean((body as any).makeDefaultShipping),
+          makeDefaultBilling: Boolean((body as any).makeDefaultBilling),
+        });
+        if (autoSaveRes.customer) {
+          updatedCustomer = sanitizeCustomer(autoSaveRes.customer);
+        }
+      } catch (autoErr) {
+        console.error('[api/orders] Non-blocking customer auto-save error:', autoErr);
+      }
+    }
+
     try {
       await dispatchOrderLifecycleNotification('ORDER_PLACED', saved);
     } catch (notifyErr) {
@@ -412,7 +473,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(
-      { success: true, order: saved },
+      { success: true, order: saved, customer: updatedCustomer },
       { status: 201 }
     );
   } catch (error: any) {
