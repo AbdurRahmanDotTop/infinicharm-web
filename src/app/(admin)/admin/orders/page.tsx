@@ -106,7 +106,7 @@ export default function AdminOrdersPage() {
 
   // Delete Order Confirmation Modal State
   const [deleteOrderTarget, setDeleteOrderTarget] = useState<Order | null>(null);
-  const [isPermanentDelete, setIsPermanentDelete] = useState(false);
+  const [isPermanentDelete, setIsPermanentDelete] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
 
   // Real-time broadcast channel reference

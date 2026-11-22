@@ -509,11 +509,13 @@ export function deleteCustomer(id: string): boolean {
   const cleanCustPhone = (targetCust.phone || '').replace(/\D/g, '').slice(-10);
   const cleanCustName = (targetCust.fullName || '').trim().toLowerCase();
 
-  // 2. Anonymize PII on orders and fulfillment records in orders.json (statutory compliance)
+  // 2. Cascade delete customer-linked orders from active orders.json & archive statutory tax ledger to audit_logs.json
   try {
     const allOrders = readRawOrders();
-    let ordersModified = false;
-    const anonymizedOrders = allOrders.map((ord) => {
+    const remainingOrders: Order[] = [];
+    const archivedTaxLedgers: any[] = [];
+
+    for (const ord of allOrders) {
       const ordPhone1 = (ord.customerPhone || '').replace(/\D/g, '').slice(-10);
       const ordPhone2 = (ord.shippingAddress?.phone || '').replace(/\D/g, '').slice(-10);
       const ordPhone3 = (ord.billingAddress?.phone || '').replace(/\D/g, '').slice(-10);
@@ -531,64 +533,45 @@ export function deleteCustomer(id: string): boolean {
         (ordName1.includes('infinicharm patron') || ordName2.includes('infinicharm patron'));
 
       if (isCustomerMatch) {
-        ordersModified = true;
-        const isPaid = ['PAYMENT_RECEIVED', 'CONFIRMED', 'PROCESSING', 'PACKED', 'READY_FOR_DISPATCH', 'SHIPPED', 'OUT_FOR_DELIVERY', 'DELIVERED'].includes(ord.status);
-        return {
-          ...ord,
-          customerId: null,
-          customerName: 'Deleted Customer',
-          customerEmail: `anonymized-${targetCust.id || 'cust'}@infinicharm.com`,
-          customerPhone: 'REDACTED',
-          paymentStatus: isPaid ? 'PAID' : ord.status === 'PAYMENT_NOT_RECEIVED' ? 'FAILED' : ord.paymentStatus,
-          manualApprovalStatus: isPaid ? 'APPROVED' : ord.status === 'PAYMENT_NOT_RECEIVED' ? 'REJECTED' : ord.manualApprovalStatus,
-          shippingAddress: ord.shippingAddress
-            ? {
-                ...ord.shippingAddress,
-                customerId: null,
-                fullName: 'Deleted Customer',
-                phone: 'REDACTED',
-                addressLine1: '[Redacted per DPDP Act & Statutory Tax Retention]',
-                addressLine2: undefined,
-              }
-            : undefined,
-          billingAddress: ord.billingAddress
-            ? {
-                ...ord.billingAddress,
-                customerId: null,
-                fullName: 'Deleted Customer',
-                phone: 'REDACTED',
-                addressLine1: '[Redacted per DPDP Act & Statutory Tax Retention]',
-                addressLine2: undefined,
-              }
-            : undefined,
-          timeline: [
-            ...(ord.timeline || []).map((tl) => ({
-              ...tl,
-              actor: tl.actor === targetCust.fullName || tl.actor === 'Customer' ? 'Deleted Customer' : tl.actor,
-              description: tl.description
-                ? tl.description
-                    .replace(new RegExp(targetCust.email, 'gi'), 'anonymized-customer@infinicharm.com')
-                    .replace(new RegExp(targetCust.phone || '8825164657', 'g'), 'REDACTED')
-                : tl.description,
-            })),
-            {
-              id: `evt-${Date.now()}-dpdp-purge`,
-              status: ord.status,
-              title: 'Customer PII Permanently Anonymized',
-              description: 'Customer account deleted. Personal identifying information (PII) irreversibly anonymized in compliance with DPDP Act 2023 & Statutory Tax Record Retention requirements.',
-              timestamp: new Date().toISOString(),
-              actor: 'SYSTEM_AUDIT',
-              isCustomerVisible: false,
-              type: 'EXCEPTION' as const,
-            },
-          ],
-        };
+        // Archive statutory financial transaction summary per Indian GST Act 2017 & Companies Act 2013 with PII removed
+        archivedTaxLedgers.push({
+          id: `audit-tax-${ord.id || ord.orderNumber}-${Date.now()}`,
+          timestamp: new Date().toISOString(),
+          actor: 'SYSTEM_AUDIT',
+          action: 'STATUTORY_TAX_LEDGER_ARCHIVED',
+          module: 'orders',
+          targetId: ord.orderNumber || ord.id,
+          details: {
+            orderNumber: ord.orderNumber || ord.id,
+            originalOrderDate: ord.createdAt,
+            totalInPaise: ord.totalInPaise,
+            subtotalInPaise: ord.subtotalInPaise,
+            taxInPaise: ord.taxInPaise,
+            shippingInPaise: ord.shippingInPaise,
+            discountInPaise: ord.discountInPaise,
+            paymentMethod: ord.paymentMethod,
+            paymentStatus: ord.paymentStatus,
+            status: ord.status,
+            retentionReason: 'Statutory financial audit compliance (GST Act 2017 Sec 36 / Companies Act 2013 Sec 128). Customer PII permanently erased.',
+          },
+        });
+      } else {
+        remainingOrders.push(ord);
       }
-      return ord;
-    });
+    }
 
-    if (ordersModified) {
-      fs.writeFileSync(ORDERS_FILE_PATH, JSON.stringify(anonymizedOrders, null, 2), 'utf-8');
+    if (archivedTaxLedgers.length > 0) {
+      fs.writeFileSync(ORDERS_FILE_PATH, JSON.stringify(remainingOrders, null, 2), 'utf-8');
+      try {
+        const auditPath = path.join(process.cwd(), 'src', 'data', 'audit_logs.json');
+        if (fs.existsSync(auditPath)) {
+          const rawAudit = JSON.parse(fs.readFileSync(auditPath, 'utf8'));
+          const updatedAudit = Array.isArray(rawAudit) ? [...rawAudit, ...archivedTaxLedgers] : archivedTaxLedgers;
+          fs.writeFileSync(auditPath, JSON.stringify(updatedAudit, null, 2), 'utf8');
+        }
+      } catch (auditErr) {
+        console.warn('Failed to append tax ledger to audit logs:', auditErr);
+      }
     }
   } catch (err) {
     console.error('Error cascading customer deletion to orders.json:', err);

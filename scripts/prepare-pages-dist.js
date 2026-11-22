@@ -627,22 +627,16 @@ function syncOrdersFromCookie(request) {
             }
 
             if (isDeletedOrder) {
-              merged.customerId = null;
-              merged.customerName = 'Deleted Customer';
-              merged.customerEmail = 'anonymized-customer@infinicharm.com';
-              merged.customerPhone = 'REDACTED';
-              if (merged.shippingAddress) {
-                merged.shippingAddress.fullName = 'Deleted Customer';
-                merged.shippingAddress.phone = 'REDACTED';
-                merged.shippingAddress.addressLine1 = '[Redacted per DPDP Act & Statutory Tax Retention]';
-                merged.shippingAddress.addressLine2 = '';
+              if (id) deletedOrderIds.add(id);
+              if (ordNum) deletedOrderIds.add(ordNum);
+              if (id) ordersStore.delete(id);
+              if (ordNum) ordersStore.delete(ordNum);
+              for (const [k, v] of ordersStore.entries()) {
+                if (v.id === id || v.orderNumber === ordNum) {
+                  ordersStore.delete(k);
+                }
               }
-              if (merged.billingAddress) {
-                merged.billingAddress.fullName = 'Deleted Customer';
-                merged.billingAddress.phone = 'REDACTED';
-                merged.billingAddress.addressLine1 = '[Redacted per DPDP Act & Statutory Tax Retention]';
-                merged.billingAddress.addressLine2 = '';
-              }
+              continue;
             }
 
             if (id) ordersStore.set(id, merged);
@@ -769,12 +763,13 @@ function getCookie(request, name) {
   return null;
 }
 
-// Anonymize customer orders in worker per statutory tax compliance
-function anonymizeCustomerOrdersInWorker(custId, email, phone, fullName) {
+// Purge customer orders from worker & archive statutory tax ledger
+function purgeCustomerOrdersInWorker(custId, email, phone, fullName) {
   const normEmail = (email || '').toLowerCase().trim();
   const cleanPhone = (phone || '').replace(/\D/g, '').slice(-10);
   const cleanName = (fullName || '').toLowerCase().trim();
 
+  const toDelete = [];
   for (const order of ordersStore.values()) {
     const ordPhone1 = (order.customerPhone || '').replace(/\D/g, '').slice(-10);
     const ordPhone2 = (order.shippingAddress?.phone || '').replace(/\D/g, '').slice(-10);
@@ -793,44 +788,42 @@ function anonymizeCustomerOrdersInWorker(custId, email, phone, fullName) {
       (ordName1.includes('infinicharm patron') || ordName2.includes('infinicharm patron'));
 
     if (isMatch) {
-      order.customerId = null;
-      order.customerName = 'Deleted Customer';
-      order.customerEmail = 'anonymized-customer@infinicharm.com';
-      order.customerPhone = 'REDACTED';
-      if (order.shippingAddress) {
-        order.shippingAddress.fullName = 'Deleted Customer';
-        order.shippingAddress.phone = 'REDACTED';
-        order.shippingAddress.addressLine1 = '[Redacted per DPDP Act & Statutory Tax Retention]';
-        order.shippingAddress.addressLine2 = '';
-      }
-      if (order.billingAddress) {
-        order.billingAddress.fullName = 'Deleted Customer';
-        order.billingAddress.phone = 'REDACTED';
-        order.billingAddress.addressLine1 = '[Redacted per DPDP Act & Statutory Tax Retention]';
-        order.billingAddress.addressLine2 = '';
-      }
-      if (['PAYMENT_RECEIVED', 'CONFIRMED', 'PROCESSING', 'PACKED', 'READY_FOR_DISPATCH', 'SHIPPED', 'OUT_FOR_DELIVERY', 'DELIVERED'].includes(order.status)) {
-        order.paymentStatus = 'PAID';
-        order.manualApprovalStatus = 'APPROVED';
-      } else if (order.status === 'PAYMENT_NOT_RECEIVED') {
-        order.paymentStatus = 'FAILED';
-        order.manualApprovalStatus = 'REJECTED';
-      }
-      if (!order.timeline) order.timeline = [];
-      order.timeline.push({
-        id: 'evt-' + Date.now() + '-anon',
-        status: order.status,
-        title: 'Customer PII Permanently Anonymized',
-        description: 'Customer account deleted. Personal identifying information (PII) anonymized per DPDP Act 2023 & Indian GST statutory record retention rules.',
-        location: 'Operations Hub',
-        timestamp: new Date().toISOString(),
-        actor: 'SYSTEM_AUDIT',
-        isCustomerVisible: false,
-        type: 'EXCEPTION'
-      });
-      ordersStore.set(order.id, order);
-      if (order.orderNumber) ordersStore.set(order.orderNumber, order);
+      toDelete.push(order);
     }
+  }
+
+  for (const order of toDelete) {
+    deletedOrderIds.add(order.id);
+    if (order.orderNumber) deletedOrderIds.add(order.orderNumber);
+    ordersStore.delete(order.id);
+    if (order.orderNumber) ordersStore.delete(order.orderNumber);
+    for (const [k, v] of ordersStore.entries()) {
+      if (v.id === order.id || v.orderNumber === order.orderNumber) {
+        ordersStore.delete(k);
+      }
+    }
+    // Archive statutory tax ledger into auditLogsStore
+    auditLogsStore.unshift({
+      id: 'audit-tax-' + (order.orderNumber || order.id) + '-' + Date.now(),
+      timestamp: new Date().toISOString(),
+      actor: 'SYSTEM_AUDIT',
+      action: 'STATUTORY_TAX_LEDGER_ARCHIVED',
+      module: 'orders',
+      targetId: order.orderNumber || order.id,
+      details: {
+        orderNumber: order.orderNumber || order.id,
+        originalOrderDate: order.createdAt,
+        totalInPaise: order.totalInPaise,
+        subtotalInPaise: order.subtotalInPaise,
+        taxInPaise: order.taxInPaise,
+        shippingInPaise: order.shippingInPaise,
+        discountInPaise: order.discountInPaise,
+        paymentMethod: order.paymentMethod,
+        paymentStatus: order.paymentStatus,
+        status: order.status,
+        retentionReason: 'Statutory tax audit archive per GST Act 2017 & Companies Act 2013. Customer PII erased.'
+      }
+    });
   }
 }
 
@@ -878,8 +871,8 @@ function purgeCustomerDataInWorker(custId, email, phone, fullName) {
     }
   }
 
-  // 1. Statutory order PII redaction
-  anonymizeCustomerOrdersInWorker(custId, normEmail, effPhone, effFullName);
+  // 1. Cascade purge orders & archive statutory tax ledger
+  purgeCustomerOrdersInWorker(custId, normEmail, effPhone, effFullName);
 
   // 2. Cascade delete reviews
   for (let i = reviewsStore.length - 1; i >= 0; i--) {
@@ -3964,7 +3957,7 @@ async function handleApi(request, url, env) {
       success: true,
       deletedCount,
       message: 'Successfully deleted ' + deletedCount + ' customer account(s) and sanitized linked data per statutory standards.'
-    }, 200, [...makeCustomerSyncCookies(), makeOrdersSyncCookies()]);
+    }, 200, [...makeCustomerSyncCookies(), makeOrdersSyncCookies(), makeDeletedOrdersCookie()]);
   }
 
   // Single Customer GET / PUT / PATCH / DELETE
@@ -4035,6 +4028,7 @@ async function handleApi(request, url, env) {
       }, 200, [
         ...makeCustomerSyncCookies(),
         makeOrdersSyncCookies(),
+        makeDeletedOrdersCookie(),
         'infinicharm_customer_session=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax; Secure',
         'infinicharm_customer_data=; Path=/; Max-Age=0; SameSite=Lax; Secure',
         'infinicharm_auth_token=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax; Secure',
@@ -4185,7 +4179,7 @@ async function handleApi(request, url, env) {
         success: true,
         deletedCount,
         message: 'Successfully deleted ' + deletedCount + ' user account(s).'
-      }, 200, [...makeCustomerSyncCookies(), makeOrdersSyncCookies()]);
+      }, 200, [...makeCustomerSyncCookies(), makeOrdersSyncCookies(), makeDeletedOrdersCookie()]);
     }
     if (action === 'SUSPEND' || action === 'ACTIVATE') {
       const nextStatus = action === 'SUSPEND' ? 'SUSPENDED' : 'ACTIVE';
@@ -4316,6 +4310,7 @@ async function handleApi(request, url, env) {
       }, 200, [
         ...makeCustomerSyncCookies(),
         makeOrdersSyncCookies(),
+        makeDeletedOrdersCookie(),
         'infinicharm_customer_session=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax; Secure',
         'infinicharm_customer_data=; Path=/; Max-Age=0; SameSite=Lax; Secure',
         'infinicharm_auth_token=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax; Secure',

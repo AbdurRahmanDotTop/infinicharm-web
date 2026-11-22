@@ -339,18 +339,19 @@ describe('Customer Store & RBAC Authorization Engine', () => {
       // Verify customer account is permanently erased
       assert.equal(getServerCustomerById(created.id), null);
 
-      // Verify guest order was matched by phone & name and irreversibly anonymized
+      // Verify guest order was matched by phone & name and purged from active orders.json
       const updatedOrders = JSON.parse(fs.readFileSync(ordersPath, 'utf8'));
       const targetOrder = updatedOrders.find((o: any) => o.id === guestOrder.id);
-      assert.ok(targetOrder, 'Order record must be preserved for statutory financial compliance');
-      assert.equal(targetOrder.customerName, 'Deleted Customer');
-      assert.equal(targetOrder.customerPhone, 'REDACTED');
-      assert.equal(targetOrder.shippingAddress.fullName, 'Deleted Customer');
-      assert.equal(targetOrder.shippingAddress.phone, 'REDACTED');
-      assert.equal(targetOrder.billingAddress.fullName, 'Deleted Customer');
-      assert.equal(targetOrder.billingAddress.phone, 'REDACTED');
-      // Payment status normalized to PAID because status is PAYMENT_RECEIVED
-      assert.equal(targetOrder.paymentStatus, 'PAID');
+      assert.equal(targetOrder, undefined, 'Customer order must be purged from active orders store');
+
+      // Verify statutory tax ledger archive was recorded in audit_logs.json per GST Act 2017 & Companies Act 2013
+      const auditPath = path.join(process.cwd(), 'src', 'data', 'audit_logs.json');
+      const updatedAudit = JSON.parse(fs.readFileSync(auditPath, 'utf8'));
+      const archivedLedger = updatedAudit.find(
+        (a: any) => a.action === 'STATUTORY_TAX_LEDGER_ARCHIVED' && (a.targetId === guestOrder.orderNumber || a.targetId === guestOrder.id)
+      );
+      assert.ok(archivedLedger, 'Statutory financial tax ledger must be archived in audit logs');
+      assert.equal(archivedLedger.details.totalInPaise, guestOrder.totalInPaise);
 
       // Verify inquiry was cascaded and erased
       const updatedInq = JSON.parse(fs.readFileSync(inqPath, 'utf8'));
