@@ -168,6 +168,32 @@ export default function AccountPage() {
   const defaultBilling =
     effectiveAddresses.find((a: any) => a.isDefaultBilling) || defaultShipping;
 
+  // Persist synthesized address to server and localStorage if address book was unpopulated
+  useEffect(() => {
+    if (
+      customer &&
+      !customer.hasExplicitlyClearedAddresses &&
+      (!customer.addresses || customer.addresses.length === 0) &&
+      effectiveAddresses.length > 0
+    ) {
+      const firstAddr = effectiveAddresses[0];
+      if (firstAddr && firstAddr.addressLine1 && firstAddr.postalCode) {
+        fetch('/api/customers/me/addresses', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(firstAddr),
+        })
+          .then((res) => {
+            if (res.ok) {
+              window.dispatchEvent(new Event('infinicharm_customer_addresses_updated'));
+            }
+          })
+          .catch(() => {});
+      }
+    }
+  }, [customer, effectiveAddresses]);
+
   const effectivePhone =
     customer?.phone || orders.find((o) => o.customerPhone)?.customerPhone || '';
 
