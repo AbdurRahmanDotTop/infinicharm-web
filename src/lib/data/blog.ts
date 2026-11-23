@@ -32,7 +32,7 @@ Pure, unheated honey is a super-saturated solution of natural fructose and gluco
 Genuine Kashmiri honey offers a distinct rounded sweetness with natural floral depth. Store it tightly capped in a cool, dry cupboard rather than inside a refrigerator.
 
 ## Dispatched Direct from Bihar
-Every order of **100% Kashmiri Honey (S-01-P-01)** is packed and dispatched directly from our facility in **Bairgania, Sitamarhi, Bihar** with clear weight and FSSAI disclosures.`,
+Every order of **100% Kashmiri Honey (S-01-P-01)** is packed and dispatched directly from our facility in **East Champaran, Bihar - 845427** with clear weight and FSSAI disclosures.`,
   },
   {
     id: 'post-takmeeli-talbeena-breakfast-tradition',

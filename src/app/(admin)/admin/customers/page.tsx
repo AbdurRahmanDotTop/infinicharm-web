@@ -1348,7 +1348,7 @@ export default function AdminCustomersPage() {
                     required
                     value={formName}
                     onChange={(e) => setFormName(e.target.value)}
-                    placeholder="e.g. Vikram Sharma"
+                    placeholder="e.g. AbdurRahman Ibn Ghufran"
                     className="w-full px-3.5 py-2.5 bg-surface-dim border border-border rounded-xl text-primary focus:outline-none focus:border-accent"
                   />
                 </div>
@@ -1361,7 +1361,7 @@ export default function AdminCustomersPage() {
                       required
                       value={formEmail}
                       onChange={(e) => setFormEmail(e.target.value)}
-                      placeholder="customer@example.com"
+                      placeholder="customer@infinicharm.com"
                       className="w-full px-3.5 py-2.5 bg-surface-dim border border-border rounded-xl text-primary focus:outline-none focus:border-accent"
                     />
                   </div>

@@ -268,7 +268,7 @@ function LoginFormContent() {
           <Input
             label="Email Address"
             type="email"
-            placeholder="e.g. name@example.com"
+            placeholder="Enter your email address"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required

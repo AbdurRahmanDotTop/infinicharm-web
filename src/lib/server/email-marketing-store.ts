@@ -63,8 +63,8 @@ export function buildDefaultEmailTemplates(): EmailTemplate[] {
       <h1 style="margin:0;font-size:24px;line-height:1.25;font-weight:700;">Welcome to the Circle, {{subscriber_name}}</h1>
     </div>
     <div style="padding:28px 32px;font-size:15px;line-height:1.65;color:#3d352e;">
-      <p style="margin-top:0;">Thank you for subscribing to InfiniCharm by TechilyFly India. You will receive honest updates on fresh stock releases of 100% Kashmiri Honey, Zamzam Water, Takmeeli Talbeena, Barliva, and Premium Dates directly in your inbox.</p>
-      <p>Every dispatch shares transparent sourcing origins — delivered with care from Bairgania, Sitamarhi, Bihar.</p>
+      <p style="margin-top:0;">Thank you for subscribing to InfiniCharm by Techily Fly. You will receive honest updates on fresh stock releases of 100% Kashmiri Honey, Zamzam Water, Takmeeli Talbeena, Barliva, and Premium Dates directly in your inbox.</p>
+      <p>Every dispatch shares transparent sourcing origins — delivered with care from East Champaran, Bihar - 845427.</p>
       <div style="margin:26px 0;">
         <a href="{{store_url}}/shop" style="display:inline-block;background:#e67658;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:10px;font-weight:700;font-size:14px;">Explore Approved Catalogue</a>
       </div>
@@ -76,7 +76,7 @@ export function buildDefaultEmailTemplates(): EmailTemplate[] {
     </div>
   </div>
 </div>`,
-      textContent: `Welcome to the InfiniCharm Circle, {{subscriber_name}}!\n\nThank you for joining InfiniCharm by TechilyFly India. Explore direct-from-origin harvests at {{store_url}}/shop.\n\nUnsubscribe anytime: {{unsubscribe_url}}`,
+      textContent: `Welcome to the InfiniCharm Circle, {{subscriber_name}}!\n\nThank you for joining InfiniCharm by Techily Fly. Explore direct-from-origin harvests at {{store_url}}/shop.\n\nUnsubscribe anytime: {{unsubscribe_url}}`,
       isDefaultForPurpose: true,
       createdAt: now,
       updatedAt: now,

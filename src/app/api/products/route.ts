@@ -89,7 +89,7 @@ export async function POST(request: Request) {
           ? Math.round(Number(body.costPriceRupees) * 100)
           : undefined);
     const stockQuantity = Math.max(0, Number(body.stockQuantity || body.stock || 50));
-    const originRegion = body.originRegion || body.origin || 'Bairgania, Sitamarhi, Bihar';
+    const originRegion = body.originRegion || body.origin || 'East Champaran, Bihar - 845427';
     const brand = body.brand || 'InfiniCharm';
     const mediaUrl =
       body.mediaUrl ||

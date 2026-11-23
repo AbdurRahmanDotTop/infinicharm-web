@@ -45,7 +45,7 @@ export const metadata: Metadata = {
     'Takmeeli Talbeena',
     'Barliva',
     'Premium Dates 1 KG',
-    'TechilyFly',
+    'Techily Fly',
   ],
   authors: [{ name: BRAND.founder, url: BRAND.founderWebsite }],
   creator: BRAND.operatingEntity,

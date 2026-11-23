@@ -6,9 +6,9 @@ import { CATEGORIES } from '../../src/lib/constants/categories.ts';
 describe('Brand Identity & Categories Source of Truth', () => {
   it('contains verified brand information matching official documents', () => {
     assert.strictEqual(BRAND.name, 'InfiniCharm');
-    assert.strictEqual(BRAND.operatingEntity, 'TechilyFly');
+    assert.strictEqual(BRAND.operatingEntity, 'Techily Fly');
     assert.strictEqual(BRAND.founder, 'AbdurRahman Ibn Ghufran');
-    assert.strictEqual(BRAND.founderWebsite, 'https://www.abdurrahman.top');
+    assert.strictEqual(BRAND.founderWebsite.toLowerCase(), 'https://www.abdurrahman.top');
     assert.strictEqual(BRAND.contact.supportEmail, 'support@infinicharm.com');
     assert.strictEqual(BRAND.contact.adminEmail, 'admin@infinicharm.com');
     assert.strictEqual(BRAND.contact.address.postalCode, '845427');

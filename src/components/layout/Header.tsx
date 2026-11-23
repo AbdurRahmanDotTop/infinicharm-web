@@ -648,7 +648,7 @@ export function Header() {
                         Verified Brands &amp; Dispatch
                       </span>
                       <div className="flex flex-wrap gap-1">
-                        {['Bairgania, Sitamarhi, Bihar', 'IC-HONEY', 'IC-ZAM-ZAM', 'IC-TALBEENA', 'IC-DATES'].map((fac) => (
+                        {['East Champaran, Bihar - 845427', 'IC-HONEY', 'IC-ZAM-ZAM', 'IC-TALBEENA', 'IC-DATES'].map((fac) => (
                           <Link
                             key={fac}
                             href={`/search?q=${encodeURIComponent(fac)}`}

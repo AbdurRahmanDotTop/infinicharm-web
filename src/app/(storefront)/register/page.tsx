@@ -513,9 +513,9 @@ function RegisterFormContent() {
   const activeFields: RegistrationFormField[] = formSettings?.fields
     ? formSettings.fields.filter((f) => f.isEnabled).sort((a, b) => a.order - b.order)
     : [
-        { id: '1', key: 'fullName', label: 'Full Name', type: 'text', placeholder: 'Aarav Sharma', required: true, isEnabled: true, order: 1, isSystemField: true },
-        { id: '2', key: 'email', label: 'Email Address', type: 'email', placeholder: 'aarav@example.com', required: true, isEnabled: true, order: 2, isSystemField: true },
-        { id: '3', key: 'phone', label: 'Mobile Phone (Optional)', type: 'phone', placeholder: '+91 98765 43210', required: false, isEnabled: true, order: 3, isSystemField: false },
+        { id: '1', key: 'fullName', label: 'Full Name', type: 'text', placeholder: 'AbdurRahman Ibn Ghufran', required: true, isEnabled: true, order: 1, isSystemField: true },
+        { id: '2', key: 'email', label: 'Email Address', type: 'email', placeholder: 'abdurrahman@infinicharm.com', required: true, isEnabled: true, order: 2, isSystemField: true },
+        { id: '3', key: 'phone', label: 'Mobile Phone (Optional)', type: 'phone', placeholder: '+91 8825164657', required: false, isEnabled: true, order: 3, isSystemField: false },
         { id: '4', key: 'password', label: 'Password', type: 'password', placeholder: 'Create a strong password', required: true, isEnabled: true, order: 4, isSystemField: true },
         { id: '5', key: 'confirmPassword', label: 'Confirm Password', type: 'password', placeholder: 'Re-enter your password', required: true, isEnabled: true, order: 5, isSystemField: true },
       ];
@@ -554,7 +554,7 @@ function RegisterFormContent() {
                 <Input
                   label={field.label || 'Full Name'}
                   type="text"
-                  placeholder={field.placeholder || 'Aarav Sharma'}
+                  placeholder={field.placeholder || 'AbdurRahman Ibn Ghufran'}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   required={field.required}
@@ -574,7 +574,7 @@ function RegisterFormContent() {
                 <Input
                   label={field.label || 'Email Address'}
                   type="email"
-                  placeholder={field.placeholder || 'aarav@example.com'}
+                  placeholder={field.placeholder || 'abdurrahman@infinicharm.com'}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required={field.required}
@@ -594,7 +594,7 @@ function RegisterFormContent() {
                 <Input
                   label={field.label || 'Mobile Phone'}
                   type="tel"
-                  placeholder={field.placeholder || '+91 98765 43210'}
+                  placeholder={field.placeholder || '+91 8825164657'}
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   required={field.required}

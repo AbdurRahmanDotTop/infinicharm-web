@@ -1924,7 +1924,7 @@ export default function AdminOrdersPage() {
                   <span className="font-bold text-primary block uppercase tracking-wider text-[10px] text-muted">
                     Seller (Supplier)
                   </span>
-                  <div className="font-bold text-primary">TechilyFly India (InfiniCharm)</div>
+                  <div className="font-bold text-primary">Techily Fly (InfiniCharm)</div>
                   <p className="text-muted leading-relaxed text-[11px]">
                     Ward No. 07, Lahsaniya, Khoripakar, Dewapur, Pachpakari, Patahi, Dhaka, Motihari,
                     East Champaran, Bihar - 845427
@@ -2057,7 +2057,7 @@ export default function AdminOrdersPage() {
                         required
                         value={createForm.customerName}
                         onChange={(e) => setCreateForm({ ...createForm, customerName: e.target.value })}
-                        placeholder="e.g. Rahul Sharma"
+                        placeholder="e.g. AbdurRahman Ibn Ghufran"
                         className="w-full px-3 py-2 bg-surface-dim border border-border rounded-xl text-primary focus:outline-none focus:border-accent"
                       />
                     </div>
@@ -2067,7 +2067,7 @@ export default function AdminOrdersPage() {
                         type="email"
                         value={createForm.customerEmail}
                         onChange={(e) => setCreateForm({ ...createForm, customerEmail: e.target.value })}
-                        placeholder="rahul@example.com"
+                        placeholder="customer@infinicharm.com"
                         className="w-full px-3 py-2 bg-surface-dim border border-border rounded-xl text-primary focus:outline-none focus:border-accent"
                       />
                     </div>
@@ -2078,7 +2078,7 @@ export default function AdminOrdersPage() {
                         required
                         value={createForm.customerPhone}
                         onChange={(e) => setCreateForm({ ...createForm, customerPhone: e.target.value })}
-                        placeholder="9876543210"
+                        placeholder="8825164657"
                         className="w-full px-3 py-2 bg-surface-dim border border-border rounded-xl text-primary focus:outline-none focus:border-accent"
                       />
                     </div>

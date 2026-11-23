@@ -79,11 +79,9 @@ export async function GET(
     const isPaymentOrDetailIntent =
       searchParams.get('purpose') === 'pay' ||
       searchParams.get('purpose') === 'account' ||
-      searchParams.get('purpose') === 'success' ||
       searchParams.get('intent') === 'pay' ||
       Boolean(searchParams.get('token')) ||
       request.headers.get('referer')?.includes('/pay') ||
-      request.headers.get('referer')?.includes('/checkout/success') ||
       request.headers.get('referer')?.includes('/account/orders');
 
     let payloadOrder;
@@ -99,22 +97,17 @@ export async function GET(
         discountInPaise: order.discountInPaise,
         taxInPaise: order.taxInPaise,
         items: order.items || [],
-        customerName: order.customerName,
-        customerPhone: order.customerPhone,
-        courierName: order.courierName,
-        trackingNumber: order.trackingNumber,
-        couponCode: order.couponCode,
         shippingAddress: order.shippingAddress
           ? {
-            fullName: order.shippingAddress.fullName,
-            phone: order.shippingAddress.phone,
-            addressLine1: order.shippingAddress.addressLine1,
-            addressLine2: order.shippingAddress.addressLine2,
-            city: order.shippingAddress.city,
-            state: order.shippingAddress.state,
-            postalCode: order.shippingAddress.postalCode,
-            country: order.shippingAddress.country,
-          }
+              fullName: order.shippingAddress.fullName,
+              phone: order.shippingAddress.phone,
+              addressLine1: order.shippingAddress.addressLine1,
+              addressLine2: order.shippingAddress.addressLine2,
+              city: order.shippingAddress.city,
+              state: order.shippingAddress.state,
+              postalCode: order.shippingAddress.postalCode,
+              country: order.shippingAddress.country,
+            }
           : undefined,
       };
     } else {

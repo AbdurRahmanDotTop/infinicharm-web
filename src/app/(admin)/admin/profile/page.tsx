@@ -181,7 +181,7 @@ export default function AdminProfilePage() {
               </div>
               <div>
                 <h3 className="font-bold text-primary text-base">{fullName || 'AbdurRahman Ibn Ghufran'}</h3>
-                <p className="text-xs text-muted">Founder & CEO • TechilyFly India</p>
+                <p className="text-xs text-muted">Founder &amp; CEO &bull; Techily Fly</p>
               </div>
             </div>
 

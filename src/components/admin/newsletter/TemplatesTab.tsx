@@ -534,10 +534,10 @@ export function TemplatesTab({ templates, onRefresh, onNotify }: TemplatesTabPro
                   title={`Preview ${previewTemplate.name}`}
                   sandbox=""
                   srcDoc={previewTemplate.htmlContent
-                    .replaceAll('{{customer_name}}', 'Aarav Sharma')
-                    .replaceAll('{{customer_email}}', 'aarav.sharma@example.com')
-                    .replaceAll('{{subscriber_name}}', 'Aarav Sharma')
-                    .replaceAll('{{subscriber_email}}', 'aarav.sharma@example.com')
+                    .replaceAll('{{customer_name}}', 'AbdurRahman Ibn Ghufran')
+                    .replaceAll('{{customer_email}}', 'abdurrahman@infinicharm.com')
+                    .replaceAll('{{subscriber_name}}', 'AbdurRahman Ibn Ghufran')
+                    .replaceAll('{{subscriber_email}}', 'abdurrahman@infinicharm.com')
                     .replaceAll('{{otp_code}}', '482910')
                     .replaceAll('{{verification_code}}', '482910')
                     .replaceAll(
@@ -562,8 +562,8 @@ export function TemplatesTab({ templates, onRefresh, onNotify }: TemplatesTabPro
                     .replaceAll('{{store_url}}', getAppOrigin())
                     .replaceAll('{{site_url}}', getAppOrigin())
                     .replaceAll('{{unsubscribe_url}}', getUnsubscribeUrl())
-                    .replaceAll('{{brand_name}}', 'InfiniCharm (TechilyFly India)')
-                    .replaceAll('{{site_name}}', 'InfiniCharm (TechilyFly India)')
+                    .replaceAll('{{brand_name}}', 'InfiniCharm (Techily Fly)')
+                    .replaceAll('{{site_name}}', 'InfiniCharm (Techily Fly)')
                     .replaceAll('{{support_email}}', 'support@infinicharm.com')
                     .replaceAll('{{current_year}}', String(new Date().getFullYear()))}
                   className="w-full h-full bg-white"
@@ -586,7 +586,7 @@ export function TemplatesTab({ templates, onRefresh, onNotify }: TemplatesTabPro
                   type="email"
                   value={testEmailRecipient}
                   onChange={(e) => setTestEmailRecipient(e.target.value)}
-                  placeholder="test-recipient@example.com"
+                  placeholder="admin@infinicharm.com"
                   aria-label="Test recipient email"
                   className="flex-1 sm:w-60 px-3 py-1.5 rounded-xl border border-border bg-surface text-primary text-xs focus:outline-none focus:border-accent"
                 />

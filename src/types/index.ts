@@ -996,7 +996,7 @@ export interface HeroItem {
   targetId?: string; // category id/slug or product id/slug
   title: string;
   subtitle?: string;
-  badge?: string; // e.g. "Bairgania, Bihar Dispatch", "Original Sealed Can"
+  badge?: string; // e.g. "East Champaran, Bihar Dispatch", "Original Sealed Can"
   tagline?: string; // e.g. "Pure Taste & Natural Sweetness"
   priceDisplay?: string; // e.g. "₹2,400" or dynamic from product
   ctaText?: string;

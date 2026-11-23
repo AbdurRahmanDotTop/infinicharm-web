@@ -251,7 +251,7 @@ export default function HomePage() {
           type: 'product',
           targetId: 'S-01-P-01',
           title: '100% Kashmiri Honey',
-          badge: 'Bairgania, Bihar Dispatch',
+          badge: 'East Champaran, Bihar Dispatch',
           tagline: 'Pure Taste & Natural Sweetness',
           priceDisplay: '₹2,400',
           ctaText: 'Signature Harvest',
@@ -961,7 +961,7 @@ export default function HomePage() {
                   className="mt-3 sm:mt-0 sm:absolute sm:-bottom-4 sm:right-2 bg-surface p-4 rounded-xl shadow-level-2 sm:max-w-xs border border-border"
                 >
                   <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-accent">
-                    {sec.config?.spotlightFloatingBadge || 'Bairgania, Bihar Dispatch'}
+                    {sec.config?.spotlightFloatingBadge || 'East Champaran, Bihar Dispatch'}
                   </span>
                   <p className="text-[11px] text-neutral-600 mt-1 leading-snug">
                     {sec.config?.spotlightFloatingText ||
@@ -1102,7 +1102,7 @@ export default function HomePage() {
       : [
           {
             title: '100% Kashmiri Honey',
-            location: 'Bairgania, Sitamarhi, Bihar Dispatch',
+            location: 'East Champaran, Bihar - 845427 Dispatch',
             description:
               'Natural honey with pure taste & natural sweetness, packed cleanly for everyday wellness.',
             imageUrl:

@@ -19,7 +19,7 @@ test('SEO & Schema.org JSON-LD Generation (PRD 14)', async (t) => {
     const schema = generateOrganizationSchema();
     assert.equal(schema['@type'], 'Organization');
     assert.equal(schema.name, 'InfiniCharm');
-    assert.equal(schema.legalName, 'TechilyFly');
+    assert.equal(schema.legalName, 'Techily Fly');
     assert.equal(schema.founder.name, 'AbdurRahman Ibn Ghufran');
     assert.equal(schema.address.postalCode, '845427');
     assert.equal(schema.address.addressRegion, 'Bihar');

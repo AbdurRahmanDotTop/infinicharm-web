@@ -1,5 +1,312 @@
 [
   {
+    "id": "saud-1795408119029-4298",
+    "actorId": "anonymous",
+    "actorEmail": "patron-1795408118953@infinicharm.customer",
+    "action": "CUSTOMER_LOGIN_FAILED",
+    "resourceType": "customer_auth",
+    "resourceId": "patron-1795408118953@infinicharm.customer",
+    "diff": {
+      "authenticated": false,
+      "code": "INVALID_CREDENTIALS"
+    },
+    "ipAddress": "::1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-23T04:28:39.029Z"
+  },
+  {
+    "id": "saud-1795407611553-2750",
+    "actorId": "admin-action",
+    "actorEmail": "test-cleanup@infinicharm.com",
+    "action": "BACKUP_DELETE",
+    "resourceType": "backup",
+    "resourceId": "BCK-CATALOGUE-20261123-57DC5F",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-23T04:20:11.553Z"
+  },
+  {
+    "id": "saud-1795407611546-6484",
+    "actorId": "admin-action",
+    "actorEmail": "test-admin@infinicharm.com",
+    "action": "BACKUP_DELETE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261123-24F62E",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-23T04:20:11.546Z"
+  },
+  {
+    "id": "saud-1795407611539-2884",
+    "actorId": "admin-action",
+    "actorEmail": "test-admin@infinicharm.com",
+    "action": "COLLECTION_IMPORT",
+    "resourceType": "categories",
+    "resourceId": "import-1795407611538",
+    "diff": {
+      "strategy": "SKIP",
+      "format": "json",
+      "insertedCount": 1,
+      "updatedCount": 0,
+      "skippedCount": 1,
+      "totalRecordsNow": 6
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-23T04:20:11.539Z"
+  },
+  {
+    "id": "saud-1795407611527-9015",
+    "actorId": "admin-action",
+    "actorEmail": "test-cleanup@infinicharm.com",
+    "action": "BACKUP_DELETE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261123-ED8D77",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-23T04:20:11.527Z"
+  },
+  {
+    "id": "saud-1795407611523-7092",
+    "actorId": "admin-action",
+    "actorEmail": "test-admin@infinicharm.com",
+    "action": "BACKUP_RESTORE",
+    "resourceType": "backup",
+    "resourceId": "BCK-CATALOGUE-20261123-57DC5F",
+    "diff": {
+      "restoredCollections": [
+        "products",
+        "categories",
+        "media_assets",
+        "storefront_badges"
+      ],
+      "recordsRestored": {
+        "products": 4,
+        "categories": 5,
+        "media_assets": 7,
+        "storefront_badges": 2
+      },
+      "rollbackSnapshotId": "BCK-FULL-20261123-ED8D77"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-23T04:20:11.523Z"
+  },
+  {
+    "id": "saud-1795407611507-4339",
+    "actorId": "admin-action",
+    "actorEmail": "system-rollback@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261123-ED8D77",
+    "diff": {
+      "type": "FULL",
+      "totalRecords": 106,
+      "totalCollections": 22,
+      "checksum": "1f7e93f1129a9512bd90d94266e75298bd3ba8ed4b7a6bc9d6833e76b28c423b"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-23T04:20:11.507Z"
+  },
+  {
+    "id": "saud-1795407611492-1723",
+    "actorId": "admin-action",
+    "actorEmail": "test-admin@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-CATALOGUE-20261123-57DC5F",
+    "diff": {
+      "type": "SECTION",
+      "section": "catalogue",
+      "totalRecords": 18,
+      "totalCollections": 4,
+      "checksum": "bc2b3fcf1ac974537ff6b9878ab9225b2bcafa4155c9d85b10a8436de1d6e8dd"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-23T04:20:11.492Z"
+  },
+  {
+    "id": "saud-1795407611480-4651",
+    "actorId": "admin-action",
+    "actorEmail": "test-admin@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261123-24F62E",
+    "diff": {
+      "type": "FULL",
+      "totalRecords": 106,
+      "totalCollections": 22,
+      "checksum": "1f7e93f1129a9512bd90d94266e75298bd3ba8ed4b7a6bc9d6833e76b28c423b"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-23T04:20:11.480Z"
+  },
+  {
+    "id": "saud-1795407611235-7405",
+    "actorId": "cust-1795407611156-875",
+    "actorEmail": "otp.unit.1795407611155@example.com",
+    "action": "CUSTOMER_EMAIL_VERIFIED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1795407611156-875",
+    "diff": {
+      "method": "OTP",
+      "purpose": "REGISTRATION",
+      "redirectPath": "/account"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-23T04:20:11.235Z"
+  },
+  {
+    "id": "saud-1795407407218-4716",
+    "actorId": "admin-action",
+    "actorEmail": "test-cleanup@infinicharm.com",
+    "action": "BACKUP_DELETE",
+    "resourceType": "backup",
+    "resourceId": "BCK-CATALOGUE-20261123-68BE40",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-23T04:16:47.218Z"
+  },
+  {
+    "id": "saud-1795407407213-6644",
+    "actorId": "admin-action",
+    "actorEmail": "test-admin@infinicharm.com",
+    "action": "BACKUP_DELETE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261123-AC1B00",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-23T04:16:47.213Z"
+  },
+  {
+    "id": "saud-1795407407204-2547",
+    "actorId": "admin-action",
+    "actorEmail": "test-admin@infinicharm.com",
+    "action": "COLLECTION_IMPORT",
+    "resourceType": "categories",
+    "resourceId": "import-1795407407202",
+    "diff": {
+      "strategy": "SKIP",
+      "format": "json",
+      "insertedCount": 1,
+      "updatedCount": 0,
+      "skippedCount": 1,
+      "totalRecordsNow": 6
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-23T04:16:47.204Z"
+  },
+  {
+    "id": "saud-1795407407191-9182",
+    "actorId": "admin-action",
+    "actorEmail": "test-cleanup@infinicharm.com",
+    "action": "BACKUP_DELETE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261123-787288",
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-23T04:16:47.191Z"
+  },
+  {
+    "id": "saud-1795407407188-3183",
+    "actorId": "admin-action",
+    "actorEmail": "test-admin@infinicharm.com",
+    "action": "BACKUP_RESTORE",
+    "resourceType": "backup",
+    "resourceId": "BCK-CATALOGUE-20261123-68BE40",
+    "diff": {
+      "restoredCollections": [
+        "products",
+        "categories",
+        "media_assets",
+        "storefront_badges"
+      ],
+      "recordsRestored": {
+        "products": 4,
+        "categories": 5,
+        "media_assets": 7,
+        "storefront_badges": 2
+      },
+      "rollbackSnapshotId": "BCK-FULL-20261123-787288"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-23T04:16:47.188Z"
+  },
+  {
+    "id": "saud-1795407407170-1585",
+    "actorId": "admin-action",
+    "actorEmail": "system-rollback@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261123-787288",
+    "diff": {
+      "type": "FULL",
+      "totalRecords": 106,
+      "totalCollections": 22,
+      "checksum": "e9f87c0ea2141e02a0108fd6e80b5f70c122bec7088f022a59b5540f5eac5377"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-23T04:16:47.170Z"
+  },
+  {
+    "id": "saud-1795407407154-2102",
+    "actorId": "admin-action",
+    "actorEmail": "test-admin@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-CATALOGUE-20261123-68BE40",
+    "diff": {
+      "type": "SECTION",
+      "section": "catalogue",
+      "totalRecords": 18,
+      "totalCollections": 4,
+      "checksum": "4db1b0537f25a6be609277327a2094763bc0a7734a225dcd126090fb896c3779"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-23T04:16:47.154Z"
+  },
+  {
+    "id": "saud-1795407407142-8129",
+    "actorId": "admin-action",
+    "actorEmail": "test-admin@infinicharm.com",
+    "action": "BACKUP_CREATE",
+    "resourceType": "backup",
+    "resourceId": "BCK-FULL-20261123-AC1B00",
+    "diff": {
+      "type": "FULL",
+      "totalRecords": 106,
+      "totalCollections": 22,
+      "checksum": "e9f87c0ea2141e02a0108fd6e80b5f70c122bec7088f022a59b5540f5eac5377"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-23T04:16:47.142Z"
+  },
+  {
+    "id": "saud-1795407406893-9509",
+    "actorId": "cust-1795407406816-867",
+    "actorEmail": "otp.unit.1795407406816@example.com",
+    "action": "CUSTOMER_EMAIL_VERIFIED",
+    "resourceType": "customer_auth",
+    "resourceId": "cust-1795407406816-867",
+    "diff": {
+      "method": "OTP",
+      "purpose": "REGISTRATION",
+      "redirectPath": "/account"
+    },
+    "ipAddress": "127.0.0.1",
+    "userAgent": "Server API",
+    "createdAt": "2026-11-23T04:16:46.894Z"
+  },
+  {
     "id": "saud-1795348741891-8625",
     "actorId": "admin-action",
     "actorEmail": "test-cleanup@infinicharm.com",
@@ -8865,6 +9172,154 @@
   {
     "id": "audit-tax-INF-202611-4435-1795348747700",
     "timestamp": "2026-11-22T11:59:07.700Z",
+    "actor": "SYSTEM_AUDIT",
+    "action": "STATUTORY_TAX_LEDGER_ARCHIVED",
+    "module": "orders",
+    "targetId": "INF-202611-4435",
+    "details": {
+      "orderNumber": "INF-202611-4435",
+      "originalOrderDate": "2026-11-21T18:00:00.000Z",
+      "totalInPaise": 246000,
+      "subtotalInPaise": 240000,
+      "taxInPaise": 0,
+      "shippingInPaise": 6000,
+      "discountInPaise": 0,
+      "paymentMethod": "CUSTOM_UPI",
+      "paymentStatus": "PAID",
+      "status": "PAYMENT_RECEIVED",
+      "retentionReason": "Statutory financial audit compliance (GST Act 2017 Sec 36 / Companies Act 2013 Sec 128). Customer PII permanently erased."
+    }
+  },
+  {
+    "id": "audit-tax-ord-test-delete-1795407410017-1795407410019",
+    "timestamp": "2026-11-23T04:16:50.019Z",
+    "actor": "SYSTEM_AUDIT",
+    "action": "STATUTORY_TAX_LEDGER_ARCHIVED",
+    "module": "orders",
+    "targetId": "INF-TEST-1795407410017",
+    "details": {
+      "orderNumber": "INF-TEST-1795407410017",
+      "originalOrderDate": "2026-11-23T04:16:50.017Z",
+      "totalInPaise": 240000,
+      "status": "CONFIRMED",
+      "retentionReason": "Statutory financial audit compliance (GST Act 2017 Sec 36 / Companies Act 2013 Sec 128). Customer PII permanently erased."
+    }
+  },
+  {
+    "id": "audit-tax-ord-guest-cascade-1795407410080-1795407410087",
+    "timestamp": "2026-11-23T04:16:50.087Z",
+    "actor": "SYSTEM_AUDIT",
+    "action": "STATUTORY_TAX_LEDGER_ARCHIVED",
+    "module": "orders",
+    "targetId": "INF-GUEST-1795407410080",
+    "details": {
+      "orderNumber": "INF-GUEST-1795407410080",
+      "originalOrderDate": "2026-11-23T04:16:50.080Z",
+      "totalInPaise": 450000,
+      "paymentMethod": "CUSTOM_UPI",
+      "paymentStatus": "FAILED",
+      "status": "PAYMENT_RECEIVED",
+      "retentionReason": "Statutory financial audit compliance (GST Act 2017 Sec 36 / Companies Act 2013 Sec 128). Customer PII permanently erased."
+    }
+  },
+  {
+    "id": "audit-tax-INF-202611-2527-1795407414380",
+    "timestamp": "2026-11-23T04:16:54.380Z",
+    "actor": "SYSTEM_AUDIT",
+    "action": "STATUTORY_TAX_LEDGER_ARCHIVED",
+    "module": "orders",
+    "targetId": "INF-202611-2527",
+    "details": {
+      "orderNumber": "INF-202611-2527",
+      "originalOrderDate": "2026-11-14T14:45:00.000Z",
+      "totalInPaise": 36000,
+      "subtotalInPaise": 30000,
+      "taxInPaise": 0,
+      "shippingInPaise": 6000,
+      "discountInPaise": 0,
+      "paymentMethod": "CUSTOM_UPI",
+      "paymentStatus": "PAID",
+      "status": "PAYMENT_RECEIVED",
+      "retentionReason": "Statutory financial audit compliance (GST Act 2017 Sec 36 / Companies Act 2013 Sec 128). Customer PII permanently erased."
+    }
+  },
+  {
+    "id": "audit-tax-INF-202611-4435-1795407414381",
+    "timestamp": "2026-11-23T04:16:54.381Z",
+    "actor": "SYSTEM_AUDIT",
+    "action": "STATUTORY_TAX_LEDGER_ARCHIVED",
+    "module": "orders",
+    "targetId": "INF-202611-4435",
+    "details": {
+      "orderNumber": "INF-202611-4435",
+      "originalOrderDate": "2026-11-21T18:00:00.000Z",
+      "totalInPaise": 246000,
+      "subtotalInPaise": 240000,
+      "taxInPaise": 0,
+      "shippingInPaise": 6000,
+      "discountInPaise": 0,
+      "paymentMethod": "CUSTOM_UPI",
+      "paymentStatus": "PAID",
+      "status": "PAYMENT_RECEIVED",
+      "retentionReason": "Statutory financial audit compliance (GST Act 2017 Sec 36 / Companies Act 2013 Sec 128). Customer PII permanently erased."
+    }
+  },
+  {
+    "id": "audit-tax-ord-test-delete-1795407614267-1795407614269",
+    "timestamp": "2026-11-23T04:20:14.269Z",
+    "actor": "SYSTEM_AUDIT",
+    "action": "STATUTORY_TAX_LEDGER_ARCHIVED",
+    "module": "orders",
+    "targetId": "INF-TEST-1795407614267",
+    "details": {
+      "orderNumber": "INF-TEST-1795407614267",
+      "originalOrderDate": "2026-11-23T04:20:14.267Z",
+      "totalInPaise": 240000,
+      "status": "CONFIRMED",
+      "retentionReason": "Statutory financial audit compliance (GST Act 2017 Sec 36 / Companies Act 2013 Sec 128). Customer PII permanently erased."
+    }
+  },
+  {
+    "id": "audit-tax-ord-guest-cascade-1795407614333-1795407614340",
+    "timestamp": "2026-11-23T04:20:14.340Z",
+    "actor": "SYSTEM_AUDIT",
+    "action": "STATUTORY_TAX_LEDGER_ARCHIVED",
+    "module": "orders",
+    "targetId": "INF-GUEST-1795407614333",
+    "details": {
+      "orderNumber": "INF-GUEST-1795407614333",
+      "originalOrderDate": "2026-11-23T04:20:14.333Z",
+      "totalInPaise": 450000,
+      "paymentMethod": "CUSTOM_UPI",
+      "paymentStatus": "FAILED",
+      "status": "PAYMENT_RECEIVED",
+      "retentionReason": "Statutory financial audit compliance (GST Act 2017 Sec 36 / Companies Act 2013 Sec 128). Customer PII permanently erased."
+    }
+  },
+  {
+    "id": "audit-tax-INF-202611-2527-1795407618649",
+    "timestamp": "2026-11-23T04:20:18.649Z",
+    "actor": "SYSTEM_AUDIT",
+    "action": "STATUTORY_TAX_LEDGER_ARCHIVED",
+    "module": "orders",
+    "targetId": "INF-202611-2527",
+    "details": {
+      "orderNumber": "INF-202611-2527",
+      "originalOrderDate": "2026-11-14T14:45:00.000Z",
+      "totalInPaise": 36000,
+      "subtotalInPaise": 30000,
+      "taxInPaise": 0,
+      "shippingInPaise": 6000,
+      "discountInPaise": 0,
+      "paymentMethod": "CUSTOM_UPI",
+      "paymentStatus": "PAID",
+      "status": "PAYMENT_RECEIVED",
+      "retentionReason": "Statutory financial audit compliance (GST Act 2017 Sec 36 / Companies Act 2013 Sec 128). Customer PII permanently erased."
+    }
+  },
+  {
+    "id": "audit-tax-INF-202611-4435-1795407618650",
+    "timestamp": "2026-11-23T04:20:18.650Z",
     "actor": "SYSTEM_AUDIT",
     "action": "STATUTORY_TAX_LEDGER_ARCHIVED",
     "module": "orders",

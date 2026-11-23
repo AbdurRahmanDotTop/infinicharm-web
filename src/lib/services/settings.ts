@@ -29,7 +29,7 @@ export const DEFAULT_PLATFORM_SETTINGS: DynamicPlatformSettings = {
   fssaiLicenseNumber: '10423000001234',
   gstin: '10AAAAA0000A1Z5',
   supportEmail: BRAND.contact.supportEmail,
-  supportPhone: '+91 98765 43210',
+  supportPhone: BRAND.contact.phone,
   registeredOfficeAddress: BRAND.contact.address.fullAddress,
   tawkPropertyId: '6ae76c24e068a73c41821c1f',
   tawkWidgetId: '1k6bvsse1',

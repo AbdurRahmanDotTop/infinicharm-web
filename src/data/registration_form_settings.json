@@ -12,7 +12,7 @@
       "key": "fullName",
       "label": "Full Name",
       "type": "text",
-      "placeholder": "Aarav Sharma",
+      "placeholder": "AbdurRahman Ibn Ghufran",
       "description": "Your official legal or personal name for parcel delivery",
       "required": true,
       "isEnabled": true,
@@ -29,7 +29,7 @@
       "key": "email",
       "label": "Email Address",
       "type": "email",
-      "placeholder": "aarav@example.com",
+      "placeholder": "abdurrahman@infinicharm.com",
       "description": "Your primary account identifier and dispatch notification channel",
       "required": true,
       "isEnabled": true,
@@ -46,7 +46,7 @@
       "key": "phone",
       "label": "Mobile Phone (Optional)",
       "type": "phone",
-      "placeholder": "+91 98765 43210",
+      "placeholder": "+91 8825164657",
       "description": "Used for courier SMS and WhatsApp delivery tracking notifications",
       "required": false,
       "isEnabled": true,
@@ -134,7 +134,7 @@
       "key": "test_company_1794714768181",
       "label": "Company Name",
       "type": "text",
-      "placeholder": "Acme Inc.",
+      "placeholder": "Techily Fly",
       "required": false,
       "isEnabled": true,
       "id": "field-1794714768181-787",
@@ -142,5 +142,5 @@
       "isSystemField": false
     }
   ],
-  "updatedAt": "2026-11-22T11:59:04.101Z"
+  "updatedAt": "2026-11-23T04:20:14.561Z"
 }

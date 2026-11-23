@@ -54,7 +54,7 @@ export async function POST(request: Request) {
       clientTxnInformation: {
         orderId: orderNumber,
         customerEmail: customerEmail || 'customer@infinicharm.com',
-        customerPhone: customerPhone || '9876543210',
+        customerPhone: customerPhone || '8825164657',
         customerName: customerName || 'InfiniCharm Customer',
         deliveryAddress: billingAddress,
       },

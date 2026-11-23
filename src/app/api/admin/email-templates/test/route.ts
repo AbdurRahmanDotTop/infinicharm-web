@@ -57,9 +57,9 @@ export async function POST(req: NextRequest) {
     const appOrigin = getPublicSiteUrl();
 
     const sampleVars: Record<string, string> = {
-      customer_name: 'Aarav Sharma',
+      customer_name: 'AbdurRahman Ibn Ghufran',
       customer_email: recipientEmail,
-      subscriber_name: 'Aarav Sharma',
+      subscriber_name: 'AbdurRahman Ibn Ghufran',
       subscriber_email: recipientEmail,
       otp_code: '482910',
       verification_code: '482910',
@@ -78,8 +78,8 @@ export async function POST(req: NextRequest) {
       campaign_title: 'Template Test Dispatch',
       store_url: appOrigin,
       site_url: appOrigin,
-      site_name: 'InfiniCharm (TechilyFly India)',
-      brand_name: 'InfiniCharm (TechilyFly India)',
+      site_name: 'InfiniCharm (Techily Fly)',
+      brand_name: 'InfiniCharm (Techily Fly)',
       support_email: 'support@infinicharm.com',
       current_year: String(new Date().getFullYear()),
     };
@@ -91,7 +91,7 @@ export async function POST(req: NextRequest) {
         textContent: targetText,
       },
       {
-        subscriberName: 'Aarav Sharma',
+        subscriberName: 'AbdurRahman Ibn Ghufran',
         subscriberEmail: recipientEmail,
         extraVars: sampleVars,
       }

@@ -38,7 +38,7 @@ const DEFAULT_AUDIT_LOGS: AuditLogEntry[] = [
     resourceType: 'settings',
     resourceId: 'legal-metrology-fssai',
     diff: {
-      packer: 'TechilyFly India',
+      packer: 'Techily Fly',
       founder: 'AbdurRahman Ibn Ghufran',
       status: 'VERIFIED',
     },

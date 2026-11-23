@@ -138,8 +138,8 @@ export function renderEmailVariables(
     '{{store_url}}': storeUrl,
     '{{site_url}}': storeUrl,
     '{{unsubscribe_url}}': unsubscribeUrl,
-    '{{brand_name}}': 'InfiniCharm (TechilyFly India)',
-    '{{site_name}}': 'InfiniCharm (TechilyFly India)',
+    '{{brand_name}}': 'InfiniCharm (Techily Fly)',
+    '{{site_name}}': 'InfiniCharm (Techily Fly)',
     '{{support_email}}': supportEmail,
     '{{current_year}}': String(new Date().getFullYear()),
   };
@@ -177,7 +177,7 @@ export function renderEmailVariables(
   if (opts?.requireUnsubscribeLink && !htmlContent.includes('/unsubscribe')) {
     htmlContent += `\n<div style="margin-top:28px;padding-top:16px;border-top:1px solid #e7e1da;font-family:Inter,Arial,sans-serif;font-size:12px;color:#6f645b;text-align:center;">
   You received this email because you subscribed to the InfiniCharm Circle (<a href="${unsubscribeUrl}" style="color:#c2593f;text-decoration:underline;">Unsubscribe instantly</a>).<br/>
-  InfiniCharm &bull; TechilyFly India &bull; East Champaran, Bihar - 845427
+  InfiniCharm &bull; Techily Fly &bull; East Champaran, Bihar - 845427
 </div>`;
   }
 

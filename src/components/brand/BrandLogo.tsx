@@ -9,6 +9,7 @@
 
 import React from 'react';
 import Link from 'next/link';
+import { BRAND } from '@/lib/constants/brand';
 
 export interface BrandLogoProps {
   variant?: 'light' | 'dark' | 'auto';
@@ -125,7 +126,7 @@ export function BrandLogo({
           <span
             className={`font-mono ${sizeStyles.tagline} uppercase tracking-wider font-semibold mt-0.5 ${getTaglineClasses()}`}
           >
-            TechilyFly India
+            {BRAND.operatingEntity}
           </span>
         )}
       </div>

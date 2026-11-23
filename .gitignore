@@ -46,3 +46,7 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# credentials and secrets
+All_Docs/Credentials_and_other/
+*.png
+

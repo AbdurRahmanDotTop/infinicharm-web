@@ -134,7 +134,9 @@
       "S-01-P-01"
     ],
     "createdAt": "2026-11-01T08:00:00.000Z",
-    "updatedAt": "2026-11-22T14:51:59.492Z",
-    "lastLoginAt": "2026-11-22T14:51:11.293Z"
+    "updatedAt": "2026-11-23T04:20:14.156Z",
+    "lastLoginAt": "2026-11-23T04:20:13.977Z",
+    "hasExplicitlyClearedAddresses": false,
+    "hasManagedAddresses": true
   }
 ]

@@ -180,7 +180,7 @@ export default function AdminCmsPage() {
     badge: 'Direct-to-Consumer Purity • East Champaran, Bihar',
     headline: 'Everyday Essentials, Selected With Heritage & Honesty',
     subheadline:
-      '100% Kashmiri Honey, Zamzam Water, Takmeeli Talbeena, Barliva, and Premium Dates dispatched directly from Bairgania, Bihar.',
+      '100% Kashmiri Honey, Zamzam Water, Takmeeli Talbeena, Barliva, and Premium Dates dispatched directly from East Champaran, Bihar - 845427.',
     ctaText: 'Explore Approved Catalogue',
     ctaLink: '/shop',
     imageUrl:
@@ -647,7 +647,7 @@ export default function AdminCmsPage() {
     setProductSearchTerm('');
 
     // Initialize Spotlight & Center Highlight Configs
-    setSecSpotlightFloatingBadge(cfg.spotlightFloatingBadge || 'Bairgania, Bihar Dispatch');
+    setSecSpotlightFloatingBadge(cfg.spotlightFloatingBadge || 'East Champaran, Bihar Dispatch');
     setSecSpotlightFloatingText(
       cfg.spotlightFloatingText ||
         'Every Honey jar, Talbeena pack, Dates box, and Zamzam Water can is batch-verified before dispatch.'
@@ -668,7 +668,7 @@ export default function AdminCmsPage() {
             {
               id: 'cc-1',
               title: '100% Kashmiri Honey',
-              location: 'Bairgania, Sitamarhi, Bihar',
+              location: 'East Champaran, Bihar - 845427',
               description: 'Natural honey with pure taste & natural sweetness.',
               imageUrl:
                 'https://images.unsplash.com/photo-1685773253905-915ce8dd470b?q=80&w=1073&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D',
@@ -693,7 +693,7 @@ export default function AdminCmsPage() {
             targetId: 'S-01-P-01',
             title: '100% Kashmiri Honey',
             subtitle: 'Pure Taste & Natural Sweetness',
-            badge: 'Bairgania, Bihar Dispatch',
+            badge: 'East Champaran, Bihar Dispatch',
             tagline: 'Natural Honey & Pure Goodness',
             priceDisplay: '₹2,400',
             ctaText: 'Signature Harvest',
@@ -3091,7 +3091,7 @@ export default function AdminCmsPage() {
                           type="text"
                           value={secSpotlightFloatingBadge}
                           onChange={(e) => setSecSpotlightFloatingBadge(e.target.value)}
-                          placeholder="e.g. Bairgania, Bihar Dispatch"
+                          placeholder="e.g. East Champaran, Bihar Dispatch"
                           className="w-full px-3 py-2 bg-surface border border-border rounded-xl text-primary text-xs"
                         />
                       </div>
@@ -3156,7 +3156,7 @@ export default function AdminCmsPage() {
                             {
                               id: `cc-${Date.now()}`,
                               title: 'New Catalogue Highlight',
-                              location: 'Bairgania, Bihar',
+                              location: 'East Champaran, Bihar - 845427',
                               description: 'Approved InfiniCharm catalogue item.',
                               imageUrl: '',
                               specLeft: '100% Pure',
@@ -4125,7 +4125,7 @@ export default function AdminCmsPage() {
                       type="text"
                       value={heroItemFormBadge}
                       onChange={(e) => setHeroItemFormBadge(e.target.value)}
-                      placeholder="e.g. Bairgania, Bihar Dispatch"
+                      placeholder="e.g. East Champaran, Bihar Dispatch"
                       className="w-full px-3 py-2 bg-surface-dim border border-border rounded-xl text-primary focus:outline-none focus:border-accent"
                     />
                   </div>

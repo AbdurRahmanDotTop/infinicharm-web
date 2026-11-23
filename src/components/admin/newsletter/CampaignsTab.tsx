@@ -714,11 +714,11 @@ export function CampaignsTab({
               sandbox=""
               srcDoc={previewCampaign.htmlContent
                 .replaceAll('{{subscriber_name}}', 'Valued Patron')
-                .replaceAll('{{subscriber_email}}', 'patron@example.com')
+                .replaceAll('{{subscriber_email}}', 'support@infinicharm.com')
                 .replaceAll('{{campaign_title}}', previewCampaign.name)
                 .replaceAll('{{store_url}}', getAppOrigin())
                 .replaceAll('{{unsubscribe_url}}', getUnsubscribeUrl())
-                .replaceAll('{{brand_name}}', 'InfiniCharm (TechilyFly India)')
+                .replaceAll('{{brand_name}}', 'InfiniCharm (Techily Fly)')
                 .replaceAll('{{support_email}}', 'support@infinicharm.com')}
               className="w-full h-[520px] bg-white"
             />

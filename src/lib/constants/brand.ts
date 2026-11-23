@@ -1,12 +1,13 @@
 export const BRAND = {
   name: 'InfiniCharm',
-  operatingEntity: 'TechilyFly',
+  operatingEntity: 'Techily Fly',
   tagline: 'Everyday essentials. Selected with care.',
   founder: 'AbdurRahman Ibn Ghufran',
-  founderWebsite: 'https://www.abdurrahman.top',
+  founderWebsite: 'https://www.AbdurRahman.Top',
   contact: {
     phone: '+91 8825164657',
     displayPhone: '+91 8825164657',
+    secondaryPhone: '+91 7320085578',
     supportEmail: 'support@infinicharm.com',
     adminEmail: 'admin@infinicharm.com',
     personalEmail: 'abdurrahman@infinicharm.com',
@@ -18,8 +19,14 @@ export const BRAND = {
       state: 'Bihar',
       country: 'India',
       postalCode: '845427',
-      fullAddress: 'Ward No. 07, Lahsaniya, Khoripakar, Dewapur, Pachpakari, Patahi, Dhaka, Motihari, East Champaran, Bihar, India - 845427',
+      fullAddress: 'AbdurRahman Ibn Ghufran, Ward No. 07, Lahsaniya, Khoripakar, Dewapur, Pachpakari, Patahi, Dhaka, Motihari, East Champaran, Bihar, India - 845427',
     },
+  },
+  parentCompany: {
+    name: 'Techily Fly',
+    website: 'https://techilyfly.com',
+    supportEmail: 'support@techilyfly.com',
+    personalEmail: 'abdurrahman@techilyfly.com',
   },
   social: {
     website: 'https://www.infinicharm.com',

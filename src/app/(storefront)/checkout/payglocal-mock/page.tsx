@@ -72,7 +72,7 @@ function PayGlocalMockCheckoutContent() {
             method: 'PAYGLOCAL',
             status: 'SUCCESS',
             customerEmail: email,
-            customerPhone: '9876543210',
+            customerPhone: '8825164657',
             payglocalGid: gid,
             createdAt: new Date().toISOString(),
           };

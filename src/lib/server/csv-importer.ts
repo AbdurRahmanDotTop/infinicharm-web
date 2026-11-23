@@ -468,7 +468,7 @@ export function importProductsFromCsvDirectory(): Product[] {
           originCountry: 'India',
           originRegion: adminNotes
             ? adminNotes.replace('Product is from - ', '').trim()
-            : 'Bairgania, Sitamarhi, Bihar',
+            : 'East Champaran, Bihar - 845427',
           ingredients: specifics.ingredients,
           storageInstructions: specifics.storageInstructions,
           fssaiLicenseNumber: 'FSSAI Lic. No. 10423000001234',
@@ -479,7 +479,7 @@ export function importProductsFromCsvDirectory(): Product[] {
             { label: 'Product UID', value: uid },
             { label: 'Brand Code', value: brand },
             { label: 'Category Path', value: categoryHierarchy },
-            { label: 'Dispatch Origin', value: adminNotes ? adminNotes.replace('Product is from - ', '').trim() : 'Bairgania, Sitamarhi, Bihar' },
+            { label: 'Dispatch Origin', value: adminNotes ? adminNotes.replace('Product is from - ', '').trim() : 'East Champaran, Bihar - 845427' },
           ],
           seoTitle: title.includes('InfiniCharm') ? title : `${title} | InfiniCharm`,
           seoDescription: shortDescription,

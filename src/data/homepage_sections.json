@@ -3,7 +3,7 @@
     "id": "sec-hero",
     "type": "hero",
     "title": "Pure Harvests. Blessed Essentials. Direct from InfiniCharm.",
-    "subtitle": "Discover 100% Kashmiri Honey, convenient 5-litre Zamzam Water, wholesome Sunnah-inspired Takmeeli Talbeena, and Premium Dates. Carefully curated and dispatched directly from Bairgania, Sitamarhi, Bihar.",
+    "subtitle": "Discover 100% Kashmiri Honey, convenient 5-litre Zamzam Water, wholesome Sunnah-inspired Takmeeli Talbeena, and Premium Dates. Carefully curated and dispatched directly from East Champaran, Bihar - 845427.",
     "badge": "APPROVED PANTRY & BEVERAGE COLLECTION",
     "ctaText": "Explore Collections",
     "ctaLink": "/shop",
@@ -86,7 +86,7 @@
       "buttonText": "Add to Bag",
       "selectionMode": "sales"
     },
-    "updatedAt": "2026-11-22T11:59:05.175Z"
+    "updatedAt": "2026-11-23T04:20:15.715Z"
   },
   {
     "id": "sec-departments",
@@ -152,8 +152,8 @@
     "displayOrder": 6,
     "isEnabled": true,
     "config": {
-      "spotlightFloatingBadge": "Bairgania, Bihar Dispatch",
-      "spotlightFloatingText": "Carefully checked, sealed, and dispatched from Bairgania, Sitamarhi, Bihar with full ingredient and weight clarity.",
+      "spotlightFloatingBadge": "East Champaran, Bihar Dispatch",
+      "spotlightFloatingText": "Carefully checked, sealed, and dispatched from East Champaran, Bihar - 845427 with full ingredient and weight clarity.",
       "spotlightCards": [
         {
           "id": "spot-1",
@@ -171,7 +171,7 @@
           "description": "Naturally sweet 1 KG dates and blessed 5-litre Zamzam water for home."
         }
       ],
-      "location": "Bairgania, Sitamarhi, Bihar",
+      "location": "East Champaran, Bihar - 845427",
       "quote": "Every InfiniCharm product pairs authentic nutritional heritage with honest packaging and straightforward pricing."
     },
     "updatedAt": "2026-11-12T13:15:00.000Z"
@@ -203,7 +203,7 @@
     "id": "sec-sourcing-centers",
     "type": "sourcing_centers",
     "title": "Core Category Collections & Regional Fulfilment",
-    "subtitle": "Every product category in our catalogue is carefully vetted, documented, and dispatched directly from Bairgania, Sitamarhi, Bihar.",
+    "subtitle": "Every product category in our catalogue is carefully vetted, documented, and dispatched directly from East Champaran, Bihar - 845427.",
     "badge": "VERIFIED CATALOGUE COLLECTIONS",
     "ctaText": "About InfiniCharm Sourcing",
     "ctaLink": "/about",
@@ -268,7 +268,7 @@
     "id": "sec-values-strip",
     "type": "values_strip",
     "title": "The InfiniCharm Invariant Guarantees",
-    "subtitle": "Strict Single-Owner Sourcing • Integer Paise Authority • Bairgania, Bihar Dispatch",
+    "subtitle": "Strict Single-Owner Sourcing • Integer Paise Authority • East Champaran, Bihar Dispatch",
     "badge": "FOUNDATIONAL STANDARDS",
     "displayOrder": 9,
     "isEnabled": true,

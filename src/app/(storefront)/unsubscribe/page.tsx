@@ -202,7 +202,7 @@ function UnsubscribeContent() {
                 required
                 value={manualEmail}
                 onChange={(e) => setManualEmail(e.target.value)}
-                placeholder="you@example.com"
+                placeholder="Enter your email address"
                 className="w-full bg-canvas border border-border rounded-xl px-4 py-3 text-sm text-primary outline-none focus:ring-2 focus:ring-accent"
               />
             </div>
@@ -254,7 +254,7 @@ function UnsubscribeContent() {
             <ArrowLeft className="w-3.5 h-3.5" />
             Return to Storefront
           </Link>
-          <span>InfiniCharm &bull; TechilyFly India</span>
+          <span>InfiniCharm &bull; Techily Fly</span>
         </div>
       </div>
     </div>

@@ -854,7 +854,7 @@ export function ShopAllProductsView({
             { id: 'raw', label: '100% Pure & Natural' },
             { id: 'nmr', label: 'Quality & Safety Verified' },
             { id: 'organic', label: 'Traditional & Wholesome' },
-            { id: 'wild', label: 'Direct Bairgania Dispatch' },
+            { id: 'wild', label: 'Direct East Champaran Dispatch' },
           ].map((item) => {
             const isChecked = selectedPurityBadges.includes(item.id);
             return (

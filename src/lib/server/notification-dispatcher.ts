@@ -279,10 +279,10 @@ export function previewNotificationRule(
     effectiveTemplate,
     buildRenderContext(
       rule,
-      { email: 'preview@infinicharm.com', name: 'Aarav Sharma' },
+      { email: 'preview@infinicharm.com', name: 'AbdurRahman Ibn Ghufran' },
       {
         customerEmail: 'preview@infinicharm.com',
-        customerName: 'Aarav Sharma',
+        customerName: 'AbdurRahman Ibn Ghufran',
         extraVars: {
           order_number: 'INF-202611-8801',
           order_total: '₹1,450.00',

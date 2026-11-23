@@ -103,7 +103,7 @@ export function ResendVerificationBox({
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="you@example.com"
+            placeholder="Enter your email address"
             aria-label="Verification email address"
             className="flex-1 min-w-0 rounded-lg border border-amber-300 bg-white px-3 py-2 text-xs text-primary focus:outline-none focus:border-accent"
           />

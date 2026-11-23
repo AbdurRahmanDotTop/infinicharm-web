@@ -258,7 +258,7 @@ function VerifyEmailContent() {
                 type="email"
                 value={manualEmail}
                 onChange={(e) => setManualEmail(e.target.value)}
-                placeholder="your-email@example.com"
+                placeholder="Enter your email address"
                 aria-label="Email address for OTP verification"
                 className="w-full px-3 py-2 text-xs rounded-xl border border-border bg-surface text-primary focus:outline-none focus:border-accent"
               />

@@ -82,7 +82,7 @@ test('Brand & Regulatory Policy Suite', async (t) => {
 
   await t.test('authoritative dispatch location & leadership preserved', () => {
     assert.equal(BRAND.name, 'InfiniCharm');
-    assert.equal(BRAND.operatingEntity, 'TechilyFly');
+    assert.equal(BRAND.operatingEntity, 'Techily Fly');
     assert.equal(BRAND.founder, 'AbdurRahman Ibn Ghufran');
     assert.equal(BRAND.contact.address.postalCode, '845427');
     assert.equal(BRAND.contact.address.district, 'East Champaran');
