@@ -1011,7 +1011,12 @@ function syncCustomersFromCookie(request) {
   const deletedCookie = getCookie(request, 'infinicharm_deleted_customers');
   if (deletedCookie) {
     try {
-      const parsed = JSON.parse(decodeURIComponent(deletedCookie));
+      let parsed = null;
+      try {
+        parsed = JSON.parse(deletedCookie);
+      } catch {
+        parsed = JSON.parse(decodeURIComponent(deletedCookie));
+      }
       if (Array.isArray(parsed)) {
         for (const item of parsed) {
           if (item && (item.id || item.email)) {
@@ -1030,7 +1035,12 @@ function syncCustomersFromCookie(request) {
   const addedCookie = getCookie(request, 'infinicharm_added_customers');
   if (addedCookie) {
     try {
-      const parsed = JSON.parse(decodeURIComponent(addedCookie));
+      let parsed = null;
+      try {
+        parsed = JSON.parse(addedCookie);
+      } catch {
+        parsed = JSON.parse(decodeURIComponent(addedCookie));
+      }
       if (Array.isArray(parsed)) {
         for (const cust of parsed) {
           if (cust && cust.email) {
@@ -1079,12 +1089,12 @@ function makeCustomerSyncCookies() {
       email: c.email,
       fullName: c.fullName || c.name || '',
       phone: c.phone || '',
-      password: c.password || '',
-      passwordHash: c.passwordHash || '',
       status: c.status || 'ACTIVE',
       emailVerified: Boolean(c.emailVerified),
       role: c.role || 'CUSTOMER',
       createdAt: c.createdAt || new Date().toISOString(),
+      updatedAt: c.updatedAt || new Date().toISOString(),
+      hasManagedAddresses: Boolean(c.hasManagedAddresses),
       addresses: Array.isArray(c.addresses) ? c.addresses : [],
       wishlistProductIds: Array.isArray(c.wishlistProductIds) ? c.wishlistProductIds : [],
       preferences: c.preferences || {}
@@ -1116,7 +1126,11 @@ function getAuthenticatedCustomer(request) {
   if (rawData) {
     try {
       parsedFromCookie = JSON.parse(rawData);
-    } catch {}
+    } catch {
+      try {
+        parsedFromCookie = JSON.parse(decodeURIComponent(rawData));
+      } catch {}
+    }
   }
 
   if (!cust && parsedFromCookie) {
@@ -1146,6 +1160,8 @@ function getAuthenticatedCustomer(request) {
         role: parsedFromCookie.role || 'CUSTOMER',
         status: parsedFromCookie.status || 'ACTIVE',
         emailVerified: Boolean(parsedFromCookie.emailVerified),
+        hasManagedAddresses: Boolean(parsedFromCookie.hasManagedAddresses),
+        hasExplicitlyClearedAddresses: Boolean(parsedFromCookie.hasExplicitlyClearedAddresses),
         addresses: Array.isArray(parsedFromCookie.addresses) ? parsedFromCookie.addresses : [],
         wishlistProductIds: Array.isArray(parsedFromCookie.wishlistProductIds) ? parsedFromCookie.wishlistProductIds : [],
         preferences: parsedFromCookie.preferences || {
@@ -1168,26 +1184,32 @@ function getAuthenticatedCustomer(request) {
 
   if (!Array.isArray(cust.addresses)) cust.addresses = [];
 
-  // Merge addresses from infinicharm_customer_data cookie if cookie has newer or additional addresses
-  if (parsedFromCookie && Array.isArray(parsedFromCookie.addresses) && parsedFromCookie.addresses.length > 0) {
-    const existingIds = new Set(cust.addresses.map(a => a.id));
-    for (const cookieAddr of parsedFromCookie.addresses) {
-      if (cookieAddr && cookieAddr.id && !existingIds.has(cookieAddr.id)) {
-        cust.addresses.push(cookieAddr);
-        existingIds.add(cookieAddr.id);
+  // Synchronize customer profile & addresses from infinicharm_customer_data cookie
+  if (cust && parsedFromCookie) {
+    const cookieTime = new Date(parsedFromCookie.updatedAt || parsedFromCookie.createdAt || 0).getTime();
+    const custTime = new Date(cust.updatedAt || cust.createdAt || 0).getTime();
+    if (cookieTime >= custTime || !Array.isArray(cust.addresses) || cust.addresses.length === 0) {
+      if (Array.isArray(parsedFromCookie.addresses)) {
+        cust.addresses = [...parsedFromCookie.addresses];
       }
+      if (parsedFromCookie.phone && (!cust.phone || cust.phone.length < 10)) {
+        cust.phone = parsedFromCookie.phone;
+      }
+      if (parsedFromCookie.fullName && (!cust.fullName || cust.fullName === (cust.email || '').split('@')[0])) {
+        cust.fullName = parsedFromCookie.fullName;
+        cust.name = parsedFromCookie.fullName;
+      }
+      if (parsedFromCookie.updatedAt) {
+        cust.updatedAt = parsedFromCookie.updatedAt;
+      }
+      if (parsedFromCookie.hasManagedAddresses !== undefined) {
+        cust.hasManagedAddresses = Boolean(parsedFromCookie.hasManagedAddresses);
+      }
+      if (parsedFromCookie.hasExplicitlyClearedAddresses !== undefined) {
+        cust.hasExplicitlyClearedAddresses = Boolean(parsedFromCookie.hasExplicitlyClearedAddresses);
+      }
+      registeredCustomers.set(cust.email.toLowerCase().trim(), cust);
     }
-    if (cust.addresses.length === 0 && parsedFromCookie.addresses.length > 0) {
-      cust.addresses = [...parsedFromCookie.addresses];
-    }
-    if (!cust.phone && parsedFromCookie.phone) {
-      cust.phone = parsedFromCookie.phone;
-    }
-    if ((!cust.fullName || cust.fullName === cust.email.split('@')[0]) && parsedFromCookie.fullName) {
-      cust.fullName = parsedFromCookie.fullName;
-      cust.name = parsedFromCookie.fullName;
-    }
-    registeredCustomers.set(cust.email.toLowerCase().trim(), cust);
   }
 
   if (!Array.isArray(cust.wishlistProductIds)) cust.wishlistProductIds = [];
@@ -1226,10 +1248,13 @@ function makeCustomerDataCookie(customer) {
       language: 'en'
     },
     addresses: customer.addresses || [],
+    hasManagedAddresses: Boolean(customer.hasManagedAddresses),
+    hasExplicitlyClearedAddresses: Boolean(customer.hasExplicitlyClearedAddresses),
     wishlistProductIds: customer.wishlistProductIds || [],
-    createdAt: customer.createdAt || new Date().toISOString()
+    createdAt: customer.createdAt || new Date().toISOString(),
+    updatedAt: customer.updatedAt || new Date().toISOString()
   };
-  return 'infinicharm_customer_data=' + encodeURIComponent(JSON.stringify(safeData)) + '; Path=/; Max-Age=2592000; SameSite=Lax; HttpOnly';
+  return 'infinicharm_customer_data=' + encodeURIComponent(JSON.stringify(safeData)) + '; Path=/; Max-Age=2592000; SameSite=Lax';
 }
 
 function isOrderOwnedByCustomerEdge(order, customer) {
@@ -1237,15 +1262,21 @@ function isOrderOwnedByCustomerEdge(order, customer) {
   if (order.customerId && order.customerId !== 'guest') {
     return order.customerId === customer.id;
   }
-  if (order.customerEmail && customer.email && order.customerEmail.toLowerCase().trim() === customer.email.toLowerCase().trim()) return true;
-  if (order.shippingAddress?.email && customer.email && order.shippingAddress.email.toLowerCase().trim() === customer.email.toLowerCase().trim()) return true;
+  const custEmail = (customer.email || '').toLowerCase().trim();
+  if (custEmail) {
+    if (order.customerEmail && order.customerEmail.toLowerCase().trim() === custEmail) return true;
+    if (order.shippingAddress?.email && order.shippingAddress.email.toLowerCase().trim() === custEmail) return true;
+    if (order.billingAddress?.email && order.billingAddress.email.toLowerCase().trim() === custEmail) return true;
+  }
   if (customer.phone) {
-    const custPhone = customer.phone.replace(/\\D/g, '').slice(-10);
+    const custPhone = customer.phone.replace(/\D/g, '').slice(-10);
     if (custPhone) {
-      const orderPhone1 = (order.customerPhone || '').replace(/\\D/g, '').slice(-10);
-      const orderPhone2 = (order.shippingAddress?.phone || '').replace(/\\D/g, '').slice(-10);
+      const orderPhone1 = (order.customerPhone || '').replace(/\D/g, '').slice(-10);
+      const orderPhone2 = (order.shippingAddress?.phone || '').replace(/\D/g, '').slice(-10);
+      const orderPhone3 = (order.billingAddress?.phone || '').replace(/\D/g, '').slice(-10);
       if (orderPhone1 && orderPhone1 === custPhone) return true;
       if (orderPhone2 && orderPhone2 === custPhone) return true;
+      if (orderPhone3 && orderPhone3 === custPhone) return true;
     }
   }
   return false;
@@ -2209,13 +2240,7 @@ async function handleApi(request, url, env) {
       'infinicharm_customer_session=active; Path=/; Max-Age=2592000; SameSite=Lax',
       'infinicharm_customer_id=' + customer.id + '; Path=/; Max-Age=2592000; SameSite=Lax',
       'infinicharm_customer_sv=1; Path=/; Max-Age=2592000; SameSite=Lax; HttpOnly',
-      'infinicharm_customer_data=' + encodeURIComponent(JSON.stringify({
-        id: customer.id,
-        email: customer.email,
-        fullName: customer.fullName,
-        phone: customer.phone,
-        emailVerified: true
-      })) + '; Path=/; Max-Age=2592000; SameSite=Lax; HttpOnly',
+      makeCustomerDataCookie(customer),
       'infinicharm_pending_auth=; Path=/; Max-Age=0; SameSite=Lax; HttpOnly',
       'infinicharm_pending_email=; Path=/; Max-Age=0; SameSite=Lax',
       ...makeCustomerSyncCookies()
@@ -2391,13 +2416,7 @@ async function handleApi(request, url, env) {
       'infinicharm_customer_session=active; Path=/; Max-Age=2592000; SameSite=Lax',
       'infinicharm_customer_id=' + customer.id + '; Path=/; Max-Age=2592000; SameSite=Lax',
       'infinicharm_customer_sv=1; Path=/; Max-Age=2592000; SameSite=Lax; HttpOnly',
-      'infinicharm_customer_data=' + encodeURIComponent(JSON.stringify({
-        id: customer.id,
-        email: customer.email,
-        fullName: customer.fullName,
-        phone: customer.phone,
-        emailVerified: true
-      })) + '; Path=/; Max-Age=2592000; SameSite=Lax; HttpOnly',
+      makeCustomerDataCookie(customer),
       ...makeCustomerSyncCookies()
     ]);
   }
@@ -2551,7 +2570,43 @@ async function handleApi(request, url, env) {
       const cleanWishlist = (customer.wishlistProductIds || []).filter(id => validProductIds.has(id));
       customer.wishlistProductIds = cleanWishlist;
 
-      return json({
+      // Self-healing address & contact sync from placed orders if addresses array is unpopulated
+      if (!customer.hasExplicitlyClearedAddresses && (!customer.addresses || customer.addresses.length === 0) && customerOrders.length > 0) {
+        const latestOrderWithAddress = [...customerOrders]
+          .filter(o => o.shippingAddress && o.shippingAddress.addressLine1 && o.shippingAddress.postalCode)
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+
+        if (latestOrderWithAddress && latestOrderWithAddress.shippingAddress) {
+          const ship = latestOrderWithAddress.shippingAddress;
+          const healedAddr = {
+            id: (ship.id && !ship.id.startsWith('addr-draft-')) ? ship.id : ('addr-' + Date.now() + '-' + Math.floor(Math.random() * 1000)),
+            customerId: customer.id,
+            fullName: ship.fullName || customer.fullName || customer.name || '',
+            phone: ship.phone || customer.phone || latestOrderWithAddress.customerPhone || '',
+            addressLine1: String(ship.addressLine1).trim(),
+            addressLine2: ship.addressLine2 ? String(ship.addressLine2).trim() : '',
+            city: String(ship.city || '').trim(),
+            state: String(ship.state || '').trim(),
+            postalCode: String(ship.postalCode || '').trim(),
+            country: ship.country || 'India',
+            type: ship.type || 'HOME',
+            label: ship.label || 'Home',
+            isDefaultShipping: true,
+            isDefaultBilling: true
+          };
+          customer.addresses = [healedAddr];
+          if (!customer.phone && (ship.phone || latestOrderWithAddress.customerPhone)) {
+            customer.phone = ship.phone || latestOrderWithAddress.customerPhone;
+          }
+          if ((!customer.fullName || customer.fullName === (customer.email || '').split('@')[0]) && ship.fullName) {
+            customer.fullName = ship.fullName;
+            customer.name = ship.fullName;
+          }
+          registeredCustomers.set(customer.email.toLowerCase().trim(), customer);
+        }
+      }
+
+      return jsonWithCookies({
         success: true,
         customer: {
           id: customer.id,
@@ -2564,11 +2619,14 @@ async function handleApi(request, url, env) {
           role: customer.role || 'CUSTOMER',
           preferences: customer.preferences,
           addresses: customer.addresses || [],
+          hasManagedAddresses: Boolean(customer.hasManagedAddresses),
+          hasExplicitlyClearedAddresses: Boolean(customer.hasExplicitlyClearedAddresses),
+          updatedAt: customer.updatedAt || new Date().toISOString(),
           wishlistProductIds: cleanWishlist,
           createdAt: customer.createdAt
         },
         orders: customerOrders
-      });
+      }, 200, [makeCustomerDataCookie(customer), ...makeCustomerSyncCookies()]);
     }
 
     if (method === 'PUT') {
@@ -2600,6 +2658,8 @@ async function handleApi(request, url, env) {
           emailVerified: customer.emailVerified,
           preferences: customer.preferences,
           addresses: customer.addresses,
+          hasManagedAddresses: Boolean(customer.hasManagedAddresses),
+          hasExplicitlyClearedAddresses: Boolean(customer.hasExplicitlyClearedAddresses),
           wishlistProductIds: customer.wishlistProductIds,
           createdAt: customer.createdAt
         },
@@ -2645,8 +2705,51 @@ async function handleApi(request, url, env) {
     }
     if (!Array.isArray(customer.addresses)) customer.addresses = [];
 
+    syncOrdersFromCookie(request);
+
     if (method === 'GET') {
-      return json({ success: true, addresses: customer.addresses });
+      // Self-healing address & contact sync from placed orders if addresses array is unpopulated
+      if (!customer.hasExplicitlyClearedAddresses && customer.addresses.length === 0) {
+        const uniqueOrders = Array.from(new Map([...ordersStore.values()].map(o => [o.orderNumber || o.id, o])).values());
+        const customerOrders = uniqueOrders.filter(o => isOrderOwnedByCustomerEdge(o, customer));
+        const latestOrderWithAddress = [...customerOrders]
+          .filter(o => o.shippingAddress && o.shippingAddress.addressLine1 && o.shippingAddress.postalCode)
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+
+        if (latestOrderWithAddress && latestOrderWithAddress.shippingAddress) {
+          const ship = latestOrderWithAddress.shippingAddress;
+          const healedAddr = {
+            id: (ship.id && !ship.id.startsWith('addr-draft-')) ? ship.id : ('addr-' + Date.now() + '-' + Math.floor(Math.random() * 1000)),
+            customerId: customer.id,
+            fullName: ship.fullName || customer.fullName || customer.name || '',
+            phone: ship.phone || customer.phone || latestOrderWithAddress.customerPhone || '',
+            addressLine1: String(ship.addressLine1).trim(),
+            addressLine2: ship.addressLine2 ? String(ship.addressLine2).trim() : '',
+            city: String(ship.city || '').trim(),
+            state: String(ship.state || '').trim(),
+            postalCode: String(ship.postalCode || '').trim(),
+            country: ship.country || 'India',
+            type: ship.type || 'HOME',
+            label: ship.label || 'Home',
+            isDefaultShipping: true,
+            isDefaultBilling: true
+          };
+          customer.addresses = [healedAddr];
+          if (!customer.phone && (ship.phone || latestOrderWithAddress.customerPhone)) {
+            customer.phone = ship.phone || latestOrderWithAddress.customerPhone;
+          }
+          if ((!customer.fullName || customer.fullName === (customer.email || '').split('@')[0]) && ship.fullName) {
+            customer.fullName = ship.fullName;
+            customer.name = ship.fullName;
+          }
+          registeredCustomers.set(customer.email.toLowerCase().trim(), customer);
+        }
+      }
+
+      return jsonWithCookies({
+        success: true,
+        addresses: customer.addresses
+      }, 200, [makeCustomerDataCookie(customer), ...makeCustomerSyncCookies()]);
     }
 
     if (method === 'POST') {
@@ -2680,7 +2783,16 @@ async function handleApi(request, url, env) {
         customer.addresses.forEach(a => { a.isDefaultBilling = false; });
       }
       customer.addresses.push(newAddr);
-      registeredCustomers.set(customer.email, customer);
+      if (!customer.phone && newAddr.phone) {
+        customer.phone = newAddr.phone;
+      }
+      if ((!customer.fullName || customer.fullName === (customer.email || '').split('@')[0]) && newAddr.fullName) {
+        customer.fullName = newAddr.fullName;
+        customer.name = newAddr.fullName;
+      }
+      customer.hasManagedAddresses = true;
+      customer.updatedAt = new Date().toISOString();
+      registeredCustomers.set(customer.email.toLowerCase().trim(), customer);
       const cookie = makeCustomerDataCookie(customer);
       return jsonWithCookies({
         success: true,
@@ -2702,8 +2814,35 @@ async function handleApi(request, url, env) {
 
     if (method === 'PUT') {
       const body = await request.clone().json().catch(() => ({}));
-      const idx = customer.addresses.findIndex(a => a.id === addrId);
-      if (idx === -1) return json({ success: false, error: 'Address not found.' }, 404);
+      const { fullName, phone, addressLine1, city, state, postalCode } = body;
+      if (!fullName || !phone || !addressLine1 || !city || !state || !postalCode) {
+        return json({ success: false, error: 'All mandatory address fields must be filled.' }, 400);
+      }
+
+      let idx = customer.addresses.findIndex(a => a.id === addrId);
+      if (idx === -1) {
+        // If address ID not found (e.g. synthesized from past order), add it cleanly
+        const cleanType = body.type || 'HOME';
+        const cleanLabel = body.label ? String(body.label).trim() : (cleanType === 'OFFICE' ? 'Office' : cleanType === 'OTHER' ? 'Other' : 'Home');
+        const newAddr = {
+          id: addrId.startsWith('addr-') ? addrId : ('addr-' + Date.now() + '-' + Math.floor(Math.random() * 1000)),
+          customerId: customer.id,
+          fullName: String(fullName).trim(),
+          phone: String(phone).trim(),
+          addressLine1: String(addressLine1).trim(),
+          addressLine2: body.addressLine2 ? String(body.addressLine2).trim() : '',
+          city: String(city).trim(),
+          state: String(state).trim(),
+          postalCode: String(postalCode).trim(),
+          country: body.country || 'India',
+          type: cleanType,
+          label: cleanLabel,
+          isDefaultShipping: Boolean(body.isDefaultShipping) || customer.addresses.length === 0,
+          isDefaultBilling: Boolean(body.isDefaultBilling) || customer.addresses.length === 0
+        };
+        customer.addresses.push(newAddr);
+        idx = customer.addresses.length - 1;
+      }
       if (body.isDefaultShipping) {
         customer.addresses.forEach(a => { a.isDefaultShipping = false; });
       }
@@ -2715,7 +2854,13 @@ async function handleApi(request, url, env) {
         ...body,
         id: addrId
       };
-      registeredCustomers.set(customer.email, customer);
+      if (customer.addresses.length > 0) {
+        if (!customer.addresses.some(a => a.isDefaultShipping)) customer.addresses[0].isDefaultShipping = true;
+        if (!customer.addresses.some(a => a.isDefaultBilling)) customer.addresses[0].isDefaultBilling = true;
+      }
+      customer.hasManagedAddresses = true;
+      customer.updatedAt = new Date().toISOString();
+      registeredCustomers.set(customer.email.toLowerCase().trim(), customer);
       const cookie = makeCustomerDataCookie(customer);
       return jsonWithCookies({
         success: true,
@@ -2725,12 +2870,22 @@ async function handleApi(request, url, env) {
     }
 
     if (method === 'DELETE') {
-      const wasDefault = customer.addresses.find(a => a.id === addrId)?.isDefaultShipping;
+      const wasDefaultShipping = customer.addresses.find(a => a.id === addrId)?.isDefaultShipping;
+      const wasDefaultBilling = customer.addresses.find(a => a.id === addrId)?.isDefaultBilling;
       customer.addresses = customer.addresses.filter(a => a.id !== addrId);
-      if (wasDefault && customer.addresses.length > 0) {
-        customer.addresses[0].isDefaultShipping = true;
+      if (customer.addresses.length > 0) {
+        if (wasDefaultShipping || !customer.addresses.some(a => a.isDefaultShipping)) {
+          customer.addresses[0].isDefaultShipping = true;
+        }
+        if (wasDefaultBilling || !customer.addresses.some(a => a.isDefaultBilling)) {
+          customer.addresses[0].isDefaultBilling = true;
+        }
+      } else {
+        customer.hasExplicitlyClearedAddresses = true;
       }
-      registeredCustomers.set(customer.email, customer);
+      customer.hasManagedAddresses = true;
+      customer.updatedAt = new Date().toISOString();
+      registeredCustomers.set(customer.email.toLowerCase().trim(), customer);
       const cookie = makeCustomerDataCookie(customer);
       return jsonWithCookies({
         success: true,
@@ -2741,26 +2896,58 @@ async function handleApi(request, url, env) {
 
     if (method === 'PATCH') {
       const body = await request.clone().json().catch(() => ({}));
-      const target = customer.addresses.find(a => a.id === addrId);
-      if (!target) return json({ success: false, error: 'Address not found.' }, 404);
-      if (body.isDefaultShipping) {
+      let target = customer.addresses.find(a => a.id === addrId);
+      if (!target) {
+        const uniqueOrders = Array.from(new Map([...ordersStore.values()].map(o => [o.orderNumber || o.id, o])).values());
+        const matched = uniqueOrders.find(o => isOrderOwnedByCustomerEdge(o, customer) && (o.shippingAddress?.id === addrId || ('addr-order-' + o.orderNumber) === addrId));
+        if (matched?.shippingAddress) {
+          const s = matched.shippingAddress;
+          const healed = {
+            id: addrId,
+            customerId: customer.id,
+            fullName: s.fullName || customer.fullName || '',
+            phone: s.phone || customer.phone || '',
+            addressLine1: String(s.addressLine1).trim(),
+            addressLine2: s.addressLine2 ? String(s.addressLine2).trim() : '',
+            city: String(s.city || '').trim(),
+            state: String(s.state || '').trim(),
+            postalCode: String(s.postalCode || '').trim(),
+            country: s.country || 'India',
+            type: s.type || 'HOME',
+            label: s.label || 'Home',
+            isDefaultShipping: body.action === 'SET_DEFAULT_SHIPPING' || body.isDefaultShipping === true,
+            isDefaultBilling: body.action === 'SET_DEFAULT_BILLING' || body.isDefaultBilling === true
+          };
+          customer.addresses.push(healed);
+          target = healed;
+        } else {
+          return json({ success: false, error: 'Address not found.' }, 404);
+        }
+      }
+      if (body.action === 'SET_DEFAULT_SHIPPING' || body.isDefaultShipping === true) {
         customer.addresses.forEach(a => { a.isDefaultShipping = false; });
         target.isDefaultShipping = true;
       }
-      if (body.isDefaultBilling) {
+      if (body.action === 'SET_DEFAULT_BILLING' || body.isDefaultBilling === true) {
         customer.addresses.forEach(a => { a.isDefaultBilling = false; });
         target.isDefaultBilling = true;
       }
-      if (body.action === 'RENAME' || body.label !== undefined) {
+      if (body.action === 'RENAME' || body.label !== undefined || body.type !== undefined) {
         if (body.label) target.label = String(body.label).trim();
         if (body.type) target.type = body.type;
       }
-      registeredCustomers.set(customer.email, customer);
+      if (customer.addresses.length > 0) {
+        if (!customer.addresses.some(a => a.isDefaultShipping)) customer.addresses[0].isDefaultShipping = true;
+        if (!customer.addresses.some(a => a.isDefaultBilling)) customer.addresses[0].isDefaultBilling = true;
+      }
+      customer.hasManagedAddresses = true;
+      customer.updatedAt = new Date().toISOString();
+      registeredCustomers.set(customer.email.toLowerCase().trim(), customer);
       const cookie = makeCustomerDataCookie(customer);
       return jsonWithCookies({
         success: true,
         addresses: customer.addresses,
-        message: 'Address updated successfully.'
+        message: body.action === 'RENAME' ? 'Address details updated.' : 'Default address updated.'
       }, 200, [cookie, ...makeCustomerSyncCookies()]);
     }
   }
@@ -2959,8 +3146,9 @@ async function handleApi(request, url, env) {
         cookiesToSet.push(makeOrdersSyncCookies());
 
         let updatedCustomerPayload = null;
-        const effectiveCust = customer || (mergedOrder.customerId !== 'guest' ? registeredCustomers.get(mergedOrder.customerEmail?.toLowerCase()) : null);
-        const isConfirmedPlacement = Boolean(body.isOrderConfirmation || body.utrNumber || body.paymentStatus === 'PAID');
+        const effectiveCust = customer || (mergedOrder.customerId !== 'guest' ? [...registeredCustomers.values()].find(c => c.id === mergedOrder.customerId) || (mergedOrder.customerEmail ? registeredCustomers.get(mergedOrder.customerEmail.toLowerCase().trim()) : null) : null);
+        const isDraftOrder = Boolean(body.isDraft || body.shippingAddress?.addressLine1?.includes('Pending Customer Checkout Address'));
+        const isConfirmedPlacement = !isDraftOrder && Boolean(body.isOrderConfirmation || body.utrNumber || body.paymentStatus === 'PAID' || body.paymentMethod === 'COD' || body.saveAddressToBook !== false);
 
         if (effectiveCust && isConfirmedPlacement && (body.shippingAddress || mergedOrder.shippingAddress) && body.saveAddressToBook !== false) {
           if (!effectiveCust.addresses) effectiveCust.addresses = [];
@@ -2979,11 +3167,15 @@ async function handleApi(request, url, env) {
 
           const normLine1 = String(targetShipping.addressLine1 || '').toLowerCase().replace(/[^a-z0-9]/g, '');
           const normPin = String(targetShipping.postalCode || '').replace(/\D/g, '');
+          const normName = String(shippingName || '').toLowerCase().trim();
+          const normPhone = String(shippingPhone || '').replace(/\D/g, '').slice(-10);
 
           const existingAddrIndex = effectiveCust.addresses.findIndex(a => {
             const aLine1 = (a.addressLine1 || '').toLowerCase().replace(/[^a-z0-9]/g, '');
             const aPin = (a.postalCode || '').replace(/\D/g, '');
-            return aLine1 === normLine1 && aPin === normPin;
+            const aName = (a.fullName || '').toLowerCase().trim();
+            const aPhone = (a.phone || '').replace(/\D/g, '').slice(-10);
+            return aLine1 === normLine1 && aPin === normPin && aName === normName && (!normPhone || aPhone === normPhone);
           });
 
           const addrType = targetShipping.type || body.addressType || 'HOME';
@@ -3029,8 +3221,13 @@ async function handleApi(request, url, env) {
             effectiveCust.addresses.push(newAddr);
           }
 
+          effectiveCust.hasManagedAddresses = true;
+          effectiveCust.hasExplicitlyClearedAddresses = false;
+          effectiveCust.updatedAt = new Date().toISOString();
           registeredCustomers.set(effectiveCust.email.toLowerCase().trim(), effectiveCust);
           cookiesToSet.push(makeCustomerDataCookie(effectiveCust));
+          cookiesToSet.push('infinicharm_customer_session=active; Path=/; Max-Age=2592000; SameSite=Lax');
+          cookiesToSet.push('infinicharm_customer_id=' + effectiveCust.id + '; Path=/; Max-Age=2592000; SameSite=Lax');
           cookiesToSet.push(...makeCustomerSyncCookies());
           updatedCustomerPayload = {
             id: effectiveCust.id,
@@ -3041,6 +3238,7 @@ async function handleApi(request, url, env) {
           };
         }
 
+        cookiesToSet.push(makeOrdersSyncCookies());
         return jsonWithCookies({
           success: true,
           order: mergedOrder,
@@ -3067,58 +3265,84 @@ async function handleApi(request, url, env) {
       if (newOrder.orderNumber) ordersStore.set(newOrder.orderNumber, newOrder);
 
       let updatedCustomerPayload = null;
-      if (customer && body.shippingAddress && body.shippingAddress.addressLine1) {
-        if (!Array.isArray(customer.addresses)) customer.addresses = [];
+      let effectiveCust = customer;
+      if (!effectiveCust && body.customerId && body.customerId !== 'guest') {
+        effectiveCust = [...registeredCustomers.values()].find(c => c.id === body.customerId) || null;
+      }
+      if (!effectiveCust && (body.customerEmail || body.shippingAddress?.email)) {
+        const em = (body.customerEmail || body.shippingAddress?.email || '').toLowerCase().trim();
+        effectiveCust = registeredCustomers.get(em) || null;
+      }
+
+      if (effectiveCust && newOrder.customerId === 'guest') {
+        newOrder.customerId = effectiveCust.id;
+        ordersStore.set(orderId, newOrder);
+        if (newOrder.orderNumber) ordersStore.set(newOrder.orderNumber, newOrder);
+      }
+
+      const isDraftOrder = Boolean(body.isDraft || body.shippingAddress?.addressLine1?.includes('Pending Customer Checkout Address'));
+      const isConfirmedPlacement = !isDraftOrder && Boolean(body.isOrderConfirmation || body.utrNumber || body.paymentStatus === 'PAID' || body.paymentMethod === 'COD' || body.saveAddressToBook !== false);
+
+      if (effectiveCust && isConfirmedPlacement && body.shippingAddress && body.shippingAddress.addressLine1 && body.saveAddressToBook !== false) {
+        if (!Array.isArray(effectiveCust.addresses)) effectiveCust.addresses = [];
 
         const shippingPhone = String(body.shippingAddress.phone || body.customerPhone || '').trim();
-        if (shippingPhone && !customer.phone) {
-          customer.phone = shippingPhone;
+        if (shippingPhone && (!effectiveCust.phone || effectiveCust.phone.replace(/\D/g, '').length < 10)) {
+          effectiveCust.phone = shippingPhone;
         }
 
         const shippingName = String(body.shippingAddress.fullName || body.customerName || '').trim();
-        if (shippingName && (!customer.fullName || customer.fullName === (customer.email || '').split('@')[0])) {
-          customer.fullName = shippingName;
-          customer.name = shippingName;
+        const emailPrefix = (effectiveCust.email || '').split('@')[0];
+        if (shippingName && (!effectiveCust.fullName || effectiveCust.fullName === 'Valued Customer' || effectiveCust.fullName === 'Valued Patron' || effectiveCust.fullName === emailPrefix)) {
+          effectiveCust.fullName = shippingName;
+          effectiveCust.name = shippingName;
         }
 
         const normLine1 = String(body.shippingAddress.addressLine1).toLowerCase().replace(/[^a-z0-9]/g, '');
         const normPin = String(body.shippingAddress.postalCode).replace(/\D/g, '');
+        const normName = String(shippingName || '').toLowerCase().trim();
+        const normPhone = String(shippingPhone || '').replace(/\D/g, '').slice(-10);
 
-        const existingAddrIndex = customer.addresses.findIndex(a => {
+        const existingAddrIndex = effectiveCust.addresses.findIndex(a => {
           const aLine1 = (a.addressLine1 || '').toLowerCase().replace(/[^a-z0-9]/g, '');
           const aPin = (a.postalCode || '').replace(/\D/g, '');
-          return aLine1 === normLine1 && aPin === normPin;
+          const aName = (a.fullName || '').toLowerCase().trim();
+          const aPhone = (a.phone || '').replace(/\D/g, '').slice(-10);
+          return aLine1 === normLine1 && aPin === normPin && aName === normName && (!normPhone || aPhone === normPhone);
         });
 
-        const addrType = body.shippingAddress.type || 'HOME';
-        const addrLabel = body.shippingAddress.label || (addrType === 'OFFICE' ? 'Office' : addrType === 'OTHER' ? 'Other' : 'Home');
-        const makeDefault = Boolean(body.makeDefaultShipping) || customer.addresses.length === 0;
+        const addrType = body.shippingAddress.type || body.addressType || 'HOME';
+        const addrLabel = body.shippingAddress.label || body.addressLabel || (addrType === 'OFFICE' ? 'Office' : addrType === 'OTHER' ? 'Other' : 'Home');
+        const makeDefault = Boolean(body.makeDefaultShipping) || effectiveCust.addresses.length === 0;
 
         if (existingAddrIndex >= 0) {
-          const ex = customer.addresses[existingAddrIndex];
-          customer.addresses[existingAddrIndex] = {
+          const ex = effectiveCust.addresses[existingAddrIndex];
+          effectiveCust.addresses[existingAddrIndex] = {
             ...ex,
             fullName: shippingName || ex.fullName,
             phone: shippingPhone || ex.phone,
             addressLine2: body.shippingAddress.addressLine2 ? String(body.shippingAddress.addressLine2).trim() : ex.addressLine2,
             type: addrType || ex.type || 'HOME',
             label: addrLabel || ex.label,
-            isDefaultShipping: makeDefault || ex.isDefaultShipping || customer.addresses.length === 1
+            isDefaultShipping: makeDefault || ex.isDefaultShipping || effectiveCust.addresses.length === 1
           };
           if (makeDefault) {
-            customer.addresses.forEach((a, idx) => {
+            effectiveCust.addresses.forEach((a, idx) => {
               if (idx !== existingAddrIndex) a.isDefaultShipping = false;
             });
           }
         } else {
           if (makeDefault) {
-            customer.addresses.forEach(a => { a.isDefaultShipping = false; });
+            effectiveCust.addresses.forEach(a => { a.isDefaultShipping = false; });
           }
+          const isExistingId = Boolean(body.shippingAddress.id && effectiveCust.addresses.some(a => a.id === body.shippingAddress.id));
           const newAddr = {
-            id: 'addr-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
-            customerId: customer.id,
-            fullName: shippingName || customer.fullName,
-            phone: shippingPhone || customer.phone || '',
+            id: (body.shippingAddress.id && !body.shippingAddress.id.startsWith('addr-draft-') && !isExistingId)
+              ? body.shippingAddress.id
+              : ('addr-' + Date.now() + '-' + Math.floor(Math.random() * 1000)),
+            customerId: effectiveCust.id,
+            fullName: shippingName || effectiveCust.fullName,
+            phone: shippingPhone || effectiveCust.phone || '',
             addressLine1: String(body.shippingAddress.addressLine1).trim(),
             addressLine2: body.shippingAddress.addressLine2 ? String(body.shippingAddress.addressLine2).trim() : '',
             city: String(body.shippingAddress.city).trim(),
@@ -3128,20 +3352,25 @@ async function handleApi(request, url, env) {
             type: addrType,
             label: addrLabel,
             isDefaultShipping: makeDefault,
-            isDefaultBilling: customer.addresses.length === 0
+            isDefaultBilling: effectiveCust.addresses.length === 0
           };
-          customer.addresses.push(newAddr);
+          effectiveCust.addresses.push(newAddr);
         }
 
-        registeredCustomers.set(customer.email.toLowerCase().trim(), customer);
-        cookiesToSet.push(makeCustomerDataCookie(customer));
+        effectiveCust.hasManagedAddresses = true;
+        effectiveCust.hasExplicitlyClearedAddresses = false;
+        effectiveCust.updatedAt = new Date().toISOString();
+        registeredCustomers.set(effectiveCust.email.toLowerCase().trim(), effectiveCust);
+        cookiesToSet.push(makeCustomerDataCookie(effectiveCust));
+        cookiesToSet.push('infinicharm_customer_session=active; Path=/; Max-Age=2592000; SameSite=Lax');
+        cookiesToSet.push('infinicharm_customer_id=' + effectiveCust.id + '; Path=/; Max-Age=2592000; SameSite=Lax');
         cookiesToSet.push(...makeCustomerSyncCookies());
         updatedCustomerPayload = {
-          id: customer.id,
-          email: customer.email,
-          fullName: customer.fullName,
-          phone: customer.phone,
-          addresses: customer.addresses
+          id: effectiveCust.id,
+          email: effectiveCust.email,
+          fullName: effectiveCust.fullName,
+          phone: effectiveCust.phone,
+          addresses: effectiveCust.addresses
         };
       }
 
@@ -3521,7 +3750,82 @@ async function handleApi(request, url, env) {
         });
         ordersStore.set(order.id, order);
         if (order.orderNumber) ordersStore.set(order.orderNumber, order);
-        return jsonWithCookies({ success: true, order }, 200, [makeOrdersSyncCookies()]);
+
+        let utrCookies = [makeOrdersSyncCookies()];
+        const authCust = getAuthenticatedCustomer(request);
+        const orderEmail = order.customerEmail || order.shippingAddress?.email;
+        const targetCustomer = authCust || (order.customerId && order.customerId !== 'guest' ? [...registeredCustomers.values()].find(c => c.id === order.customerId) : null) || (orderEmail ? registeredCustomers.get(orderEmail.toLowerCase().trim()) : null);
+
+        if (targetCustomer && order.shippingAddress && order.shippingAddress.addressLine1) {
+          if (!Array.isArray(targetCustomer.addresses)) targetCustomer.addresses = [];
+          const shippingPhone = String(order.shippingAddress.phone || order.customerPhone || '').trim();
+          if (shippingPhone && !targetCustomer.phone) {
+            targetCustomer.phone = shippingPhone;
+          }
+          const shippingName = String(order.shippingAddress.fullName || order.customerName || '').trim();
+          if (shippingName && (!targetCustomer.fullName || targetCustomer.fullName === (targetCustomer.email || '').split('@')[0])) {
+            targetCustomer.fullName = shippingName;
+            targetCustomer.name = shippingName;
+          }
+          const normLine1 = String(order.shippingAddress.addressLine1).toLowerCase().replace(/[^a-z0-9]/g, '');
+          const normPin = String(order.shippingAddress.postalCode).replace(/\D/g, '');
+          const existingAddrIndex = targetCustomer.addresses.findIndex(a => {
+            const aLine1 = (a.addressLine1 || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+            const aPin = (a.postalCode || '').replace(/\D/g, '');
+            return aLine1 === normLine1 && aPin === normPin;
+          });
+          const addrType = order.shippingAddress.type || 'HOME';
+          const addrLabel = order.shippingAddress.label || (addrType === 'OFFICE' ? 'Office' : addrType === 'OTHER' ? 'Other' : 'Home');
+          const makeDefault = targetCustomer.addresses.length === 0;
+
+          if (existingAddrIndex >= 0) {
+            const ex = targetCustomer.addresses[existingAddrIndex];
+            targetCustomer.addresses[existingAddrIndex] = {
+              ...ex,
+              fullName: shippingName || ex.fullName,
+              phone: shippingPhone || ex.phone,
+              addressLine2: order.shippingAddress.addressLine2 ? String(order.shippingAddress.addressLine2).trim() : ex.addressLine2,
+              type: addrType || ex.type || 'HOME',
+              label: addrLabel || ex.label,
+              isDefaultShipping: ex.isDefaultShipping || makeDefault,
+              isDefaultBilling: ex.isDefaultBilling || makeDefault,
+            };
+          } else {
+            const isExistingId = Boolean(order.shippingAddress.id && targetCustomer.addresses.some(a => a.id === order.shippingAddress.id));
+            const newAddr = {
+              id: (order.shippingAddress.id && !order.shippingAddress.id.startsWith('addr-draft-') && !isExistingId)
+                ? order.shippingAddress.id
+                : ('addr-' + Date.now() + '-' + Math.floor(Math.random() * 1000)),
+              customerId: targetCustomer.id,
+              fullName: shippingName || targetCustomer.fullName,
+              phone: shippingPhone || targetCustomer.phone || '',
+              addressLine1: String(order.shippingAddress.addressLine1).trim(),
+              addressLine2: order.shippingAddress.addressLine2 ? String(order.shippingAddress.addressLine2).trim() : '',
+              city: String(order.shippingAddress.city).trim(),
+              state: String(order.shippingAddress.state).trim(),
+              postalCode: String(order.shippingAddress.postalCode).trim(),
+              country: order.shippingAddress.country || 'India',
+              type: addrType,
+              label: addrLabel,
+              isDefaultShipping: true,
+              isDefaultBilling: true,
+            };
+            if (makeDefault) {
+              targetCustomer.addresses.forEach(a => { a.isDefaultShipping = false; });
+            }
+            targetCustomer.addresses.push(newAddr);
+          }
+          targetCustomer.hasManagedAddresses = true;
+          targetCustomer.hasExplicitlyClearedAddresses = false;
+          targetCustomer.updatedAt = new Date().toISOString();
+          registeredCustomers.set(targetCustomer.email.toLowerCase().trim(), targetCustomer);
+          utrCookies.push(makeCustomerDataCookie(targetCustomer));
+          utrCookies.push('infinicharm_customer_session=active; Path=/; Max-Age=2592000; SameSite=Lax');
+          utrCookies.push('infinicharm_customer_id=' + targetCustomer.id + '; Path=/; Max-Age=2592000; SameSite=Lax');
+          utrCookies.push(...makeCustomerSyncCookies());
+        }
+
+        return jsonWithCookies({ success: true, order }, 200, utrCookies);
       }
     }
 

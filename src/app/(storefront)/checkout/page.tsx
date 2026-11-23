@@ -276,87 +276,124 @@ export default function CheckoutPage() {
   };
 
   const loadCustomerData = async (preserveExistingInputs = false) => {
-    const hasSessionCookie =
-      typeof document !== 'undefined' &&
-      document.cookie.includes('infinicharm_customer_session=active');
-    if (hasSessionCookie) {
-      try {
-        const res = await fetch('/api/customers/me');
-        if (res.ok) {
-          const data = await res.json();
-          if (data.success && data.customer) {
-            setCustomerId(data.customer.id);
-            if (data.customer.email) {
-              setSignedInEmail(data.customer.email);
-              setEmail((prev) => prev || data.customer.email);
-            }
-            if (data.customer.fullName) setFullName((prev) => prev || data.customer.fullName);
-            if (data.customer.phone) setPhone((prev) => prev || data.customer.phone);
+    try {
+      const res = await fetch('/api/customers/me', { cache: 'no-store', credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.customer) {
+          setCustomerId(data.customer.id);
+          if (data.customer.email) {
+            setSignedInEmail(data.customer.email);
+            setEmail((prev) => prev || data.customer.email);
+          }
+          if (data.customer.fullName) setFullName((prev) => prev || data.customer.fullName);
+          if (data.customer.phone) setPhone((prev) => prev || data.customer.phone);
 
-            if (Array.isArray(data.customer.addresses) && data.customer.addresses.length > 0) {
-              setSavedAddresses(data.customer.addresses);
-              if (!preserveExistingInputs) {
-                const def =
-                  data.customer.addresses.find((a: CustomerAddress) => a.isDefaultShipping) ||
-                  data.customer.addresses[0];
-                if (def) {
-                  setSelectedAddressId(def.id);
-                  setFullName(def.fullName || data.customer.fullName || '');
-                  setPhone(def.phone || data.customer.phone || '');
-                  setAddressLine1(def.addressLine1);
-                  setAddressLine2(def.addressLine2 || '');
-                  setPinCode(def.postalCode);
-                  setCity(def.city);
-                  setStateName(def.state);
-                  setAddressType((def.type as AddressType) || 'HOME');
-                  setAddressLabel(def.label || '');
-                  setMakeDefaultShipping(Boolean(def.isDefaultShipping));
-                }
+          let customerAddresses: CustomerAddress[] = Array.isArray(data.customer.addresses) ? data.customer.addresses : [];
+
+          // If customer has no saved addresses and has never explicitly cleared addresses, synthesize from latest order
+          let orderList = Array.isArray(data.orders) ? data.orders : [];
+          if (orderList.length === 0 && typeof window !== 'undefined') {
+            try {
+              const localOrd = JSON.parse(localStorage.getItem('infinicharm_orders') || '[]');
+              if (Array.isArray(localOrd) && localOrd.length > 0) {
+                orderList = localOrd;
               }
-              return;
+            } catch {}
+          }
+
+          const latestOrderWithAddr = orderList.find(
+            (o: any) => o.shippingAddress && o.shippingAddress.addressLine1 && o.shippingAddress.postalCode
+          );
+
+          if (!data.customer.phone && latestOrderWithAddr) {
+            const fallbackPhone = latestOrderWithAddr.customerPhone || latestOrderWithAddr.shippingAddress?.phone;
+            if (fallbackPhone) setPhone((prev) => prev || fallbackPhone);
+          }
+
+          if (!data.customer.hasExplicitlyClearedAddresses && customerAddresses.length === 0 && latestOrderWithAddr?.shippingAddress) {
+            const s = latestOrderWithAddr.shippingAddress;
+            const synthesized: CustomerAddress = {
+              id: s.id && !s.id.startsWith('addr-draft-') ? s.id : `addr-order-${latestOrderWithAddr.orderNumber}`,
+              customerId: data.customer.id,
+              fullName: s.fullName || data.customer.fullName || '',
+              phone: s.phone || data.customer.phone || latestOrderWithAddr.customerPhone || '',
+              addressLine1: s.addressLine1,
+              addressLine2: s.addressLine2 || '',
+              city: s.city,
+              state: s.state,
+              postalCode: s.postalCode,
+              country: s.country || 'India',
+              type: (s.type as AddressType) || 'HOME',
+              label: s.label || 'Home',
+              isDefaultShipping: true,
+              isDefaultBilling: true,
+            };
+            customerAddresses = [synthesized];
+          }
+
+          if (customerAddresses.length > 0) {
+            setSavedAddresses(customerAddresses);
+            if (!preserveExistingInputs) {
+              const def =
+                customerAddresses.find((a: CustomerAddress) => a.isDefaultShipping) ||
+                customerAddresses[0];
+              if (def) {
+                setSelectedAddressId(def.id);
+                setFullName(def.fullName || data.customer.fullName || '');
+                setPhone(def.phone || data.customer.phone || '');
+                setAddressLine1(def.addressLine1);
+                setAddressLine2(def.addressLine2 || '');
+                setPinCode(def.postalCode);
+                setCity(def.city);
+                setStateName(def.state);
+                setAddressType((def.type as AddressType) || 'HOME');
+                setAddressLabel(def.label || '');
+                setMakeDefaultShipping(Boolean(def.isDefaultShipping));
+              }
             }
             return;
           }
         }
-      } catch (err) {
-        console.warn('Could not fetch customer data in checkout:', err);
       }
+    } catch (err) {
+      console.warn('Could not fetch customer data in checkout:', err);
     }
 
-    // Fallback to localStorage only if session cookie is present
+    // Fallback to localStorage
     try {
-      if (hasSessionCookie) {
-        const storedAddrs = localStorage.getItem('infinicharm_customer_addresses');
-        if (storedAddrs) {
-          const addrs: CustomerAddress[] = JSON.parse(storedAddrs);
+      const storedAddrs = localStorage.getItem('infinicharm_customer_addresses');
+      if (storedAddrs) {
+        const addrs: CustomerAddress[] = JSON.parse(storedAddrs);
+        if (Array.isArray(addrs) && addrs.length > 0) {
           setSavedAddresses(addrs);
           const def = addrs.find((a) => a.isDefaultShipping) || addrs[0];
           if (def && !preserveExistingInputs) {
             setSelectedAddressId(def.id);
-            setFullName(def.fullName);
-            setPhone(def.phone);
-            setAddressLine1(def.addressLine1);
-            setAddressLine2(def.addressLine2 || '');
-            setPinCode(def.postalCode);
-            setCity(def.city);
-            setStateName(def.state);
-            setAddressType((def.type as AddressType) || 'HOME');
-            setAddressLabel(def.label || '');
+            setFullName((prev) => prev || def.fullName);
+            setPhone((prev) => prev || def.phone);
+            setAddressLine1((prev) => prev || def.addressLine1);
+            setAddressLine2((prev) => prev || def.addressLine2 || '');
+            setPinCode((prev) => prev || def.postalCode);
+            setCity((prev) => prev || def.city);
+            setStateName((prev) => prev || def.state);
+            setAddressType((prev) => prev || (def.type as AddressType) || 'HOME');
+            setAddressLabel((prev) => prev || def.label || '');
             setMakeDefaultShipping(Boolean(def.isDefaultShipping));
           }
         }
+      }
 
-        const storedUser = localStorage.getItem('infinicharm_customer_user');
-        if (storedUser) {
-          const u = JSON.parse(storedUser);
-          if (u.id) setCustomerId(u.id);
-          if (u.email) {
-            setSignedInEmail(u.email);
-            setEmail((prev) => prev || u.email);
-          }
-          if (u.name || u.fullName) setFullName((prev) => prev || u.name || u.fullName);
-          if (u.phone) setPhone((prev) => prev || u.phone);
+      const storedUser = localStorage.getItem('infinicharm_customer_user');
+      if (storedUser) {
+        const u = JSON.parse(storedUser);
+        if (u.id) setCustomerId(u.id);
+        if (u.email) {
+          setSignedInEmail(u.email);
+          setEmail((prev) => prev || u.email);
         }
+        if (u.name || u.fullName) setFullName((prev) => prev || u.name || u.fullName);
+        if (u.phone) setPhone((prev) => prev || u.phone);
       }
     } catch {}
   };
@@ -510,6 +547,8 @@ export default function CheckoutPage() {
           status: 'PENDING',
           paymentStatus: 'PENDING',
           paymentMethod: 'CUSTOM_UPI',
+          isDraft: true,
+          saveAddressToBook: false,
           items: items.map((i) => ({
             id: `item-${i.product.id}-${i.variantId}`,
             orderId: orderRef,
@@ -606,6 +645,7 @@ export default function CheckoutPage() {
   const handlePinCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value.replace(/\D/g, '').slice(0, 6);
     setPinCode(val);
+    if (selectedAddressId) setSelectedAddressId(null);
 
     if (val.length === 6) {
       const info = lookupPinCode(val);
@@ -871,6 +911,19 @@ export default function CheckoutPage() {
     const isPayGlocal = paymentMethod === 'PAYGLOCAL';
     const isCod = paymentMethod === 'COD';
 
+    const isExistingMatch = Boolean(
+      selectedAddressId &&
+      savedAddresses.some(
+        (a) =>
+          a.id === selectedAddressId &&
+          a.fullName.trim().toLowerCase() === fullName.trim().toLowerCase() &&
+          a.phone.replace(/\D/g, '').slice(-10) === phone.replace(/\D/g, '').slice(-10) &&
+          a.addressLine1.trim().toLowerCase() === addressLine1.trim().toLowerCase() &&
+          a.postalCode.replace(/\D/g, '') === pinCode.replace(/\D/g, '')
+      )
+    );
+    const effectiveAddressId = isExistingMatch && selectedAddressId ? selectedAddressId : `addr-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`;
+
     const orderData: Order = {
       id: `ord-${Date.now()}`,
       orderNumber: finalOrderNumber,
@@ -890,7 +943,7 @@ export default function CheckoutPage() {
       utrNumber: isCustomUpi ? parsedUtrCleaned : undefined,
       customerNotes: deliveryNotes,
       shippingAddress: {
-        id: selectedAddressId || `addr-${Date.now()}`,
+        id: effectiveAddressId,
         customerId: resolvedCustomerId || 'guest',
         fullName: fullName.trim(),
         phone: phone.trim(),
@@ -906,7 +959,7 @@ export default function CheckoutPage() {
         isDefaultBilling: true,
       },
       billingAddress: {
-        id: selectedAddressId || `addr-${Date.now()}`,
+        id: effectiveAddressId,
         customerId: resolvedCustomerId || 'guest',
         fullName: fullName.trim(),
         phone: phone.trim(),
@@ -978,10 +1031,13 @@ export default function CheckoutPage() {
       const orderRes = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           ...orderData,
+          addressType,
+          addressLabel,
           saveAddressToBook: saveNewAddressToAccount,
-          makeDefaultShipping: makeDefaultShipping,
+          makeDefaultShipping: makeDefaultShipping || !selectedAddressId,
           isOrderConfirmation: true,
         }),
       });
@@ -1002,18 +1058,14 @@ export default function CheckoutPage() {
           localStorage.setItem('infinicharm_customer_addresses', JSON.stringify(orderResData.customer.addresses));
           setSavedAddresses(orderResData.customer.addresses);
         }
-        const storedUser = localStorage.getItem('infinicharm_customer_user');
-        if (storedUser) {
-          try {
-            const u = JSON.parse(storedUser);
-            localStorage.setItem('infinicharm_customer_user', JSON.stringify({
-              ...u,
-              fullName: orderResData.customer.fullName || u.fullName,
-              name: orderResData.customer.fullName || u.name,
-              phone: orderResData.customer.phone || u.phone,
-            }));
-          } catch {}
-        }
+        try {
+          const storedUser = localStorage.getItem('infinicharm_customer_user');
+          const existingUser = storedUser ? JSON.parse(storedUser) : {};
+          localStorage.setItem('infinicharm_customer_user', JSON.stringify({
+            ...existingUser,
+            ...orderResData.customer,
+          }));
+        } catch {}
         window.dispatchEvent(new Event('infinicharm_customer_addresses_updated'));
         window.dispatchEvent(new Event('infinicharm_customer_updated'));
       }
@@ -1023,24 +1075,6 @@ export default function CheckoutPage() {
       const existing = stored ? JSON.parse(stored) : [];
       localStorage.setItem('infinicharm_orders', JSON.stringify([savedServerOrder, ...existing]));
       window.dispatchEvent(new Event('infinicharm_orders_updated'));
-
-      // Save customer record
-      const storedCust = localStorage.getItem('infinicharm_customers');
-      const existingCust = storedCust ? JSON.parse(storedCust) : [];
-      const newCust = {
-        id: `cust-${phone.replace(/\D/g, '')}`,
-        fullName: fullName.trim(),
-        email: email || `${phone}@infinicharm.customer`,
-        phone: phone.trim(),
-        city: city.trim(),
-        state: stateName.trim(),
-        postalCode: pinCode.trim(),
-        status: 'ACTIVE',
-        lastOrderDate: new Date().toISOString(),
-      };
-      if (!existingCust.some((c: any) => c.phone === newCust.phone || c.email === newCust.email)) {
-        localStorage.setItem('infinicharm_customers', JSON.stringify([newCust, ...existingCust]));
-      }
     } catch {
       setFormError('Network error submitting order. Please try again.');
       setIsSubmitting(false);
@@ -1544,7 +1578,10 @@ export default function CheckoutPage() {
                       type="text"
                       required
                       value={city}
-                      onChange={(e) => setCity(e.target.value)}
+                      onChange={(e) => {
+                        setCity(e.target.value);
+                        if (selectedAddressId) setSelectedAddressId(null);
+                      }}
                       placeholder="Auto-filled or type city"
                       className="w-full px-3.5 py-2.5 bg-surface-dim border border-border rounded-xl text-primary focus:outline-none focus:border-accent"
                     />
@@ -1558,7 +1595,10 @@ export default function CheckoutPage() {
                       type="text"
                       required
                       value={stateName}
-                      onChange={(e) => setStateName(e.target.value)}
+                      onChange={(e) => {
+                        setStateName(e.target.value);
+                        if (selectedAddressId) setSelectedAddressId(null);
+                      }}
                       placeholder="e.g. Bihar, Delhi, Karnataka"
                       className="w-full px-3.5 py-2.5 bg-surface-dim border border-border rounded-xl text-primary focus:outline-none focus:border-accent"
                     />
@@ -1572,7 +1612,10 @@ export default function CheckoutPage() {
                       type="text"
                       required
                       value={addressLine1}
-                      onChange={(e) => setAddressLine1(e.target.value)}
+                      onChange={(e) => {
+                        setAddressLine1(e.target.value);
+                        if (selectedAddressId) setSelectedAddressId(null);
+                      }}
                       placeholder="e.g. Ward No. 07, Lahsaniya, Near Central Mosque"
                       className="w-full px-3.5 py-2.5 bg-surface-dim border border-border rounded-xl text-primary focus:outline-none focus:border-accent"
                     />

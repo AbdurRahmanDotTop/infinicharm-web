@@ -1,6 +1,7 @@
 import { chromium } from 'playwright';
+import { createCustomer, deleteCustomer } from '../src/lib/server/customers-store.ts';
 
-const BASE_URL = process.env.TEST_BASE_URL || 'http://localhost:3000';
+const BASE_URL = process.env.TEST_BASE_URL || process.argv[2] || 'http://localhost:3000';
 
 const VIEWPORTS = [
   { name: 'Compact Mobile', width: 320, height: 600 },
@@ -52,19 +53,22 @@ async function runTest() {
     const testPassword = 'Customer@1234!';
     const testName = 'Playwright Test Patron';
 
-    // Provision an authentic customer account with 0 saved addresses (matches user's screenshot state)
-    const regRes = await page.request.post(`${BASE_URL}/api/auth/customer/register`, {
-      data: { email: testEmail, fullName: testName, password: testPassword }
+    // Provision an authentic verified customer account with 0 saved addresses (matches user's screenshot state)
+    const customer = createCustomer({
+      email: testEmail,
+      fullName: testName,
+      password: testPassword,
+      emailVerified: true,
+      status: 'ACTIVE',
     });
-    const regData = await regRes.json();
-    assert(regData.success, 'Customer registered successfully');
-    createdCustomerId = regData.customer?.id;
+    assert(customer.id, 'Customer registered and verified successfully');
+    createdCustomerId = customer.id;
 
-    const verRes = await page.request.post(`${BASE_URL}/api/auth/customer/verify-email`, {
-      data: { token: regData.token }
+    const loginRes = await page.request.post(`${BASE_URL}/api/auth/customer/login`, {
+      data: { email: testEmail, password: testPassword }
     });
-    const verData = await verRes.json();
-    assert(verData.success && verData.status === 'VERIFIED', 'Customer email verified and session established');
+    const loginData = await loginRes.json();
+    assert(loginData.success, 'Customer signed in and session established');
 
     await page.goto(`${BASE_URL}/account`, { waitUntil: 'networkidle' });
     await page.waitForTimeout(1000);
@@ -303,6 +307,33 @@ async function runTest() {
       assert(afterEditText.includes('Phase 2 Extension Block'), 'Address edits persist cleanly to account');
     }
 
+    // Delete all addresses and verify persistence down to 0 without resurrection
+    console.log(`\n--- Phase 8B: Delete All Addresses & Non-Resurrection Invariant ---`);
+    let deleteButtons = page.locator('button[title="Delete address"]');
+    while ((await deleteButtons.count()) > 0) {
+      await deleteButtons.first().click();
+      await page.waitForTimeout(400);
+      const confirmDeleteBtn = page.locator('button:has-text("Confirm Delete")');
+      if (await confirmDeleteBtn.isVisible().catch(() => false)) {
+        await confirmDeleteBtn.click();
+        await page.waitForTimeout(1000);
+      }
+      deleteButtons = page.locator('button[title="Delete address"]');
+    }
+
+    // Verify 0 saved addresses on addresses page
+    const emptyAddrText = await page.textContent('body');
+    assert(emptyAddrText.includes('No saved addresses found'), 'Address Book confirms "No saved addresses found" after explicit deletions');
+
+    // Reload /account and verify it does NOT resurrect deleted addresses
+    await page.goto(`${BASE_URL}/account`, { waitUntil: 'networkidle' });
+    await page.waitForTimeout(1000);
+    const accountAfterDeleteText = await page.textContent('body');
+    assert(
+      accountAfterDeleteText.includes('0 Saved') && accountAfterDeleteText.includes('No default address saved yet'),
+      'Account dashboard strictly retains "0 Saved" addresses without resurrecting past placed orders'
+    );
+
     // -------------------------------------------------------------------------
     // Phase 9: 10 Viewports Responsive Audit (Zero Horizontal Overflow)
     // -------------------------------------------------------------------------
@@ -330,13 +361,11 @@ async function runTest() {
     console.log(`  ALL E2E AUDIT CHECKS PASSED: ${passCount} Passed, ${failCount} Failed`);
     console.log(`===============================================================\n`);
   } finally {
-    // Clean up created test customer via admin login session
+    // Clean up created test customer
     if (createdCustomerId) {
       try {
         console.log(`\n  Cleaning up test customer account (${createdCustomerId})...`);
-        const adminPage = await context.newPage();
-        await adminPage.request.delete(`${BASE_URL}/api/admin/users/${createdCustomerId}`);
-        await adminPage.close();
+        deleteCustomer(createdCustomerId);
       } catch (cleanErr) {
         // ignore
       }

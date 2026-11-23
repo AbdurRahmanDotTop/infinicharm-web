@@ -15,6 +15,8 @@ import {
   resolveAuthenticatedCustomer,
   autoSaveCustomerOrderDetails,
   sanitizeCustomer,
+  getServerCustomerById,
+  getServerCustomerByEmail,
 } from '@/lib/server/customers-store';
 import { getAuthSettings } from '@/lib/server/auth-settings-store';
 import { validateOrderPaymentMethod } from '@/lib/server/gateways-store';
@@ -112,11 +114,15 @@ export async function POST(request: NextRequest) {
     const existingOrder = getServerOrderByIdOrNumber(body.orderNumber);
     if (existingOrder) {
       if (existingOrder.status === 'PENDING' || body.utrNumber) {
+        const authCustomer = resolveAuthenticatedCustomer(request);
+        const resolvedCustId = authCustomer?.id || (existingOrder.customerId !== 'guest' ? existingOrder.customerId : (body.customerId !== 'guest' ? body.customerId : 'guest'));
+
         const mergedOrder: Order = {
           ...existingOrder,
           ...body,
           id: existingOrder.id,
           orderNumber: existingOrder.orderNumber,
+          customerId: resolvedCustId,
           createdAt: existingOrder.createdAt,
           updatedAt: new Date().toISOString(),
           utrNumber: body.utrNumber || existingOrder.utrNumber,
@@ -129,16 +135,29 @@ export async function POST(request: NextRequest) {
 
         // Auto-save customer details & delivery address upon order confirmation with UTR or payment
         let updatedCustomer = null;
-        const authCustomer = resolveAuthenticatedCustomer(request);
         const effectiveCustId = authCustomer?.id || (mergedOrder.customerId !== 'guest' ? mergedOrder.customerId : (body.customerId !== 'guest' ? body.customerId : null));
-        const effectiveEmail = authCustomer?.email || mergedOrder.customerEmail || body.customerEmail;
-        const effectivePhone = authCustomer?.phone || mergedOrder.customerPhone || body.customerPhone;
-        const isConfirmedPlacement = Boolean((body as any).isOrderConfirmation || body.utrNumber || body.paymentStatus === 'PAID');
+        const effectiveEmail = authCustomer?.email || mergedOrder.customerEmail || body.customerEmail || (body.shippingAddress as any)?.email;
+        const effectivePhone = authCustomer?.phone || mergedOrder.customerPhone || body.customerPhone || (body.shippingAddress as any)?.phone;
+        const isDraftOrder = Boolean((body as any).isDraft || body.shippingAddress?.addressLine1?.includes('Pending Customer Checkout Address'));
+        const isConfirmedPlacement = !isDraftOrder && Boolean(
+          (body as any).isOrderConfirmation ||
+          body.utrNumber ||
+          body.paymentStatus === 'PAID' ||
+          body.paymentMethod === 'COD' ||
+          (body as any).saveAddressToBook !== false ||
+          Boolean(body.items && body.items.length > 0 && body.shippingAddress?.addressLine1 && body.shippingAddress?.postalCode)
+        );
 
-        if (effectiveCustId && effectiveCustId !== 'guest' && isConfirmedPlacement && (body.shippingAddress || mergedOrder.shippingAddress) && (body as any).saveAddressToBook !== false) {
+        const shouldSaveAddress = Boolean(
+          isConfirmedPlacement &&
+          ((effectiveCustId && effectiveCustId !== 'guest') ||
+           (effectiveEmail && effectiveEmail.includes('@') && !effectiveEmail.endsWith('@infinicharm.customer')))
+        );
+
+        if (shouldSaveAddress && (body.shippingAddress || mergedOrder.shippingAddress) && (body as any).saveAddressToBook !== false) {
           try {
             const autoSaveRes = autoSaveCustomerOrderDetails({
-              customerId: effectiveCustId,
+              customerId: effectiveCustId && effectiveCustId !== 'guest' ? effectiveCustId : undefined,
               customerEmail: effectiveEmail,
               customerPhone: effectivePhone,
               customerName: body.shippingAddress?.fullName || (body as any).customerName || mergedOrder.customerName,
@@ -147,21 +166,52 @@ export async function POST(request: NextRequest) {
               saveAddressToBook: (body as any).saveAddressToBook !== false,
               addressType: (body as any).addressType || (body.shippingAddress as any)?.type || 'HOME',
               addressLabel: (body as any).addressLabel || (body.shippingAddress as any)?.label,
-              makeDefaultShipping: Boolean((body as any).makeDefaultShipping),
+              makeDefaultShipping: (body as any).makeDefaultShipping !== undefined ? Boolean((body as any).makeDefaultShipping) : true,
               makeDefaultBilling: Boolean((body as any).makeDefaultBilling),
             });
             if (autoSaveRes.customer) {
               updatedCustomer = sanitizeCustomer(autoSaveRes.customer);
+              if (saved.customerId === 'guest' && autoSaveRes.customer.id) {
+                saved.customerId = autoSaveRes.customer.id;
+                if (!saved.customerPhone && autoSaveRes.customer.phone) saved.customerPhone = autoSaveRes.customer.phone;
+                if (!saved.customerEmail && autoSaveRes.customer.email) saved.customerEmail = autoSaveRes.customer.email;
+                try {
+                  saveServerOrder(saved);
+                } catch {}
+              }
             }
           } catch (autoSaveErr) {
             console.error('[API Orders Route] Existing order auto-save customer details error:', autoSaveErr);
           }
         }
 
-        return NextResponse.json(
+        const response = NextResponse.json(
           { success: true, order: saved, customer: updatedCustomer, isIdempotent: true },
           { status: 200 }
         );
+        if (updatedCustomer) {
+          response.cookies.set('infinicharm_customer_data', encodeURIComponent(JSON.stringify(updatedCustomer)), {
+            path: '/',
+            maxAge: 30 * 24 * 60 * 60,
+            sameSite: 'lax',
+            secure: process.env.NODE_ENV === 'production',
+          });
+          if (updatedCustomer.id) {
+            response.cookies.set('infinicharm_customer_id', updatedCustomer.id, {
+              path: '/',
+              maxAge: 30 * 24 * 60 * 60,
+              sameSite: 'lax',
+              secure: process.env.NODE_ENV === 'production',
+            });
+            response.cookies.set('infinicharm_customer_session', 'active', {
+              path: '/',
+              maxAge: 30 * 24 * 60 * 60,
+              sameSite: 'lax',
+              secure: process.env.NODE_ENV === 'production',
+            });
+          }
+        }
+        return response;
       }
       return NextResponse.json(
         { success: true, order: existingOrder, isIdempotent: true },
@@ -184,9 +234,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const effectiveCustomerId = authCustomer?.id || (isAdmin ? body.customerId || 'guest' : 'guest');
-    const effectiveEmail = authCustomer?.email || body.customerEmail || '';
-    const effectivePhone = authCustomer?.phone || body.customerPhone || '';
+    let effectiveCustomerId = authCustomer?.id;
+    if (!effectiveCustomerId && body.customerId && body.customerId !== 'guest') {
+      const candidateCust = getServerCustomerById(body.customerId);
+      if (candidateCust) {
+        effectiveCustomerId = candidateCust.id;
+      }
+    }
+    if (!effectiveCustomerId && body.customerEmail) {
+      const byEmail = getServerCustomerByEmail(body.customerEmail);
+      if (byEmail) {
+        effectiveCustomerId = byEmail.id;
+      }
+    }
+    if (!effectiveCustomerId) {
+      effectiveCustomerId = isAdmin ? (body.customerId || 'guest') : 'guest';
+    }
+    const effectiveEmail = authCustomer?.email || body.customerEmail || (body.shippingAddress as any)?.email || '';
+    const effectivePhone = authCustomer?.phone || body.customerPhone || (body.shippingAddress as any)?.phone || '';
 
     // Resolve authoritative catalog products, stock availability & GST classifications
     const catalogProducts = getServerProducts({ status: 'PUBLISHED' });
@@ -443,10 +508,24 @@ export async function POST(request: NextRequest) {
 
     // Auto-save customer details & delivery address to customer's account upon successful order placement
     let updatedCustomer = null;
-    if (effectiveCustomerId && effectiveCustomerId !== 'guest') {
+    const isDraftOrder = Boolean((body as any).isDraft || body.shippingAddress?.addressLine1?.includes('Pending Customer Checkout Address'));
+    const isConfirmedOrderPlacement = !isDraftOrder && Boolean(
+      (body as any).isOrderConfirmation ||
+      body.utrNumber ||
+      body.paymentStatus === 'PAID' ||
+      body.paymentMethod === 'COD' ||
+      (body as any).saveAddressToBook !== false ||
+      Boolean(body.items && body.items.length > 0 && body.shippingAddress?.addressLine1 && body.shippingAddress?.postalCode)
+    );
+    const shouldAttemptAutoSave = Boolean(
+      isConfirmedOrderPlacement &&
+      ((effectiveCustomerId && effectiveCustomerId !== 'guest') ||
+       (effectiveEmail && effectiveEmail.includes('@') && !effectiveEmail.endsWith('@infinicharm.customer')))
+    );
+    if (shouldAttemptAutoSave) {
       try {
         const autoSaveRes = autoSaveCustomerOrderDetails({
-          customerId: effectiveCustomerId,
+          customerId: effectiveCustomerId && effectiveCustomerId !== 'guest' ? effectiveCustomerId : undefined,
           customerEmail: effectiveEmail,
           customerPhone: effectivePhone,
           customerName: body.shippingAddress?.fullName || (body as any).customerName,
@@ -455,11 +534,19 @@ export async function POST(request: NextRequest) {
           saveAddressToBook: (body as any).saveAddressToBook !== false,
           addressType: (body as any).addressType || (body.shippingAddress as any)?.type || 'HOME',
           addressLabel: (body as any).addressLabel || (body.shippingAddress as any)?.label,
-          makeDefaultShipping: Boolean((body as any).makeDefaultShipping),
+          makeDefaultShipping: (body as any).makeDefaultShipping !== undefined ? Boolean((body as any).makeDefaultShipping) : true,
           makeDefaultBilling: Boolean((body as any).makeDefaultBilling),
         });
         if (autoSaveRes.customer) {
           updatedCustomer = sanitizeCustomer(autoSaveRes.customer);
+          if (saved.customerId === 'guest' && autoSaveRes.customer.id) {
+            saved.customerId = autoSaveRes.customer.id;
+            if (!saved.customerPhone && autoSaveRes.customer.phone) saved.customerPhone = autoSaveRes.customer.phone;
+            if (!saved.customerEmail && autoSaveRes.customer.email) saved.customerEmail = autoSaveRes.customer.email;
+            try {
+              saveServerOrder(saved);
+            } catch {}
+          }
         }
       } catch (autoErr) {
         console.error('[api/orders] Non-blocking customer auto-save error:', autoErr);
@@ -472,10 +559,33 @@ export async function POST(request: NextRequest) {
       console.error('[api/orders] non-blocking ORDER_PLACED notification error:', notifyErr);
     }
 
-    return NextResponse.json(
+    const response = NextResponse.json(
       { success: true, order: saved, customer: updatedCustomer },
       { status: 201 }
     );
+    if (updatedCustomer) {
+      response.cookies.set('infinicharm_customer_data', encodeURIComponent(JSON.stringify(updatedCustomer)), {
+        path: '/',
+        maxAge: 30 * 24 * 60 * 60,
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+      });
+      if (updatedCustomer.id) {
+        response.cookies.set('infinicharm_customer_id', updatedCustomer.id, {
+          path: '/',
+          maxAge: 30 * 24 * 60 * 60,
+          sameSite: 'lax',
+          secure: process.env.NODE_ENV === 'production',
+        });
+        response.cookies.set('infinicharm_customer_session', 'active', {
+          path: '/',
+          maxAge: 30 * 24 * 60 * 60,
+          sameSite: 'lax',
+          secure: process.env.NODE_ENV === 'production',
+        });
+      }
+    }
+    return response;
   } catch (error: any) {
     console.error('Error creating order:', error);
     return NextResponse.json(

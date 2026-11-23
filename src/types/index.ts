@@ -342,6 +342,8 @@ export interface Customer {
   avatarUrl?: string;
   notes?: string;
   preferences: CustomerPreferences;
+  hasManagedAddresses?: boolean;
+  hasExplicitlyClearedAddresses?: boolean;
   addresses: CustomerAddress[];
   wishlistProductIds: string[];
   customFields?: Record<string, any>;

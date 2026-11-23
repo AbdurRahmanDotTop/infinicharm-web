@@ -53,20 +53,34 @@ export function isOrderOwnedByCustomer(
     return false;
   }
 
+  // 1. Non-guest orders require strict customerId match
   if (order.customerId && order.customerId !== 'guest') {
     return order.customerId === customer.id;
   }
 
-  if (order.customerEmail && customer.email) {
-    if (order.customerEmail.trim().toLowerCase() === customer.email.trim().toLowerCase()) {
+  // 2. Guest orders fall back to verified email match
+  const custEmail = (customer.email || '').trim().toLowerCase();
+  if (custEmail) {
+    if (order.customerEmail && order.customerEmail.trim().toLowerCase() === custEmail) {
+      return true;
+    }
+    const shipEmail = (order.shippingAddress as any)?.email;
+    if (shipEmail && String(shipEmail).trim().toLowerCase() === custEmail) {
+      return true;
+    }
+    const billEmail = (order.billingAddress as any)?.email;
+    if (billEmail && String(billEmail).trim().toLowerCase() === custEmail) {
       return true;
     }
   }
 
+  // 3. Guest orders fall back to contact phone match
   if (customer.phone) {
     const cleanCustPhone = customer.phone.replace(/\D/g, '').slice(-10);
-    const cleanOrderPhone = (order.customerPhone || order.shippingAddress?.phone || '').replace(/\D/g, '').slice(-10);
-    if (cleanCustPhone && cleanOrderPhone && cleanCustPhone === cleanOrderPhone) {
+    const cleanOrderPhone1 = (order.customerPhone || '').replace(/\D/g, '').slice(-10);
+    const cleanOrderPhone2 = (order.shippingAddress?.phone || '').replace(/\D/g, '').slice(-10);
+    const cleanOrderPhone3 = (order.billingAddress?.phone || '').replace(/\D/g, '').slice(-10);
+    if (cleanCustPhone && (cleanOrderPhone1 === cleanCustPhone || cleanOrderPhone2 === cleanCustPhone || cleanOrderPhone3 === cleanCustPhone)) {
       return true;
     }
   }

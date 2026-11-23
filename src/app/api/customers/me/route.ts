@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import {
   resolveAuthenticatedCustomer,
   updateCustomer,
+  autoSaveCustomerOrderDetails,
 } from '@/lib/server/customers-store';
 import { getServerOrders } from '@/lib/server/orders-store';
 import { isOrderOwnedByCustomer } from '@/lib/services/orders';
@@ -32,13 +33,51 @@ export async function GET(req: NextRequest) {
     const allOrders = getServerOrders();
     const customerOrders = allOrders.filter((o) => isOrderOwnedByCustomer(o, customer));
 
+    // Self-healing address & contact sync from placed orders if addresses array is unpopulated
+    if (!customer.hasExplicitlyClearedAddresses && (!customer.addresses || customer.addresses.length === 0) && customerOrders.length > 0) {
+      const latestOrderWithAddress = [...customerOrders]
+        .filter((o) => o.shippingAddress?.addressLine1 && o.shippingAddress?.postalCode)
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+
+      if (latestOrderWithAddress?.shippingAddress) {
+        try {
+          const autoSaveRes = autoSaveCustomerOrderDetails({
+            customerId: customer.id,
+            customerEmail: customer.email,
+            customerPhone: customer.phone || latestOrderWithAddress.customerPhone || latestOrderWithAddress.shippingAddress.phone,
+            customerName: customer.fullName || latestOrderWithAddress.shippingAddress.fullName,
+            shippingAddress: latestOrderWithAddress.shippingAddress,
+            billingAddress: latestOrderWithAddress.billingAddress,
+            saveAddressToBook: true,
+            makeDefaultShipping: true,
+            makeDefaultBilling: true,
+          });
+          if (autoSaveRes.customer) {
+            customer.addresses = autoSaveRes.customer.addresses;
+            if (autoSaveRes.customer.phone && !customer.phone) {
+              customer.phone = autoSaveRes.customer.phone;
+            }
+          }
+        } catch (healErr) {
+          console.error('[API Customers ME] Self-healing address sync error:', healErr);
+        }
+      }
+    }
+
     const { passwordHash, ...safeCustomer } = customer;
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       customer: safeCustomer,
       orders: customerOrders,
     });
+    response.cookies.set('infinicharm_customer_data', encodeURIComponent(JSON.stringify(safeCustomer)), {
+      path: '/',
+      maxAge: 30 * 24 * 60 * 60,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+    });
+    return response;
   } catch (err: any) {
     console.error('Customer ME GET error:', err);
     return NextResponse.json(
@@ -105,11 +144,18 @@ export async function PUT(req: NextRequest) {
     }
 
     const { passwordHash, ...safe } = updated;
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       customer: safe,
       message: 'Profile updated successfully.',
     });
+    response.cookies.set('infinicharm_customer_data', encodeURIComponent(JSON.stringify(safe)), {
+      path: '/',
+      maxAge: 30 * 24 * 60 * 60,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+    });
+    return response;
   } catch (err: any) {
     console.error('Customer ME PUT error:', err);
     return NextResponse.json(

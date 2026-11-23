@@ -2,7 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import {
   resolveAuthenticatedCustomer,
   manageCustomerAddress,
+  autoSaveCustomerOrderDetails,
+  sanitizeCustomer,
+  getServerCustomerById,
 } from '@/lib/server/customers-store';
+import { getServerOrders } from '@/lib/server/orders-store';
+import { isOrderOwnedByCustomer } from '@/lib/services/orders';
 import { dispatchNotificationEvent } from '@/lib/server/notification-dispatcher';
 
 export async function GET(req: NextRequest) {
@@ -15,10 +20,47 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    return NextResponse.json({
+    if (!customer.hasExplicitlyClearedAddresses && (!customer.addresses || customer.addresses.length === 0)) {
+      const allOrders = getServerOrders();
+      const customerOrders = allOrders.filter((o) => isOrderOwnedByCustomer(o, customer));
+      const latestOrderWithAddress = customerOrders
+        .filter((o) => o.shippingAddress?.addressLine1 && o.shippingAddress?.postalCode)
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+
+      if (latestOrderWithAddress?.shippingAddress) {
+        try {
+          const autoSaveRes = autoSaveCustomerOrderDetails({
+            customerId: customer.id,
+            customerEmail: customer.email,
+            customerPhone: customer.phone || latestOrderWithAddress.customerPhone || latestOrderWithAddress.shippingAddress.phone,
+            customerName: customer.fullName || latestOrderWithAddress.shippingAddress.fullName,
+            shippingAddress: latestOrderWithAddress.shippingAddress,
+            billingAddress: latestOrderWithAddress.billingAddress,
+            saveAddressToBook: true,
+            makeDefaultShipping: true,
+            makeDefaultBilling: true,
+          });
+          if (autoSaveRes.customer?.addresses) {
+            customer.addresses = autoSaveRes.customer.addresses;
+          }
+        } catch (healErr) {
+          console.error('[API Addresses Route] Self-healing address sync error:', healErr);
+        }
+      }
+    }
+
+    const response = NextResponse.json({
       success: true,
       addresses: customer.addresses || [],
     });
+    const safeCustomer = sanitizeCustomer(customer);
+    response.cookies.set('infinicharm_customer_data', encodeURIComponent(JSON.stringify(safeCustomer)), {
+      path: '/',
+      maxAge: 30 * 24 * 60 * 60,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+    });
+    return response;
   } catch (err: any) {
     return NextResponse.json(
       { success: false, error: err?.message || 'Internal server error.' },
@@ -91,11 +133,23 @@ export async function POST(req: NextRequest) {
       console.error('[customers/me/addresses] non-blocking notification error:', notifyErr);
     }
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       addresses: updatedAddresses,
       message: 'Address added successfully.',
+    }, { status: 201 });
+
+    const freshCustomer = getServerCustomerById(customer.id) || customer;
+    const safeCustomer = sanitizeCustomer(freshCustomer);
+    safeCustomer.addresses = updatedAddresses || [];
+    response.cookies.set('infinicharm_customer_data', encodeURIComponent(JSON.stringify(safeCustomer)), {
+      path: '/',
+      maxAge: 30 * 24 * 60 * 60,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
     });
+
+    return response;
   } catch (err: any) {
     return NextResponse.json(
       { success: false, error: err?.message || 'Internal server error.' },
@@ -103,4 +157,3 @@ export async function POST(req: NextRequest) {
     );
   }
 }
-

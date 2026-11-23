@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { Container } from '@/components/ui/Container';
 import { lookupPinCode } from '@/lib/utils/pincode';
@@ -16,18 +16,23 @@ import {
   CheckCircle2,
   Building,
   Home,
-  Star,
+  LogIn,
+  Loader2,
 } from 'lucide-react';
-import { CustomerAddress, AddressType } from '@/types';
+import { Customer, CustomerAddress, AddressType } from '@/types';
 
 const STORAGE_KEY = 'infinicharm_customer_addresses';
 
 export default function AccountAddressesPage() {
   const [addresses, setAddresses] = useState<CustomerAddress[]>([]);
+  const [customer, setCustomer] = useState<Customer | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isUnauthenticated, setIsUnauthenticated] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isUpdatingId, setIsUpdatingId] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -44,37 +49,142 @@ export default function AccountAddressesPage() {
   const [isDefaultShipping, setIsDefaultShipping] = useState(false);
   const [isDefaultBilling, setIsDefaultBilling] = useState(false);
 
-  const fetchAddresses = async () => {
+  const fetchAddressesAndProfile = useCallback(async () => {
     try {
-      const res = await fetch('/api/customers/me/addresses');
-      if (res.ok) {
-        const data = await res.json();
-        if (data.success && Array.isArray(data.addresses)) {
-          setAddresses(data.addresses);
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(data.addresses));
-          return;
+      const [addrRes, meRes] = await Promise.all([
+        fetch('/api/customers/me/addresses', { cache: 'no-store', credentials: 'include' }),
+        fetch('/api/customers/me', { cache: 'no-store', credentials: 'include' }),
+      ]);
+
+      if (addrRes.status === 401 || meRes.status === 401) {
+        setIsUnauthenticated(true);
+        setIsLoading(false);
+        return;
+      }
+
+      setIsUnauthenticated(false);
+
+      let fetchedCustomer: Customer | null = null;
+      let meOrders: any[] = [];
+      if (meRes.ok) {
+        const meData = await meRes.json();
+        if (meData.success && meData.customer) {
+          fetchedCustomer = meData.customer;
+          setCustomer(meData.customer);
+          if (Array.isArray(meData.orders)) {
+            meOrders = meData.orders;
+          }
+          try {
+            localStorage.setItem('infinicharm_customer_user', JSON.stringify(meData.customer));
+          } catch {}
         }
       }
 
-      // Fallback
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (parsed.length > 0) {
-          setAddresses(parsed);
-          return;
+      let loadedAddresses: CustomerAddress[] = [];
+      let addressFetchSuccessful = false;
+
+      if (addrRes.ok) {
+        const data = await addrRes.json();
+        if (data.success && Array.isArray(data.addresses)) {
+          addressFetchSuccessful = true;
+          loadedAddresses = data.addresses;
         }
       }
+
+      // If address API returned empty list, check if customer profile has addresses
+      if (loadedAddresses.length === 0 && fetchedCustomer?.addresses && Array.isArray(fetchedCustomer.addresses) && fetchedCustomer.addresses.length > 0) {
+        loadedAddresses = fetchedCustomer.addresses;
+      }
+
+      // Defense-in-depth: If address book is empty and addresses were never explicitly cleared down to 0, self-heal from customer orders
+      if (loadedAddresses.length === 0 && !fetchedCustomer?.hasExplicitlyClearedAddresses) {
+        let orderSource = meOrders;
+        if (orderSource.length === 0 && typeof window !== 'undefined') {
+          try {
+            const stored = JSON.parse(localStorage.getItem('infinicharm_orders') || '[]');
+            if (Array.isArray(stored) && stored.length > 0) {
+              orderSource = stored;
+            }
+          } catch {}
+        }
+        if (orderSource.length > 0) {
+          const orderWithAddr = orderSource.find(
+            (o: any) => o.shippingAddress && o.shippingAddress.addressLine1 && o.shippingAddress.postalCode
+          );
+          if (orderWithAddr?.shippingAddress) {
+            const s = orderWithAddr.shippingAddress;
+            const synthesizedAddr: CustomerAddress = {
+              id: s.id && !s.id.startsWith('addr-draft-') ? s.id : `addr-order-${orderWithAddr.orderNumber || Date.now()}`,
+              customerId: fetchedCustomer?.id || orderWithAddr.customerId || 'cust',
+              fullName: s.fullName || fetchedCustomer?.fullName || '',
+              phone: s.phone || fetchedCustomer?.phone || orderWithAddr.customerPhone || '',
+              addressLine1: s.addressLine1,
+              addressLine2: s.addressLine2 || '',
+              city: s.city,
+              state: s.state,
+              postalCode: s.postalCode,
+              country: s.country || 'India',
+              type: (s.type as AddressType) || 'HOME',
+              label: s.label || 'Home',
+              isDefaultShipping: true,
+              isDefaultBilling: true,
+            };
+            loadedAddresses = [synthesizedAddr];
+            // Persist the synthesized address back to server so it has a permanent record
+            try {
+              fetch('/api/customers/me/addresses', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify(synthesizedAddr),
+              }).catch(() => {});
+            } catch {}
+          }
+        }
+      }
+
+      if (addressFetchSuccessful || loadedAddresses.length > 0) {
+        setAddresses(loadedAddresses);
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(loadedAddresses));
+        } catch {}
+        return;
+      }
+
+      // Fallback to local storage if API call wasn't successful
+      try {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed)) {
+            setAddresses(parsed);
+          }
+        }
+      } catch {}
     } catch (err) {
       console.error('Error fetching addresses:', err);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    fetchAddresses();
-  }, []);
+    fetchAddressesAndProfile();
+
+    const handleSync = () => {
+      fetchAddressesAndProfile();
+    };
+
+    window.addEventListener('infinicharm_customer_addresses_updated', handleSync);
+    window.addEventListener('infinicharm_customer_updated', handleSync);
+    window.addEventListener('storage', handleSync);
+
+    return () => {
+      window.removeEventListener('infinicharm_customer_addresses_updated', handleSync);
+      window.removeEventListener('infinicharm_customer_updated', handleSync);
+      window.removeEventListener('storage', handleSync);
+    };
+  }, [fetchAddressesAndProfile]);
 
   const handlePinCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value.replace(/\D/g, '').slice(0, 6);
@@ -91,8 +201,8 @@ export default function AccountAddressesPage() {
 
   const openAddModal = () => {
     setEditingId(null);
-    setFullName('');
-    setPhone('');
+    setFullName(customer?.fullName || '');
+    setPhone(customer?.phone || '');
     setAddressLine1('');
     setAddressLine2('');
     setPinCode('');
@@ -127,20 +237,33 @@ export default function AccountAddressesPage() {
     e.preventDefault();
     setErrorMsg(null);
 
-    if (!fullName || !phone || !addressLine1 || pinCode.length !== 6 || !city || !stateName) {
+    const cleanName = fullName.trim();
+    const cleanPhone = phone.replace(/\D/g, '');
+    const cleanLine1 = addressLine1.trim();
+    const cleanPin = pinCode.replace(/\D/g, '');
+    const cleanCity = city.trim();
+    const cleanState = stateName.trim();
+
+    if (!cleanName || !cleanPhone || !cleanLine1 || cleanPin.length !== 6 || !cleanCity || !cleanState) {
       setErrorMsg('Please complete all mandatory address fields.');
       return;
     }
 
+    if (cleanPhone.length < 10) {
+      setErrorMsg('Please enter a valid 10-digit mobile number for delivery updates.');
+      return;
+    }
+
+    setIsSaving(true);
     try {
       const payload = {
-        fullName: fullName.trim(),
-        phone: phone.trim(),
-        addressLine1: addressLine1.trim(),
-        addressLine2: addressLine2.trim() || undefined,
-        city: city.trim(),
-        state: stateName.trim(),
-        postalCode: pinCode.trim(),
+        fullName: cleanName,
+        phone: cleanPhone,
+        addressLine1: cleanLine1,
+        addressLine2: addressLine2.trim() || '',
+        city: cleanCity,
+        state: cleanState,
+        postalCode: cleanPin,
         country: 'India',
         type: addressType,
         label: addressLabel.trim() || (addressType === 'OFFICE' ? 'Office' : addressType === 'OTHER' ? 'Other' : 'Home'),
@@ -152,24 +275,30 @@ export default function AccountAddressesPage() {
         const res = await fetch(`/api/customers/me/addresses/${editingId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify(payload),
         });
 
         const data = await res.json();
         if (!res.ok || !data.success) throw new Error(data.error || 'Failed to update address.');
         setAddresses(data.addresses);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(data.addresses));
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(data.addresses));
+        } catch {}
       } else {
         const res = await fetch('/api/customers/me/addresses', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify(payload),
         });
 
         const data = await res.json();
         if (!res.ok || !data.success) throw new Error(data.error || 'Failed to add address.');
         setAddresses(data.addresses);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(data.addresses));
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(data.addresses));
+        } catch {}
       }
 
       window.dispatchEvent(new Event('infinicharm_customer_addresses_updated'));
@@ -180,69 +309,119 @@ export default function AccountAddressesPage() {
       setShowModal(false);
     } catch (err: any) {
       setErrorMsg(err?.message || 'Failed to save address.');
+    } finally {
+      setIsSaving(false);
     }
   };
 
   const handleDeleteAddress = async (id: string) => {
     try {
-      const res = await fetch(`/api/customers/me/addresses/${id}`, { method: 'DELETE' });
+      setErrorMsg(null);
+      const res = await fetch(`/api/customers/me/addresses/${id}`, { method: 'DELETE', credentials: 'include' });
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.error || 'Failed to delete address.');
 
       setAddresses(data.addresses);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data.addresses));
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data.addresses));
+      } catch {}
       window.dispatchEvent(new Event('infinicharm_customer_addresses_updated'));
       window.dispatchEvent(new Event('infinicharm_customer_updated'));
 
-      setDeletingId(null);
       setSuccessMsg('Address removed from address book.');
       setTimeout(() => setSuccessMsg(null), 3000);
     } catch (err: any) {
       setErrorMsg(err?.message || 'Error deleting address.');
+    } finally {
+      setDeletingId(null);
     }
   };
 
   const handleSetDefaultShipping = async (id: string) => {
     try {
+      setErrorMsg(null);
+      setIsUpdatingId(id);
       const res = await fetch(`/api/customers/me/addresses/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ action: 'SET_DEFAULT_SHIPPING' }),
       });
       const data = await res.json();
-      if (data.success) {
+      if (res.ok && data.success) {
         setAddresses(data.addresses);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(data.addresses));
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(data.addresses));
+        } catch {}
         window.dispatchEvent(new Event('infinicharm_customer_addresses_updated'));
         window.dispatchEvent(new Event('infinicharm_customer_updated'));
         setSuccessMsg('Default shipping address updated.');
         setTimeout(() => setSuccessMsg(null), 3000);
+      } else {
+        setErrorMsg(data.error || 'Failed to update default shipping address.');
       }
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      setErrorMsg(err?.message || 'Network error updating default shipping address.');
+    } finally {
+      setIsUpdatingId(null);
     }
   };
 
   const handleSetDefaultBilling = async (id: string) => {
     try {
+      setErrorMsg(null);
+      setIsUpdatingId(id);
       const res = await fetch(`/api/customers/me/addresses/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ action: 'SET_DEFAULT_BILLING' }),
       });
       const data = await res.json();
-      if (data.success) {
+      if (res.ok && data.success) {
         setAddresses(data.addresses);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(data.addresses));
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(data.addresses));
+        } catch {}
         window.dispatchEvent(new Event('infinicharm_customer_addresses_updated'));
         window.dispatchEvent(new Event('infinicharm_customer_updated'));
         setSuccessMsg('Default billing address updated.');
         setTimeout(() => setSuccessMsg(null), 3000);
+      } else {
+        setErrorMsg(data.error || 'Failed to update default billing address.');
       }
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      setErrorMsg(err?.message || 'Network error updating default billing address.');
+    } finally {
+      setIsUpdatingId(null);
     }
   };
+
+  if (isUnauthenticated) {
+    return (
+      <div className="py-12 bg-surface-dim/40 min-h-screen">
+        <Container className="max-w-md">
+          <div className="bg-surface rounded-3xl border border-border p-8 shadow-sm text-center space-y-4">
+            <div className="w-12 h-12 rounded-full bg-accent/10 text-accent flex items-center justify-center mx-auto">
+              <LogIn className="w-6 h-6" />
+            </div>
+            <h1 className="font-display text-xl font-bold text-primary">Sign In Required</h1>
+            <p className="text-xs text-muted leading-relaxed">
+              Please sign in to your verified InfiniCharm account to access and manage your saved delivery addresses.
+            </p>
+            <div className="pt-2">
+              <Link
+                href="/login?redirect=/account/addresses"
+                className="inline-flex items-center justify-center gap-2 w-full px-5 py-3 bg-accent hover:bg-accent-hover text-white text-xs font-bold rounded-xl transition-colors shadow-xs"
+              >
+                <span>Sign In to Account</span>
+              </Link>
+            </div>
+          </div>
+        </Container>
+      </div>
+    );
+  }
 
   return (
     <div className="py-10 bg-surface-dim/40 min-h-screen">
@@ -289,6 +468,13 @@ export default function AccountAddressesPage() {
 
         {/* Addresses Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {isLoading && (
+            <div className="md:col-span-2 text-center py-12 bg-surface rounded-3xl border border-border p-8 space-y-3">
+              <Loader2 className="w-8 h-8 animate-spin text-accent mx-auto" />
+              <p className="text-xs text-muted">Loading your saved delivery addresses...</p>
+            </div>
+          )}
+
           {addresses.map((addr) => (
             <div
               key={addr.id}
@@ -347,19 +533,21 @@ export default function AccountAddressesPage() {
                   {!addr.isDefaultShipping && (
                     <button
                       onClick={() => handleSetDefaultShipping(addr.id)}
-                      className="px-2.5 py-1 bg-surface-dim hover:bg-border text-primary text-[11px] font-medium rounded-lg transition-colors"
+                      disabled={isUpdatingId === addr.id}
+                      className="px-2.5 py-1 bg-surface-dim hover:bg-border text-primary text-[11px] font-medium rounded-lg transition-colors disabled:opacity-50"
                       title="Make this your default shipping address"
                     >
-                      Set Shipping
+                      {isUpdatingId === addr.id ? 'Setting...' : 'Set Shipping'}
                     </button>
                   )}
                   {!addr.isDefaultBilling && (
                     <button
                       onClick={() => handleSetDefaultBilling(addr.id)}
-                      className="px-2.5 py-1 bg-surface-dim hover:bg-border text-primary text-[11px] font-medium rounded-lg transition-colors"
+                      disabled={isUpdatingId === addr.id}
+                      className="px-2.5 py-1 bg-surface-dim hover:bg-border text-primary text-[11px] font-medium rounded-lg transition-colors disabled:opacity-50"
                       title="Make this your default billing address"
                     >
-                      Set Billing
+                      {isUpdatingId === addr.id ? 'Setting...' : 'Set Billing'}
                     </button>
                   )}
                 </div>
@@ -444,8 +632,9 @@ export default function AccountAddressesPage() {
                       type="tel"
                       required
                       value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
+                      onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
                       placeholder="10-digit Phone number"
+                      maxLength={10}
                       className="w-full px-3.5 py-2.5 bg-surface-dim border border-border rounded-xl text-primary focus:outline-none focus:border-accent"
                     />
                   </div>
@@ -609,9 +798,11 @@ export default function AccountAddressesPage() {
                   </button>
                   <button
                     type="submit"
-                    className="px-6 py-2.5 bg-accent hover:bg-accent-hover text-white font-bold rounded-xl"
+                    disabled={isSaving}
+                    className="px-6 py-2.5 bg-accent hover:bg-accent-hover text-white font-bold rounded-xl flex items-center gap-2 disabled:opacity-60"
                   >
-                    {editingId ? 'Update Address' : 'Save Address'}
+                    {isSaving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                    <span>{editingId ? 'Update Address' : 'Save Address'}</span>
                   </button>
                 </div>
               </form>

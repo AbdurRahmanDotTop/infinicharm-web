@@ -199,7 +199,45 @@ export function resolveAuthenticatedCustomer(req: {
     return null;
   }
 
-  const cust = getServerCustomerById(customerIdCookie);
+  let cust = getServerCustomerById(customerIdCookie);
+  if (!cust) {
+    const rawData = req.cookies.get('infinicharm_customer_data')?.value;
+    if (rawData) {
+      try {
+        const parsed = JSON.parse(decodeURIComponent(rawData));
+        if (parsed?.email) {
+          cust = getServerCustomerByEmail(parsed.email);
+          if (!cust) {
+            const raw = readRawCustomers();
+            cust = {
+              id: parsed.id || customerIdCookie,
+              email: parsed.email.toLowerCase().trim(),
+              fullName: parsed.fullName || parsed.name || '',
+              phone: parsed.phone || '',
+              status: parsed.status || 'ACTIVE',
+              role: parsed.role || 'CUSTOMER',
+              emailVerified: Boolean(parsed.emailVerified),
+              hasManagedAddresses: Boolean(parsed.hasManagedAddresses),
+              hasExplicitlyClearedAddresses: Boolean(parsed.hasExplicitlyClearedAddresses),
+              addresses: Array.isArray(parsed.addresses) ? parsed.addresses : [],
+              wishlistProductIds: Array.isArray(parsed.wishlistProductIds) ? parsed.wishlistProductIds : [],
+              preferences: parsed.preferences || {
+                newsletterSubscribed: true,
+                smsAlerts: true,
+                orderUpdatesWhatsapp: true,
+                preferredCurrency: 'INR',
+                language: 'en',
+              },
+              createdAt: parsed.createdAt || new Date().toISOString(),
+              updatedAt: parsed.updatedAt || new Date().toISOString(),
+            };
+            raw.push(cust);
+            writeRawCustomers(raw);
+          }
+        }
+      } catch {}
+    }
+  }
   if (!cust) return null;
 
   if (cust.status === 'SUSPENDED' || cust.status === 'INACTIVE') {
@@ -925,42 +963,99 @@ export function manageCustomerAddress(
     }
 
     addresses.push(newAddr);
+    cust.hasExplicitlyClearedAddresses = false;
   } else if ((action === 'UPDATE' || action === 'RENAME') && addressData?.id) {
     const idx = addresses.findIndex((a) => a.id === addressData.id);
-    if (idx !== -1) {
-      if (addressData.isDefaultShipping) {
-        addresses = addresses.map((a) => ({ ...a, isDefaultShipping: false }));
+    if (idx === -1) {
+      // If address ID not found (e.g. synthesized from past order), add it seamlessly as a new address
+      if (addressData.addressLine1 && addressData.postalCode) {
+        return manageCustomerAddress(customerId, 'ADD', addressData);
       }
-      if (addressData.isDefaultBilling) {
-        addresses = addresses.map((a) => ({ ...a, isDefaultBilling: false }));
-      }
+      throw new Error(`Address with ID "${addressData.id}" not found.`);
+    }
 
-      addresses[idx] = {
-        ...addresses[idx],
-        ...addressData,
-      } as CustomerAddress;
+    if (addressData.isDefaultShipping) {
+      addresses = addresses.map((a) => ({ ...a, isDefaultShipping: false }));
     }
+    if (addressData.isDefaultBilling) {
+      addresses = addresses.map((a) => ({ ...a, isDefaultBilling: false }));
+    }
+
+    const cleanUpdates: Partial<CustomerAddress> = {};
+    if (addressData) {
+      for (const [k, v] of Object.entries(addressData)) {
+        if (v !== undefined) {
+          (cleanUpdates as any)[k] = v;
+        }
+      }
+    }
+
+    addresses[idx] = {
+      ...addresses[idx],
+      ...cleanUpdates,
+    } as CustomerAddress;
   } else if (action === 'DELETE' && addressData?.id) {
-    addresses = addresses.filter((a) => a.id !== addressData.id);
-    // Ensure there is at least one default if addresses remain
-    if (addresses.length > 0 && !addresses.some((a) => a.isDefaultShipping)) {
-      addresses[0].isDefaultShipping = true;
+    const targetIdx = addresses.findIndex((a) => a.id === addressData.id);
+    if (targetIdx !== -1) {
+      addresses.splice(targetIdx, 1);
     }
-    if (addresses.length > 0 && !addresses.some((a) => a.isDefaultBilling)) {
-      addresses[0].isDefaultBilling = true;
+    if (addresses.length === 0) {
+      cust.hasExplicitlyClearedAddresses = true;
     }
   } else if (action === 'SET_DEFAULT_SHIPPING' && addressData?.id) {
+    const targetExists = addresses.some((a) => a.id === addressData.id);
+    if (!targetExists) {
+      const allOrders = readRawOrders();
+      const matchedOrder = allOrders.find(
+        (o) => (o.customerId === customerId || (cust.email && o.customerEmail?.toLowerCase() === cust.email.toLowerCase())) &&
+               (o.shippingAddress?.id === addressData.id || `addr-order-${o.orderNumber}` === addressData.id)
+      );
+      if (matchedOrder?.shippingAddress) {
+        const s = matchedOrder.shippingAddress;
+        return manageCustomerAddress(customerId, 'ADD', {
+          id: addressData.id,
+          fullName: s.fullName || cust.fullName,
+          phone: s.phone || cust.phone,
+          addressLine1: s.addressLine1,
+          addressLine2: s.addressLine2,
+          city: s.city,
+          state: s.state,
+          postalCode: s.postalCode,
+          country: s.country,
+          type: s.type,
+          label: s.label,
+          isDefaultShipping: true,
+          isDefaultBilling: addresses.length === 0,
+        });
+      }
+      throw new Error(`Address with ID "${addressData.id}" not found.`);
+    }
     addresses = addresses.map((a) => ({
       ...a,
       isDefaultShipping: a.id === addressData.id,
     }));
   } else if (action === 'SET_DEFAULT_BILLING' && addressData?.id) {
+    const targetExists = addresses.some((a) => a.id === addressData.id);
+    if (!targetExists) {
+      throw new Error(`Address with ID "${addressData.id}" not found.`);
+    }
     addresses = addresses.map((a) => ({
       ...a,
       isDefaultBilling: a.id === addressData.id,
     }));
   }
 
+  // Invariant: If customer has at least one address, ensure there is an active default shipping and billing address
+  if (addresses.length > 0) {
+    if (!addresses.some((a) => a.isDefaultShipping)) {
+      addresses[0].isDefaultShipping = true;
+    }
+    if (!addresses.some((a) => a.isDefaultBilling)) {
+      addresses[0].isDefaultBilling = true;
+    }
+  }
+
+  cust.hasManagedAddresses = true;
   cust.addresses = addresses;
   cust.updatedAt = new Date().toISOString();
   writeRawCustomers(raw);
@@ -1014,11 +1109,14 @@ export function autoSaveCustomerOrderDetails(params: AutoSaveCustomerOrderDetail
   let modified = false;
 
   // 1. Automatically update customer name and phone if missing or generic
-  if (
-    params.customerName &&
-    params.customerName.trim() &&
-    (!cust.fullName || cust.fullName === 'Valued Patron' || cust.fullName === 'Valued Customer')
-  ) {
+  const emailPrefix = (cust.email || '').split('@')[0];
+  const isGenericName =
+    !cust.fullName ||
+    cust.fullName === 'Valued Patron' ||
+    cust.fullName === 'Valued Customer' ||
+    cust.fullName === emailPrefix;
+
+  if (params.customerName && params.customerName.trim() && isGenericName) {
     cust.fullName = params.customerName.trim();
     modified = true;
   }
@@ -1041,17 +1139,26 @@ export function autoSaveCustomerOrderDetails(params: AutoSaveCustomerOrderDetail
       cust.addresses = [];
     }
 
-    const normLine1 = ship.addressLine1.toLowerCase().trim();
+    const cleanLine = (str: string) => str.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const normLine1Clean = cleanLine(ship.addressLine1);
     const normPostal = ship.postalCode.replace(/\D/g, '').trim();
-    const normCity = (ship.city || '').toLowerCase().trim();
+    const normCityClean = cleanLine(ship.city || '');
+    const normNameClean = cleanLine(ship.fullName || cust.fullName || '');
+    const normPhone = String(ship.phone || cust.phone || '').replace(/\D/g, '').slice(-10);
 
-    // Check if an existing address matches (same street line and postal code)
+    // An address is considered identical only if line 1, postal code, recipient name and phone all match
     const existingIndex = cust.addresses.findIndex((a) => {
-      const aLine1 = (a.addressLine1 || '').toLowerCase().trim();
+      const aLine1Clean = cleanLine(a.addressLine1 || '');
       const aPostal = (a.postalCode || '').replace(/\D/g, '').trim();
-      const aCity = (a.city || '').toLowerCase().trim();
-      return aLine1 === normLine1 && aPostal === normPostal && (!normCity || aCity === normCity);
+      const aCityClean = cleanLine(a.city || '');
+      const aNameClean = cleanLine(a.fullName || '');
+      const aPhone = (a.phone || '').replace(/\D/g, '').slice(-10);
+      return aLine1Clean === normLine1Clean && aPostal === normPostal && (!normCityClean || aCityClean === normCityClean) && aNameClean === normNameClean && (!normPhone || aPhone === normPhone);
     });
+
+    // Make the most recently used or customer-designated address default shipping
+    const shouldMakeDefaultShipping = params.makeDefaultShipping !== false;
+    const shouldMakeDefaultBilling = params.makeDefaultBilling ?? (cust.addresses.length === 0);
 
     if (existingIndex !== -1) {
       // Update existing address details without creating duplicate
@@ -1067,11 +1174,11 @@ export function autoSaveCustomerOrderDetails(params: AutoSaveCustomerOrderDetail
         type: params.addressType || ship.type || existing.type || 'HOME',
         label: params.addressLabel || ship.label || existing.label || 'Home',
       };
-      if (params.makeDefaultShipping) {
+      if (shouldMakeDefaultShipping) {
         cust.addresses.forEach((a) => { a.isDefaultShipping = false; });
         updated.isDefaultShipping = true;
       }
-      if (params.makeDefaultBilling) {
+      if (shouldMakeDefaultBilling) {
         cust.addresses.forEach((a) => { a.isDefaultBilling = false; });
         updated.isDefaultBilling = true;
       }
@@ -1086,22 +1193,22 @@ export function autoSaveCustomerOrderDetails(params: AutoSaveCustomerOrderDetail
         params.addressLabel ||
         ship.label ||
         (determinedType === 'OFFICE' ? 'Office' : determinedType === 'OTHER' ? 'Other' : 'Home');
-      const isFirst = cust.addresses.length === 0;
-      const makeDefShipping = params.makeDefaultShipping ?? isFirst;
-      const makeDefBilling = params.makeDefaultBilling ?? isFirst;
 
-      if (makeDefShipping) {
+      if (shouldMakeDefaultShipping) {
         cust.addresses.forEach((a) => { a.isDefaultShipping = false; });
       }
-      if (makeDefBilling) {
+      if (shouldMakeDefaultBilling) {
         cust.addresses.forEach((a) => { a.isDefaultBilling = false; });
       }
 
+      const isExistingId = Boolean(ship.id && cust.addresses.some((a) => a.id === ship.id));
+      const newAddrId =
+        ship.id && !ship.id.startsWith('addr-draft-') && !isExistingId
+          ? ship.id
+          : `addr-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`;
+
       const newAddr: CustomerAddress = {
-        id:
-          ship.id && !ship.id.startsWith('addr-draft-')
-            ? ship.id
-            : `addr-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`,
+        id: newAddrId,
         customerId: cust.id,
         fullName: String(ship.fullName || cust.fullName).trim(),
         phone: String(ship.phone || cust.phone || '').trim(),
@@ -1113,8 +1220,8 @@ export function autoSaveCustomerOrderDetails(params: AutoSaveCustomerOrderDetail
         country: ship.country || 'India',
         type: determinedType,
         label: determinedLabel,
-        isDefaultShipping: makeDefShipping,
-        isDefaultBilling: makeDefBilling,
+        isDefaultShipping: shouldMakeDefaultShipping,
+        isDefaultBilling: shouldMakeDefaultBilling,
       };
 
       cust.addresses.push(newAddr);
@@ -1125,6 +1232,8 @@ export function autoSaveCustomerOrderDetails(params: AutoSaveCustomerOrderDetail
   }
 
   if (modified) {
+    cust.hasManagedAddresses = true;
+    cust.hasExplicitlyClearedAddresses = false;
     cust.updatedAt = new Date().toISOString();
     writeRawCustomers(raw);
   }

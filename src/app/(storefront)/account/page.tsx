@@ -40,7 +40,7 @@ export default function AccountPage() {
 
   const fetchCustomerData = async () => {
     try {
-      const res = await fetch('/api/customers/me');
+      const res = await fetch('/api/customers/me', { cache: 'no-store', credentials: 'include' });
       if (res.ok) {
         const data = await res.json();
         if (data.success && data.customer) {
@@ -119,24 +119,57 @@ export default function AccountPage() {
     window.location.href = '/login';
   };
 
-  const effectiveAddresses =
-    Array.isArray(customer?.addresses) && customer.addresses.length > 0
-      ? customer.addresses
-      : (typeof window !== 'undefined'
-          ? (() => {
-              try {
-                return JSON.parse(localStorage.getItem('infinicharm_customer_addresses') || '[]');
-              } catch {
-                return [];
-              }
-            })()
-          : []);
+  const rawAddresses = customer
+    ? (Array.isArray(customer.addresses) ? customer.addresses : [])
+    : (typeof window !== 'undefined'
+        ? (() => {
+            try {
+              return JSON.parse(localStorage.getItem('infinicharm_customer_addresses') || '[]');
+            } catch {
+              return [];
+            }
+          })()
+        : []);
+
+  // Use saved addresses; only synthesize from orders if customer has never explicitly cleared addresses and address book is empty
+  const effectiveAddresses = rawAddresses.length > 0
+    ? rawAddresses
+    : (!customer?.hasExplicitlyClearedAddresses && orders.length > 0
+        ? (() => {
+            const orderWithAddr = orders.find(
+              (o) => o.shippingAddress && o.shippingAddress.addressLine1 && o.shippingAddress.postalCode
+            );
+            if (orderWithAddr?.shippingAddress) {
+              const s = orderWithAddr.shippingAddress;
+              return [{
+                id: s.id || `addr-order-${orderWithAddr.orderNumber}`,
+                customerId: customer?.id || orderWithAddr.customerId || 'cust',
+                fullName: s.fullName || customer?.fullName || 'Valued Customer',
+                phone: s.phone || customer?.phone || orderWithAddr.customerPhone || '',
+                addressLine1: s.addressLine1,
+                addressLine2: s.addressLine2 || '',
+                city: s.city,
+                state: s.state,
+                postalCode: s.postalCode,
+                country: s.country || 'India',
+                type: s.type || 'HOME',
+                label: s.label || 'Home',
+                isDefaultShipping: true,
+                isDefaultBilling: true,
+              }];
+            }
+            return [];
+          })()
+        : []);
 
   const defaultShipping =
     effectiveAddresses.find((a: any) => a.isDefaultShipping) ||
     effectiveAddresses[0];
   const defaultBilling =
     effectiveAddresses.find((a: any) => a.isDefaultBilling) || defaultShipping;
+
+  const effectivePhone =
+    customer?.phone || orders.find((o) => o.customerPhone)?.customerPhone || '';
 
   const activeOrdersCount = orders.filter(
     (o) => !['DELIVERED', 'CANCELLED', 'REFUNDED'].includes(o.status)
@@ -171,10 +204,10 @@ export default function AccountPage() {
                   <Mail className="w-3.5 h-3.5 text-accent shrink-0" />
                   <span className="truncate max-w-full">{customer?.email || '—'}</span>
                 </span>
-                {customer?.phone && (
+                {effectivePhone && (
                   <span className="flex items-center gap-1">
                     <Phone className="w-3.5 h-3.5 text-accent" />
-                    <span>{customer.phone}</span>
+                    <span>{effectivePhone}</span>
                   </span>
                 )}
                 <span className="text-[11px] text-muted">

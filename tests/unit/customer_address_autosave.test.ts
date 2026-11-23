@@ -205,4 +205,126 @@ describe('Customer Details Auto-Save & Address Book Management Suite', () => {
       deleteCustomer(customer.id);
     }
   });
+
+  test('manageCustomerAddress guarantees default shipping & billing invariants and rejects non-existent IDs', () => {
+    const testEmail = `invariants.test.${Date.now()}@infinicharm.test`;
+    const customer = createCustomer({
+      email: testEmail,
+      password: 'Customer@1234!',
+      fullName: 'Invariants Tester',
+      phone: '9876555555',
+    });
+
+    try {
+      // Add first address (should be default shipping & billing)
+      const list1 = manageCustomerAddress(customer.id, 'ADD', {
+        fullName: 'Invariants Tester',
+        phone: '9876555555',
+        addressLine1: 'Address One Street',
+        city: 'Motihari',
+        state: 'Bihar',
+        postalCode: '845401',
+        type: 'HOME',
+        label: 'Home 1',
+      });
+      assert.equal(list1?.length, 1);
+      assert.equal(list1[0].isDefaultShipping, true);
+      assert.equal(list1[0].isDefaultBilling, true);
+
+      // Add second address (should not override default unless specified)
+      const list2 = manageCustomerAddress(customer.id, 'ADD', {
+        fullName: 'Invariants Tester',
+        phone: '9876555555',
+        addressLine1: 'Address Two Street',
+        city: 'Patna',
+        state: 'Bihar',
+        postalCode: '800001',
+        type: 'OFFICE',
+        label: 'Office 2',
+        isDefaultShipping: false,
+        isDefaultBilling: false,
+      });
+      assert.equal(list2?.length, 2);
+      assert.equal(list2[0].isDefaultShipping, true);
+      assert.equal(list2[1].isDefaultShipping, false);
+
+      const addr1Id = list2[0].id;
+      const addr2Id = list2[1].id;
+
+      // Set second address as default shipping
+      const list3 = manageCustomerAddress(customer.id, 'SET_DEFAULT_SHIPPING', { id: addr2Id });
+      assert.equal(list3?.find((a) => a.id === addr2Id)?.isDefaultShipping, true);
+      assert.equal(list3?.find((a) => a.id === addr1Id)?.isDefaultShipping, false);
+
+      // Attempting to set default on a non-existent ID throws an error and does not wipe existing defaults
+      assert.throws(
+        () => manageCustomerAddress(customer.id, 'SET_DEFAULT_SHIPPING', { id: 'non-existent-addr-id' }),
+        /not found/
+      );
+      assert.equal(list3?.find((a) => a.id === addr2Id)?.isDefaultShipping, true, 'Default must not be wiped by bad ID');
+
+      // Delete the active default shipping address: remaining address must automatically become default shipping
+      const list4 = manageCustomerAddress(customer.id, 'DELETE', { id: addr2Id });
+      assert.equal(list4?.length, 1);
+      assert.equal(list4[0].id, addr1Id);
+      assert.equal(list4[0].isDefaultShipping, true, 'Remaining address must be promoted to default shipping');
+      assert.equal(list4[0].isDefaultBilling, true, 'Remaining address must be promoted to default billing');
+    } finally {
+      deleteCustomer(customer.id);
+    }
+  });
+
+  test('autoSaveCustomerOrderDetails generates strictly unique address IDs preventing collisions', () => {
+    const testEmail = `uniqueid.test.${Date.now()}@infinicharm.test`;
+    const customer = createCustomer({
+      email: testEmail,
+      password: 'Customer@1234!',
+      fullName: 'Unique ID Tester',
+      phone: '9876566666',
+    });
+
+    try {
+      // Order 1 with address
+      const res1 = autoSaveCustomerOrderDetails({
+        customerId: customer.id,
+        customerEmail: testEmail,
+        shippingAddress: {
+          id: 'addr-existing-01',
+          fullName: 'Unique ID Tester',
+          phone: '9876566666',
+          addressLine1: 'First Unique Street',
+          city: 'Motihari',
+          state: 'Bihar',
+          postalCode: '845401',
+          type: 'HOME',
+          label: 'Home',
+        },
+      });
+      assert.equal(res1.customer?.addresses?.length, 1);
+      const firstId = res1.customer?.addresses[0].id;
+
+      // Order 2 provides a different address but reuses the first address's ID
+      const res2 = autoSaveCustomerOrderDetails({
+        customerId: customer.id,
+        customerEmail: testEmail,
+        shippingAddress: {
+          id: firstId, // colliding ID!
+          fullName: 'Unique ID Tester',
+          phone: '9876566666',
+          addressLine1: 'Second Unique Street',
+          city: 'Muzaffarpur',
+          state: 'Bihar',
+          postalCode: '842001',
+          type: 'OFFICE',
+          label: 'Office',
+        },
+      });
+      assert.equal(res2.customer?.addresses?.length, 2);
+      const ids = res2.customer?.addresses.map((a: any) => a.id) || [];
+      const uniqueIds = new Set(ids);
+      assert.equal(uniqueIds.size, 2, 'All saved address IDs must be strictly unique');
+    } finally {
+      deleteCustomer(customer.id);
+    }
+  });
 });
